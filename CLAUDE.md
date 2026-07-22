@@ -20,7 +20,7 @@ The following documents in `docs/` define the project specifications:
 | **PlatformSpecification.md** | Implementation contracts — database schema, MCP tools, HTTP API, agent workflows, dashboard specification, and implementation order. |
 | **PRD.md** | Product Requirements Document — vision, goals, non-goals, and success criteria. |
 | **Guideline.md** | Engineering principles — "Engine Knows, Agent Thinks," deterministic by default, local-first, capabilities over workflows. |
-| **Tasks.md** | Implementation roadmap — milestones, epics, and user stories. |
+| **tasks/index.md** | Implementation roadmap index — milestones, epics, progress tracking. Detailed stories are in `tasks/epic-*.md` files. |
 | **ADR.md** | Architecture Decision Records — incremental decisions like agent integrations being first-class components. |
 
 ---
@@ -72,8 +72,6 @@ After initialization:
 
 ## Implementation Roadmap
 
-From `Tasks.md`:
-
 1. **Milestone 1 — Core Engine**: Discovery, metadata extraction, documentation indexing, knowledge store, HTTP API, MCP server
 2. **Milestone 2 — Agent Integration**: Integration framework, Claude Code integration, AI analysis
 3. **Milestone 3 — Dashboard**: Backend and frontend (read-only)
@@ -95,6 +93,33 @@ Every significant architectural decision should result in an ADR entry.
 ## Technology Stack
 
 The specifications indicate Go for the Portfolio Engine, SQLite for the local knowledge store, and MCP for AI agent integration. The dashboard frontend is not yet specified.
+
+---
+
+## Development Workflow
+
+This repository supports the devflow development pipeline for systematic feature implementation.
+
+### Available Devflow Agents
+
+**devflow:documentation-readiness**
+- Checks repository documentation completeness and quality
+- Validates PRD, Architecture, Tech Stack, UI/UX Guidelines, and Backlogs
+- Use before beginning feature work to ensure documentation is adequate
+- Current status: **Ready for Feature Development** (all required docs present)
+
+**devflow:devflow**
+- Use for implementing any feature, epic, or story end-to-end
+- Sequences full requirements → merge pipeline across specialized subagents
+- Trigger with: `/devflow ...` or natural language like "Implement feature X"
+- Use `--resume` to continue an interrupted pipeline
+
+### Development Protocol
+
+When implementing features:
+1. Run `devflow:documentation-readiness` if documentation may have changed
+2. Use `devflow:devflow` to execute the full development pipeline
+3. The pipeline handles: requirements → architecture → implementation → review → commit
 
 ---
 
