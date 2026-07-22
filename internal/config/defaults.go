@@ -70,8 +70,8 @@ func GetConfigStatus() (string, error) {
 		return "missing", nil
 	}
 
-	manager := NewManager(configPath)
-	config, err := manager.LoadConfig()
+	loader := NewLoader(configPath)
+	config, err := loader.Load()
 	if err != nil {
 		return "invalid", err
 	}

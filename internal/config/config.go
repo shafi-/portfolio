@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/nerddevsltd/portfolio/pkg/models"
+	"github.com/BurntSushi/toml"
 )
 
 // Loader handles configuration loading and saving
@@ -37,7 +39,7 @@ func (l *Loader) Load() (*models.Config, error) {
 	}
 
 	// Read existing config
-	configData, err := parseTOMLFile(l.configPath)
+	data, err := os.ReadFile(l.configPath)
 	if err != nil {
 		return nil, &ConfigError{
 			Code:    "CONFIG_NOT_READABLE",
@@ -46,18 +48,14 @@ func (l *Loader) Load() (*models.Config, error) {
 		}
 	}
 
-	// Convert to models.Config
-	config := &models.Config{
-		General: models.GeneralConfig{
-			DatabasePath: configData.GeneralConfig.DatabasePath,
-		},
-		Discovery: models.DiscoveryConfig{
-			ProjectRoots: configData.DiscoveryConfig.ProjectRoots,
-			IgnoredPaths:  configData.DiscoveryConfig.IgnoredPaths,
-		},
-		Logging: models.LoggingConfig{
-			Level: configData.LoggingConfig.Level,
-		},
+	// Parse TOML
+	config := models.GetDefaultConfig()
+	if err := toml.Unmarshal(data, config); err != nil {
+		return nil, &ConfigError{
+			Code:    "CONFIG_INVALID_TOML",
+			Message: fmt.Sprintf("Invalid TOML syntax in config file: %s", l.configPath),
+			Cause:   err,
+		}
 	}
 
 	return config, nil
@@ -65,21 +63,24 @@ func (l *Loader) Load() (*models.Config, error) {
 
 // Save writes configuration to file
 func (l *Loader) Save(config *models.Config) error {
-	// Convert to ConfigData
-	configData := &ConfigData{
-		GeneralConfig: GeneralConfigData{
-			DatabasePath: config.General.DatabasePath,
-		},
-		DiscoveryConfig: DiscoveryConfigData{
-			ProjectRoots: config.Discovery.ProjectRoots,
-			IgnoredPaths:  config.Discovery.IgnoredPaths,
-		},
-		LoggingConfig: LoggingConfigData{
-			Level: config.Logging.Level,
-		},
+	// Ensure directory exists
+	dir := filepath.Dir(l.configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	return writeTOMLFile(l.configPath, configData)
+	// Marshal to TOML
+	data, err := toml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	// Write with secure permissions
+	if err := os.WriteFile(l.configPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }
 
 // ConfigError represents a configuration error with context
