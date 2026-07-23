@@ -99,7 +99,7 @@ func (d *Database) runMigration(m migration) error {
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Execute migration
 	if _, err := tx.Exec(m.up); err != nil {

@@ -15,7 +15,7 @@ func BenchmarkLogger(b *testing.B) {
 			models.Field{Key: "iteration", Value: i},
 		)
 	}
-	logger.Sync()
+	_ = logger.Sync()
 }
 
 func BenchmarkLoggerWithField(b *testing.B) {
@@ -29,7 +29,7 @@ func BenchmarkLoggerWithField(b *testing.B) {
 			models.Field{Key: "timestamp", Value: "2024-01-01T00:00:00Z"},
 		)
 	}
-	logger.Sync()
+	_ = logger.Sync()
 }
 
 func BenchmarkLoggerConsole(b *testing.B) {
@@ -41,7 +41,7 @@ func BenchmarkLoggerConsole(b *testing.B) {
 			models.Field{Key: "iteration", Value: i},
 		)
 	}
-	logger.Sync()
+	_ = logger.Sync()
 }
 
 func BenchmarkLoggerWithComponent(b *testing.B) {
@@ -54,7 +54,7 @@ func BenchmarkLoggerWithComponent(b *testing.B) {
 			models.Field{Key: "iteration", Value: i},
 		)
 	}
-	logger.Sync()
+	_ = logger.Sync()
 }
 
 func BenchmarkLogLevelDebug(b *testing.B) {
@@ -66,7 +66,7 @@ func BenchmarkLogLevelDebug(b *testing.B) {
 			models.Field{Key: "value", Value: i},
 		)
 	}
-	logger.Sync()
+	_ = logger.Sync()
 }
 
 func BenchmarkLoggerAllLevels(b *testing.B) {
@@ -79,7 +79,7 @@ func BenchmarkLoggerAllLevels(b *testing.B) {
 		logger.Warn("warn message")
 		logger.Error("error message")
 	}
-	logger.Sync()
+	_ = logger.Sync()
 }
 
 func BenchmarkConfigValidation(b *testing.B) {
@@ -90,7 +90,7 @@ func BenchmarkConfigValidation(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		config.Validate()
+		_ = config.Validate()
 	}
 }
 

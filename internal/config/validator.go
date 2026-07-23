@@ -153,7 +153,7 @@ func (v *Validator) validatePath(path string, index int, field string) error {
 	if os.IsNotExist(err) {
 		return &ValidationError{
 			Message: fmt.Sprintf("discovery.%s[%d] does not exist: %s", field, index, path),
-			Action:  fmt.Sprintf("Create the directory or provide a valid path"),
+			Action:  "Create the directory or provide a valid path",
 		}
 	} else if err != nil {
 		return &ValidationError{

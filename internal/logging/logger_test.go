@@ -56,7 +56,7 @@ func TestLogLevels(t *testing.T) {
 
 	// Read output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	// Verify all messages were logged
@@ -90,7 +90,7 @@ func TestLogLevelFiltering(t *testing.T) {
 
 	// Read output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	// Debug should not appear, info should
@@ -120,7 +120,7 @@ func TestComponentLogging(t *testing.T) {
 
 	// Read output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	// Verify component field exists
@@ -156,7 +156,7 @@ func TestLoggerSync(t *testing.T) {
 
 	// Read any remaining output to avoid blocking
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 
 	// Sync should not error even after closing stdout
 	if err := logger.Sync(); err != nil {
@@ -282,7 +282,7 @@ func TestFieldLogging(t *testing.T) {
 
 	// Read output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	// Verify field values exist
@@ -319,7 +319,7 @@ func TestStory13AcceptanceCriteria(t *testing.T) {
 		os.Stdout = old
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 
 		// Verify JSON structure
@@ -358,7 +358,7 @@ func TestStory13AcceptanceCriteria(t *testing.T) {
 		os.Stdout = old
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 
 		if !strings.Contains(output, "stdout test") {

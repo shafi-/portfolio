@@ -28,14 +28,14 @@ func TestHelpText(t *testing.T) {
 
 	rootCmd := GetRootCommand()
 	rootCmd.SetArgs([]string{"--help"})
-	rootCmd.Execute()
+	_ = rootCmd.Execute()
 
 	w.Close()
 	os.Stdout = old
 
 	// Read output
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	output := buf.String()
 
 	// Verify help content
