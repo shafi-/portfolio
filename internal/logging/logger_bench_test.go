@@ -98,6 +98,6 @@ func BenchmarkNewLogger(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		logger, _ := NewLogger("INFO", "console")
-		logger.Sync()
+		_ = logger.Sync()
 	}
 }

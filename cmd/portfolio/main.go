@@ -36,5 +36,5 @@ func main() {
 	}
 
 	// Ensure logs are flushed
-	logger.Sync()
+	_ = logger.Sync()
 }
