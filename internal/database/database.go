@@ -236,6 +236,27 @@ func (d *Database) GetProject(id string) (*models.Project, error) {
 	return &p, nil
 }
 
+// ListProjects returns all discovered projects
+func (d *Database) ListProjects() ([]*models.Project, error) {
+	rows, err := d.db.Query(
+		"SELECT id, name, root_path, repository_type, discovered_at, updated_at FROM projects ORDER BY name",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list projects: %w", err)
+	}
+	defer rows.Close()
+
+	var projects []*models.Project
+	for rows.Next() {
+		p := &models.Project{}
+		if err := rows.Scan(&p.ID, &p.Name, &p.RootPath, &p.RepositoryType, &p.DiscoveredAt, &p.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan project: %w", err)
+		}
+		projects = append(projects, p)
+	}
+	return projects, rows.Err()
+}
+
 // GetLastDiscoveryTime returns the last discovery timestamp
 func (d *Database) GetLastDiscoveryTime() (time.Time, error) {
 	var lastScan time.Time

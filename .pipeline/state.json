@@ -19,7 +19,7 @@
     "approach": "story-by-story-implementation",
     "totalStories": 5,
     "blockedStories": [],
-    "currentStory": "4.5-full-text-search",
+    "currentStory": "",
     "stories": [
       "4.1-index-readme",
       "4.2-index-docs",
@@ -31,7 +31,8 @@
       "4.1-index-readme",
       "4.2-index-docs",
       "4.3-index-adrs",
-      "4.4-index-changelog"
+      "4.4-index-changelog",
+      "4.5-full-text-search"
     ],
     "agentsInProgress": [],
     "agentsCompleted": [
