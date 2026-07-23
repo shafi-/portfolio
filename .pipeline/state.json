@@ -13,7 +13,7 @@
     "guideline": ".pipeline/archive/epic-04-documentation-indexing/02-architecture-phase/guideline.md"
   },
   "retryCount": 0,
-  "status": "in_progress",
+  "status": "completed",
   "timestamp": "2026-07-23T22:00:00Z",
   "metadata": {
     "approach": "story-by-story-implementation",
@@ -43,7 +43,23 @@
       "test-case-writer-phase-1",
       "architect-phase-2",
       "architecture-reviewer-phase-2",
-      "guideline-author-phase-2"
+      "guideline-author-phase-2",
+      "story-4.1-developer",
+      "story-4.1-reviewer",
+      "story-4.1-git-operator",
+      "story-4.2-developer",
+      "story-4.2-reviewer",
+      "story-4.2-git-operator",
+      "story-4.3-developer",
+      "story-4.3-reviewer",
+      "story-4.3-git-operator",
+      "story-4.4-developer",
+      "story-4.4-reviewer",
+      "story-4.4-git-operator",
+      "story-4.5-developer",
+      "story-4.5-reviewer",
+      "story-4.5-git-operator",
+      "build-validator-phase-4"
     ]
   }
 }
