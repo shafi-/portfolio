@@ -1,7 +1,7 @@
 # Epic 6 — HTTP API
 
 **Milestone:** 1 — Core Engine
-**Status:** todo
+**Status:** completed
 
 ## Overview
 
@@ -127,13 +127,19 @@ As the dashboard, I want to retrieve project relationships so that users can see
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 6.1 Health Endpoint | todo | XS | 5.1 |
-| 6.2 Projects API | todo | M | 6.1, 5.1 |
-| 6.3 Search API | todo | M | 6.2 |
-| 6.4 Configuration API | todo | S | 6.1 |
-| 6.5 Statistics API | todo | S | 6.2 |
-| 6.6 Relationships API | todo | S | 6.2, Epic 13 |
+| 6.1 Health Endpoint | completed | XS | 5.1 |
+| 6.2 Projects API | completed | M | 6.1, 5.1 |
+| 6.3 Search API | completed | M | 6.2 |
+| 6.4 Configuration API | completed | S | 6.1 |
+| 6.5 Statistics API | completed | S | 6.2 |
+| 6.6 Relationships API | completed | S | 6.2, Epic 13 |
 
 **Total Size:** 1XS + 2M + 3S = ~8 days
 
-**Can Start:** Story 6.1 (after 5.1 complete)
+**Completed Stories:**
+- Story 6.1 — Health Endpoint: `GET /health` returns status, db connection, project count
+- Story 6.2 — Projects API: `GET /projects` (list with search/filter/pagination) and `GET /projects/{id}` (full details with metadata and documents)
+- Story 6.3 — Search API: `GET /search?q=` searches project names and document contents
+- Story 6.4 — Configuration API: `GET /configuration` and `PATCH /configuration` with validation
+- Story 6.5 — Statistics API: `GET /statistics` with aggregate counts (projects, metadata, analyses, documents, deps, relationships, languages, frameworks, tech)
+- Story 6.6 — Relationships API: `GET /relationships/{id}` with 404 handling and empty array response

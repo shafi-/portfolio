@@ -42,10 +42,10 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 | [Epic 3 — Metadata Extraction](epic-03-metadata-extraction.md) | Completed | 6 | ~18 days | [epic-03-metadata-extraction.md](epic-03-metadata-extraction.md) |
 | [Epic 4 — Documentation Indexing](epic-04-documentation-indexing.md) | Completed | 5 | ~15 days | [epic-04-documentation-indexing.md](epic-04-documentation-indexing.md) |
 | [Epic 5 — Knowledge Store](epic-05-knowledge-store.md) | Completed | 3 | ~12 days | [epic-05-knowledge-store.md](epic-05-knowledge-store.md) |
-| [Epic 6 — HTTP API](epic-06-http-api.md) | todo | 5 | ~7 days | [epic-06-http-api.md](epic-06-http-api.md) |
+| [Epic 6 — HTTP API](epic-06-http-api.md) | Completed | 6 | ~8 days | [epic-06-http-api.md](epic-06-http-api.md) |
 | [Epic 7 — MCP Server](epic-07-mcp-server.md) | todo | 5 | ~14 days | [epic-07-mcp-server.md](epic-07-mcp-server.md) |
 
-**Milestone 1 Progress:** 5/7 epics completed (71%)
+**Milestone 1 Progress:** 6/7 epics completed (86%)
 
 ---
 
