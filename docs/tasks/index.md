@@ -38,14 +38,14 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 | Epic | Status | Stories | Size | File |
 |------|--------|---------|------|------|
 | [Epic 1 — Project Foundation](epic-01-project-foundation.md) | todo | 5 | ~8 days | [epic-01-project-foundation.md](epic-01-project-foundation.md) |
-| [Epic 2 — Discovery](epic-02-discovery.md) | todo | 5 | ~17 days | [epic-02-discovery.md](epic-02-discovery.md) |
+| [Epic 2 — Discovery](epic-02-discovery.md) | completed | 5 | ~17 days | [epic-02-discovery.md](epic-02-discovery.md) |
 | [Epic 3 — Metadata Extraction](epic-03-metadata-extraction.md) | todo | 6 | ~18 days | [epic-03-metadata-extraction.md](epic-03-metadata-extraction.md) |
 | [Epic 4 — Documentation Indexing](epic-04-documentation-indexing.md) | todo | 5 | ~15 days | [epic-04-documentation-indexing.md](epic-04-documentation-indexing.md) |
 | [Epic 5 — Knowledge Store](epic-05-knowledge-store.md) | todo | 3 | ~12 days | [epic-05-knowledge-store.md](epic-05-knowledge-store.md) |
 | [Epic 6 — HTTP API](epic-06-http-api.md) | todo | 5 | ~7 days | [epic-06-http-api.md](epic-06-http-api.md) |
 | [Epic 7 — MCP Server](epic-07-mcp-server.md) | todo | 5 | ~14 days | [epic-07-mcp-server.md](epic-07-mcp-server.md) |
 
-**Milestone 1 Progress:** 0/7 epics completed (0%)
+**Milestone 1 Progress:** 1/7 epics completed (14%)
 
 ---
 
@@ -92,11 +92,12 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 ## Overall Progress
 
 **Total Epics:** 14
-**Completed:** 0
+**Completed:** 1
 **In Progress:** 0
-**Todo:** 14
+**Todo:** 13
 
 **Total Estimated Size:** ~163 days (~6-7 months for one developer)
+**Completed Size:** ~17 days
 
 ---
 
@@ -140,6 +141,17 @@ Epic 14 (Insights)
 These stories have no dependencies and can be started immediately:
 
 - **Story 1.1** — Bootstrap Go Project (Epic 1)
+
+## Recently Completed
+
+**Epic 2 — Discovery** (2025-01-23)
+- Story 2.1: Configure Project Roots ✅
+- Story 2.2: Recursive Project Discovery ✅
+- Story 2.3: Support Nested Folders ✅
+- Story 2.4: Detect Common Project Types ✅
+- Story 2.5: Ignore Generated Directories ✅
+
+The discovery system is now fully functional with intelligent directory scanning and filtering capabilities.
 
 ---
 

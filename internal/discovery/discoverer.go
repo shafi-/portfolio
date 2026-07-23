@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"project-dash/internal/fs"
@@ -20,8 +21,8 @@ type Discoverer struct {
 	config      ConfigProvider
 	store       ProjectStore
 	logger      *logging.Logger
-	mutex       sync.RWMutex
-	running     bool
+	mutex       sync.Mutex
+	running     atomic.Bool
 	maxDepth    int
 	ignorePaths []string
 }
@@ -72,11 +73,11 @@ func (d *Discoverer) DiscoverProjects(ctx context.Context) (*DiscoveryResult, er
 	defer d.mutex.Unlock()
 
 	// Mark as running
-	d.running = true
+	d.running.Store(true)
 	d.logger.Info("Starting project discovery")
 
 	// Ensure we mark ourselves as not running when we exit
-	defer func() { d.running = false }()
+	defer func() { d.running.Store(false) }()
 
 	// Get configuration
 	roots, err := d.config.GetProjectRoots()
@@ -237,7 +238,5 @@ func (d *Discoverer) createProject(path string) *Project {
 
 // IsRunning returns true if a discovery operation is currently running
 func (d *Discoverer) IsRunning() bool {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
-	return d.running
+	return d.running.Load()
 }

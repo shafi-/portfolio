@@ -328,7 +328,7 @@ func TestDiscoverer_IsRunning(t *testing.T) {
 		ignoredPaths: []string{},
 	}
 	store := &MockProjectStore{
-		upsertDelay: 100 * time.Millisecond, // Add delay to ensure discovery takes time
+		upsertDelay: 200 * time.Millisecond, // Add delay to ensure discovery takes time
 	}
 	logger, _ := logging.NewLogger("INFO", "console")
 

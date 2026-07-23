@@ -697,3 +697,207 @@ func TestWalker_Walk_ComplexMonorepo(t *testing.T) {
 		}
 	}
 }
+
+// TestWalker_IgnoreMatcher_DefaultPatterns tests AC-21: default ignore patterns
+func TestWalker_IgnoreMatcher_DefaultPatterns(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create repositories in default ignored directories
+	ignoredDirs := []string{"node_modules", "vendor", ".venv", "target", "build", "dist"}
+	for _, dir := range ignoredDirs {
+		repoPath := filepath.Join(tmpDir, "project", dir, "subdir", ".git")
+		if err := os.MkdirAll(repoPath, 0755); err != nil {
+			t.Fatalf("failed to create repo in %s: %v", dir, err)
+		}
+	}
+
+	// Create a regular repository that should be found
+	regularRepo := filepath.Join(tmpDir, "project", ".git")
+	if err := os.MkdirAll(regularRepo, 0755); err != nil {
+		t.Fatalf("failed to create regular repo: %v", err)
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
+
+	ctx := context.Background()
+	foundRepos := []string{}
+	skippedDirs := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		switch event {
+		case EventFoundRepo:
+			foundRepos = append(foundRepos, filepath.Base(path))
+		case EventSkipped:
+			skippedDirs = append(skippedDirs, filepath.Base(path))
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should only find the regular repository, not those in ignored dirs
+	if len(foundRepos) != 1 {
+		t.Errorf("expected 1 repository (ignored dirs should be skipped), found %d: %v", len(foundRepos), foundRepos)
+	}
+
+	// Verify that all ignored directories were skipped
+	foundIgnoredDirs := make(map[string]bool)
+	for _, dir := range skippedDirs {
+		foundIgnoredDirs[filepath.Base(dir)] = true
+	}
+
+	for _, expectedDir := range ignoredDirs {
+		if !foundIgnoredDirs[expectedDir] {
+			t.Errorf("expected directory %s to be skipped", expectedDir)
+		}
+	}
+}
+
+// TestWalker_IgnoreMatcher_CustomPatterns tests AC-23: custom ignore patterns from config
+func TestWalker_IgnoreMatcher_CustomPatterns(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create repository in custom ignored directory
+	customIgnoredRepo := filepath.Join(tmpDir, "project", "custom_ignore", ".git")
+	if err := os.MkdirAll(customIgnoredRepo, 0755); err != nil {
+		t.Fatalf("failed to create repo in custom ignored dir: %v", err)
+	}
+
+	// Create a regular repository
+	regularRepo := filepath.Join(tmpDir, "project", ".git")
+	if err := os.MkdirAll(regularRepo, 0755); err != nil {
+		t.Fatalf("failed to create regular repo: %v", err)
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	logger := getTestLogger()
+	// Provide custom ignore patterns
+	walker := NewWalker(filesystem, detector, []string{"custom_ignore"}, 0, logger)
+
+	ctx := context.Background()
+	foundRepos := []string{}
+	skippedDirs := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		switch event {
+		case EventFoundRepo:
+			foundRepos = append(foundRepos, filepath.Base(path))
+		case EventSkipped:
+			skippedDirs = append(skippedDirs, filepath.Base(path))
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should only find the regular repository
+	if len(foundRepos) != 1 {
+		t.Errorf("expected 1 repository (custom ignored should be skipped), found %d", len(foundRepos))
+	}
+
+	// Verify custom ignored directory was skipped
+	customIgnoredSkipped := false
+	for _, dir := range skippedDirs {
+		if filepath.Base(dir) == "custom_ignore" {
+			customIgnoredSkipped = true
+			break
+		}
+	}
+
+	if !customIgnoredSkipped {
+		t.Error("expected custom_ignore directory to be skipped")
+	}
+}
+
+// TestWalker_IgnoreMatcher_WildcardPatterns tests wildcard pattern matching
+func TestWalker_IgnoreMatcher_WildcardPatterns(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create repositories matching wildcard patterns
+	wildcardRepos := []string{"test_data", "test_cache", "build_artifacts", "dist_output"}
+	for _, repo := range wildcardRepos {
+		repoPath := filepath.Join(tmpDir, "project", repo, ".git")
+		if err := os.MkdirAll(repoPath, 0755); err != nil {
+			t.Fatalf("failed to create repo %s: %v", repo, err)
+		}
+	}
+
+	// Create a regular repository
+	regularRepo := filepath.Join(tmpDir, "project", ".git")
+	if err := os.MkdirAll(regularRepo, 0755); err != nil {
+		t.Fatalf("failed to create regular repo: %v", err)
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	logger := getTestLogger()
+	// Provide wildcard patterns
+	walker := NewWalker(filesystem, detector, []string{"test_*", "build_*", "dist_*"}, 0, logger)
+
+	ctx := context.Background()
+	foundRepos := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		if event == EventFoundRepo {
+			foundRepos = append(foundRepos, filepath.Base(path))
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should only find the regular repository
+	if len(foundRepos) != 1 {
+		t.Errorf("expected 1 repository (wildcard patterns should be skipped), found %d", len(foundRepos))
+	}
+}
+
+// TestWalker_IgnoreMatcher_DebugLogging tests AC-24: DEBUG-level logging for skipped directories
+func TestWalker_IgnoreMatcher_DebugLogging(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create repository in default ignored directory
+	ignoredRepo := filepath.Join(tmpDir, "project", "node_modules", "dependency", ".git")
+	if err := os.MkdirAll(ignoredRepo, 0755); err != nil {
+		t.Fatalf("failed to create repo in ignored dir: %v", err)
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	// Create logger with DEBUG level to verify logging works
+	logger, err := logging.NewLogger("DEBUG", "console")
+	if err != nil {
+		t.Fatalf("failed to create logger: %v", err)
+	}
+
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
+
+	ctx := context.Background()
+	skippedCount := 0
+
+	err = walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		if event == EventSkipped {
+			skippedCount++
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Verify that ignored directories were skipped
+	if skippedCount == 0 {
+		t.Error("expected directories to be skipped")
+	}
+}
