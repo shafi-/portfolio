@@ -19,10 +19,12 @@ Implement project discovery across configured root directories, supporting neste
 As a user, I want to specify which directories contain projects so that Portfolio can discover them.
 
 **Acceptance Criteria:**
-- `portfolio init` prompts for project root directories
+- `portfolio init` prompts for project root directories (initial setup and reconfiguration)
+- `portfolio init` is idempotent — re-running reconfigures roots
 - Configuration persists to config file
 - Support for multiple root directories
 - Validation that paths exist and are accessible
+- CLI: `portfolio projects list`, `portfolio projects get <id>`, `portfolio discover`
 
 ---
 
@@ -38,9 +40,10 @@ As the Portfolio Engine, I want to recursively scan project roots so that I can 
 **Acceptance Criteria:**
 - Walks directory trees from configured roots
 - Detects Git repositories by `.git` directory presence
-- Creates Project records with: id, name, root_path, repository_type, discovered_at
+- Creates or updates Project records (keyed by root_path): id, name, root_path, repository_type, discovered_at
 - Handles permission errors gracefully
 - Reports discovery count and errors
+- Guarded by mutex — concurrent discovery calls return error
 
 **Technical Context:**
 - Project entity per KnowledgeModel.md

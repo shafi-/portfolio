@@ -58,8 +58,9 @@ As an integration, I want to validate its installation so that errors are detect
 **Acceptance Criteria:**
 - Integration provides validation command
 - Checks: MCP server reachable, tools available
-- Returns validation result with diagnostics
-- Integrations can self-heal or report issues
+- Returns validation result with diagnostics and remediation steps
+- `portfolio doctor` reports issues; `--fix` flag applies self-healable fixes
+- Self-healable: restart MCP, recreate config, recreate dir
 
 ---
 
@@ -76,7 +77,8 @@ As an integration, I want to upgrade itself so that it stays compatible with eng
 - Integration version tracking
 - Upgrade command per integration
 - Compatibility check with engine version
-- Rollback on failure
+- Snapshot files before upgrade, restore on failure
+- Manager handles backup/rollback; integration handles agent-specific mutations
 
 ---
 

@@ -39,7 +39,7 @@ As a Claude Code user, I want a Portfolio skill so that my AI agent knows how to
 - Installs Portfolio-specific skill/prompt for Claude Code
 - Skill describes available MCP tools
 - Provides examples of Portfolio queries
-- Skill is upgradable with integration
+- Skill file is static markdown; version tracked in metadata DB
 
 ---
 
@@ -70,10 +70,10 @@ As a user, I want to verify the integration so that I know it's working correctl
 As a user, I want to update the integration so that it stays compatible with new features.
 
 **Acceptance Criteria:**
-- `portfolio upgrade claude` command
-- Updates MCP server and skill
-- Preserves configuration
-- Reports changes
+- `portfolio upgrade claude` command (dispatched by Epic 8 Manager)
+- Integration writes updated MCP config and skill file
+- Manager handles backup, rollback, and re-verification
+- No standalone upgrade/rollback logic in Epic 9 — reuses Epic 8 framework
 
 ---
 
