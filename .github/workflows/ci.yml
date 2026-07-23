@@ -13,6 +13,7 @@ jobs:
   ci:
     name: Test, Lint, Format, Build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -31,14 +32,7 @@ jobs:
         run: go mod verify
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage.out
-          retention-days: 7
+        run: go test -v -race ./...
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v6

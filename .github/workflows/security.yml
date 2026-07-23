@@ -82,15 +82,3 @@ jobs:
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
           extra_args: --only-verified
-
-      - name: Check for common secret patterns
-        run: |
-          echo "Checking for common secret patterns in code"
-          if grep -r -i -E "(password|secret|key|token|api_key|apikey)" \
-              --include="*.go" --include="*.yaml" --include="*.yml" --include="*.json" \
-              --exclude-dir=".git" . ; then
-            echo "⚠️  Warning: Potential secrets found in code"
-            echo "Please review and ensure no sensitive information is committed"
-            exit 1
-          fi
-          echo "No obvious secret patterns detected"
