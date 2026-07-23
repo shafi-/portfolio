@@ -125,6 +125,11 @@ func SetGlobalLogger(logger *Logger) {
 	globalLogger = logger
 }
 
+// Zap returns the underlying zap.Logger for use by components that require it
+func (l *Logger) Zap() *zap.Logger {
+	return l.zapLogger
+}
+
 // With creates a new logger with a component tag
 func (l *Logger) With(component string) *Logger {
 	return &Logger{

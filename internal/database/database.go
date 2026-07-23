@@ -101,6 +101,11 @@ func (d *Database) Close() error {
 	return nil
 }
 
+// DB returns the underlying sql.DB for use by stores
+func (d *Database) DB() *sql.DB {
+	return d.db
+}
+
 // IsConnected returns connection status
 func (d *Database) IsConnected() bool {
 	return d.connected && d.db != nil
