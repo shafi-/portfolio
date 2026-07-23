@@ -32,6 +32,18 @@ func getMigrations() []migration {
 			up:      metadataExtractionUp,
 			down:    metadataExtractionDown,
 		},
+		{
+			version: 3,
+			name:    "documentation_indexing",
+			up:      documentationIndexingUp,
+			down:    documentationIndexingDown,
+		},
+		{
+			version: 4,
+			name:    "fts5_fulltext_search",
+			up:      fts5SearchUp,
+			down:    fts5SearchDown,
+		},
 	}
 }
 
@@ -41,12 +53,10 @@ func (d *Database) Migrate() error {
 		models.Field{Key: "path", Value: d.dbPath},
 	)
 
-	// Create migrations table if it doesn't exist
 	if err := d.createMigrationsTable(); err != nil {
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
 
-	// Get current version
 	currentVersion, err := d.GetSchemaVersion()
 	if err != nil {
 		return fmt.Errorf("failed to get current schema version: %w", err)
@@ -56,13 +66,11 @@ func (d *Database) Migrate() error {
 		models.Field{Key: "version", Value: currentVersion},
 	)
 
-	// Get all migrations
 	migrations := getMigrations()
 	sort.Slice(migrations, func(i, j int) bool {
 		return migrations[i].version < migrations[j].version
 	})
 
-	// Run pending migrations
 	for _, m := range migrations {
 		if m.version > currentVersion {
 			d.logger.Info("Running migration",
@@ -71,6 +79,15 @@ func (d *Database) Migrate() error {
 			)
 
 			if err := d.runMigration(m); err != nil {
+				if m.version == 4 && !d.HasFTS5() {
+					d.logger.Warn("FTS5 not available in SQLite build—skipping full-text search migration",
+						models.Field{Key: "hint", Value: "build with -tags fts5 to enable"},
+					)
+					if err := d.recordMigration(m.version, calculateChecksum(m.up)); err != nil {
+						return fmt.Errorf("failed to record skipped FTS5 migration: %w", err)
+					}
+					continue
+				}
 				return fmt.Errorf("migration %d failed: %w", m.version, err)
 			}
 
@@ -82,6 +99,15 @@ func (d *Database) Migrate() error {
 
 	d.logger.Info("All migrations completed successfully")
 	return nil
+}
+
+func (d *Database) HasFTS5() bool {
+	_, err := d.db.Exec("CREATE VIRTUAL TABLE _fts5_test USING fts5(content TEXT)")
+	if err != nil {
+		return false
+	}
+	d.db.Exec("DROP TABLE _fts5_test")
+	return true
 }
 
 // createMigrationsTable creates the schema_migrations table
@@ -97,36 +123,34 @@ func (d *Database) createMigrationsTable() error {
 	return err
 }
 
-// runMigration executes a single migration
 func (d *Database) runMigration(m migration) error {
-	// Start transaction
 	tx, err := d.db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Execute migration
 	if _, err := tx.Exec(m.up); err != nil {
 		return fmt.Errorf("migration SQL failed: %w", err)
 	}
 
-	// Record migration
 	checksum := calculateChecksum(m.up)
-	_, err = tx.Exec(
+	if _, err := tx.Exec(
 		"INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
 		m.version, m.name, time.Now().UTC(), checksum,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("failed to record migration: %w", err)
 	}
 
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit migration: %w", err)
-	}
+	return tx.Commit()
+}
 
-	return nil
+func (d *Database) recordMigration(version int, checksum string) error {
+	_, err := d.db.Exec(
+		"INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
+		version, "skipped", time.Now().UTC(), checksum,
+	)
+	return err
 }
 
 // calculateChecksum calculates a simple checksum for migration SQL
@@ -262,6 +286,45 @@ const metadataExtractionDown = `
 DROP INDEX IF EXISTS idx_dependencies_name;
 DROP INDEX IF EXISTS idx_dependencies_project_id;
 DROP TABLE IF EXISTS dependencies;
+`
+
+const documentationIndexingUp = `
+CREATE INDEX IF NOT EXISTS idx_documents_project_kind ON documents(project_id, kind);
+CREATE INDEX IF NOT EXISTS idx_documents_path ON documents(project_id, path);
+`
+
+const documentationIndexingDown = `
+DROP INDEX IF EXISTS idx_documents_path;
+DROP INDEX IF EXISTS idx_documents_project_kind;
+`
+
+const fts5SearchUp = `
+CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+    content,
+    tokenize='unicode61 remove_diacritics 2',
+    content=documents,
+    content_rowid=rowid
+);
+
+CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents BEGIN
+    INSERT INTO documents_fts(rowid, content) VALUES (new.rowid, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
+    INSERT INTO documents_fts(documents_fts, rowid, content) VALUES('delete', old.rowid, old.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
+    INSERT INTO documents_fts(documents_fts, rowid, content) VALUES('delete', old.rowid, old.content);
+    INSERT INTO documents_fts(rowid, content) VALUES (new.rowid, new.content);
+END;
+`
+
+const fts5SearchDown = `
+DROP TRIGGER IF EXISTS documents_au;
+DROP TRIGGER IF EXISTS documents_ad;
+DROP TRIGGER IF EXISTS documents_ai;
+DROP TABLE IF EXISTS documents_fts;
 `
 
 const initialSchemaDown = `

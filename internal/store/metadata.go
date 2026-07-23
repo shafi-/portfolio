@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -18,6 +19,19 @@ func NewMetadataStore(db *sql.DB, logger *zap.Logger) *MetadataStore {
 }
 
 func (s *MetadataStore) UpsertMetadata(m *models.Metadata) error {
+	return s.upsertMetadata(s.db, m)
+}
+
+func (s *MetadataStore) UpsertMetadataTx(tx *sql.Tx, m *models.Metadata) error {
+	return s.upsertMetadata(tx, m)
+}
+
+type metaExecer interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+}
+
+func (s *MetadataStore) upsertMetadata(q metaExecer, m *models.Metadata) error {
+	ctx := context.Background()
 	query := `
 		INSERT OR REPLACE INTO metadata (
 			project_id, git_head, default_branch, last_commit_at,
@@ -25,7 +39,7 @@ func (s *MetadataStore) UpsertMetadata(m *models.Metadata) error {
 			framework_summary, dependency_summary, documentation_hash, last_scan_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := s.db.Exec(query,
+	_, err := q.ExecContext(ctx, query,
 		m.ProjectID, nullIfEmpty(m.GitHead), nullIfEmpty(m.DefaultBranch),
 		nullIfEmpty(m.LastCommitAt), nullIfEmpty(m.LastModifiedAt),
 		m.CommitCount, nullIfEmpty(m.LanguageSummary),
