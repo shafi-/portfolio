@@ -1,7 +1,7 @@
 # Epic 7 — MCP Server
 
 **Milestone:** 1 — Core Engine
-**Status:** todo
+**Status:** done
 
 ## Overview
 
