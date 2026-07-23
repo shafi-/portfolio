@@ -1,7 +1,7 @@
 {
-  "phase": "4b",
+  "phase": "4.4",
   "feature": "Epic 2 - Discovery",
-  "branch": "epic/02-discovery",
+  "branch": "main",
   "archivePath": ".pipeline/archive/epic-02-discovery/",
   "archivedAt": "2026-07-23T19:52:00Z",
   "artifactPaths": {
@@ -12,8 +12,11 @@
     "epic-2-completion": ".pipeline/archive/epic-02-discovery/04-validation-phase/epic-2-completion.md"
   },
   "retryCount": 0,
-  "status": "archived",
-  "timestamp": "2026-07-23T19:52:00Z",
+  "status": "completed",
+  "timestamp": "2026-07-23T20:30:00Z",
+  "mergedAt": "2026-07-23T20:25:00Z",
+  "mergedTo": "main",
+  "mergeCommit": "82c6fe8",
   "metadata": {
     "approach": "story-by-story-implementation",
     "totalStories": 5,
@@ -48,7 +51,8 @@
       "story-2.4-reviewer",
       "story-2.4-git-operator",
       "story-2.5-analysis",
-      "story-2.5-git-operator"
+      "story-2.5-git-operator",
+      "git-operator-merge-gate"
     ]
   }
 }
