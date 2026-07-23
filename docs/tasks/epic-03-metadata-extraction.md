@@ -86,23 +86,6 @@ As the Portfolio Engine, I want to extract dependency names so that users can se
 
 ---
 
-## Story 3.5: Compute Project Statistics
-
-**Status:** todo
-**Size:** S
-**Blocked by:** 3.2
-
-**User Story:**
-As the Portfolio Engine, I want to compute basic statistics so that users can assess project size.
-
-**Acceptance Criteria:**
-- Counts: total files, code files, documentation files
-- Estimates lines of code (excluding vendor, node_modules)
-- Stores in metadata table
-- Fast enough for large repositories (>100k files)
-
----
-
 ## Story 3.6: Compute Documentation Hashes
 
 **Status:** todo
@@ -131,9 +114,8 @@ As the Portfolio Engine, I want to hash documentation files so that I can detect
 | 3.2 Detect Languages | todo | M | 3.1 |
 | 3.3 Detect Frameworks | todo | M | 3.2 |
 | 3.4 Detect Dependencies | todo | M | 3.3 |
-| 3.5 Compute Project Statistics | todo | S | 3.2 |
 | 3.6 Compute Documentation Hashes | todo | M | Epic 4 |
 
-**Total Size:** 1L + 4M + 1S = ~18 days
+**Total Size:** 1L + 4M = ~18 days
 
 **Can Start:** Story 3.1 (after 2.2, 1.5 complete)
