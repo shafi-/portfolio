@@ -82,6 +82,13 @@ type Relationship struct {
 	Confidence    float64 `json:"confidence"`
 }
 
+// Dependency represents a project dependency
+type Dependency struct {
+	ProjectID string `json:"project_id"`
+	Name      string `json:"name"`
+	Manager   string `json:"manager"`
+}
+
 // Configuration represents system configuration
 type Configuration struct {
 	Key       string `json:"key"`
