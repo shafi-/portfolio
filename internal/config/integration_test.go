@@ -110,15 +110,16 @@ func TestStory12Integration(t *testing.T) {
 
 	// AC-08: Configuration Validation Functional
 	t.Run("AC08_ConfigurationValidation", func(t *testing.T) {
+		tempDir := t.TempDir()
 		validator := NewValidator()
 
 		// Test validation rules enforceable
 		validConfig := &models.Config{
 			General: models.GeneralConfig{
-				DatabasePath: os.TempDir(),
+				DatabasePath: filepath.Join(tempDir, "test.db"),
 			},
 			Discovery: models.DiscoveryConfig{
-				ProjectRoots: []string{os.TempDir()},
+				ProjectRoots: []string{tempDir},
 			},
 			Logging: models.LoggingConfig{
 				Level: "INFO",
@@ -132,7 +133,7 @@ func TestStory12Integration(t *testing.T) {
 		// Test validation catches errors
 		invalidConfig := &models.Config{
 			General: models.GeneralConfig{
-				DatabasePath: "/nonexistent/path",
+				DatabasePath: filepath.Join(tempDir, "nonexistent", "path"),
 			},
 			Discovery: models.DiscoveryConfig{
 				ProjectRoots: []string{},
@@ -191,7 +192,7 @@ func TestStory12Integration(t *testing.T) {
 				name: "nonexistent database path",
 				config: &models.Config{
 					General: models.GeneralConfig{
-						DatabasePath: "/nonexistent/db/path",
+						DatabasePath: filepath.Join(tempDir, "nonexistent", "db", "path"),
 					},
 					Discovery: models.DiscoveryConfig{
 						ProjectRoots: []string{tempDir},
