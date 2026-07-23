@@ -1,7 +1,7 @@
 # Epic 3 — Metadata Extraction
 
 **Milestone:** 1 — Core Engine
-**Status:** todo
+**Status:** in_progress
 
 ## Overview
 
@@ -11,7 +11,7 @@ Extract Git metadata, detect languages and frameworks, analyze dependencies, com
 
 ## Story 3.1: Extract Git Metadata
 
-**Status:** todo
+**Status:** completed
 **Size:** L
 **Blocked by:** 2.2, 1.5
 
@@ -35,7 +35,7 @@ As the Portfolio Engine, I want to extract Git repository metadata so that users
 
 ## Story 3.2: Detect Languages
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 3.1
 
@@ -53,7 +53,7 @@ As the Portfolio Engine, I want to detect programming languages so that users ca
 
 ## Story 3.3: Detect Frameworks
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 3.2
 
@@ -71,7 +71,7 @@ As the Portfolio Engine, I want to detect frameworks so that users can identify 
 
 ## Story 3.4: Detect Dependencies
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 3.3
 
@@ -88,7 +88,7 @@ As the Portfolio Engine, I want to extract dependency names so that users can se
 
 ## Story 3.6: Compute Documentation Hashes
 
-**Status:** todo
+**Status:** blocked
 **Size:** M
 **Blocked by:** Epic 4
 
@@ -110,12 +110,21 @@ As the Portfolio Engine, I want to hash documentation files so that I can detect
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 3.1 Extract Git Metadata | todo | L | 2.2, 1.5 |
-| 3.2 Detect Languages | todo | M | 3.1 |
-| 3.3 Detect Frameworks | todo | M | 3.2 |
-| 3.4 Detect Dependencies | todo | M | 3.3 |
-| 3.6 Compute Documentation Hashes | todo | M | Epic 4 |
+| 3.1 Extract Git Metadata | completed | L | 2.2, 1.5 |
+| 3.2 Detect Languages | completed | M | 3.1 |
+| 3.3 Detect Frameworks | completed | M | 3.2 |
+| 3.4 Detect Dependencies | completed | M | 3.3 |
+| 3.5 Service Assembly | completed | M | 3.4 |
+| 3.6 Compute Documentation Hashes | blocked | M | Epic 4 |
 
 **Total Size:** 1L + 4M = ~18 days
 
-**Can Start:** Story 3.1 (after 2.2, 1.5 complete)
+**Completed:** 4L+M = ~14 days
+**Blocked:** 1 story (3.6 — waiting on Epic 4)
+
+**Completed Stories:**
+- Story 3.1 — Extract Git Metadata: `internal/metadata/git.go`, `walk.go`, `internal/store/metadata.go`
+- Story 3.2 — Detect Languages: `internal/metadata/languages.go`, `config.go`, `languages_data.go`
+- Story 3.3 — Detect Frameworks: `internal/metadata/frameworks.go`, `frameworks_data.go`
+- Story 3.4 — Detect Dependencies: `internal/metadata/dependencies.go`, `internal/store/dependencies.go`
+- Story 3.5 — Service Assembly: `internal/metadata/service.go`
