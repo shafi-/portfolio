@@ -45,7 +45,7 @@ func TestConfigValidation(t *testing.T) {
 	// Test valid config
 	validConfig := &models.Config{
 		General: models.GeneralConfig{
-			DatabasePath: os.TempDir(),
+			DatabasePath: filepath.Join(os.TempDir(), "test.db"),
 		},
 		Discovery: models.DiscoveryConfig{
 			ProjectRoots: []string{os.TempDir()},
@@ -62,7 +62,7 @@ func TestConfigValidation(t *testing.T) {
 	// Test invalid log level
 	invalidConfig := &models.Config{
 		General: models.GeneralConfig{
-			DatabasePath: os.TempDir(),
+			DatabasePath: filepath.Join(os.TempDir(), "test.db"),
 		},
 		Discovery: models.DiscoveryConfig{
 			ProjectRoots: []string{os.TempDir()},
@@ -79,7 +79,7 @@ func TestConfigValidation(t *testing.T) {
 	// Test empty project roots
 	emptyRootsConfig := &models.Config{
 		General: models.GeneralConfig{
-			DatabasePath: os.TempDir(),
+			DatabasePath: filepath.Join(os.TempDir(), "test.db"),
 		},
 		Discovery: models.DiscoveryConfig{
 			ProjectRoots: []string{},
