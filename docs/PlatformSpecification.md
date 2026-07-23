@@ -26,6 +26,7 @@ metadata
 - default_branch
 - last_commit_at
 - last_modified_at
+- commit_count (INTEGER, default 0)
 - language_summary
 - framework_summary
 - dependency_summary
@@ -84,6 +85,14 @@ relationships
 configuration
 - key
 - value
+
+dependencies
+- id (INTEGER, PK)
+- project_id (FK)
+- name
+- manager (npm, go_mod, pip, cargo, bundler, maven, gradle)
+- created_at
+- UNIQUE(project_id, name, manager)
 
 Design Principles
 
@@ -246,6 +255,7 @@ Mapping
 
 Project -> projects
 Metadata -> metadata
+Dependency -> dependencies
 Documentation -> documents
 Analysis -> analyses
 Feature -> features

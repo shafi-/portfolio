@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-This is a **specification repository** for "Portfolio" — a local-first project inventory and knowledge platform. No source code exists yet. The repository contains planning documents that define the product vision, architecture, and implementation roadmap.
+This is the **implementation repository** for "Portfolio" — a local-first project inventory and knowledge platform built in Go. Epics 1-3 implemented (project foundation, discovery, metadata extraction). Active development on Milestone 1 (Core Engine).
 
 ---
 
@@ -120,6 +120,23 @@ When implementing features:
 1. Run `devflow:documentation-readiness` if documentation may have changed
 2. Use `devflow:devflow` to execute the full development pipeline
 3. The pipeline handles: requirements → architecture → implementation → review → commit
+
+---
+
+## Package Map
+
+| Package | Purpose |
+|---------|---------|
+| `internal/discovery/` | Git repository discovery (Epic 2) |
+| `internal/metadata/` | Metadata extraction: git, languages, frameworks, dependencies (Epic 3) |
+| `internal/metadata/walk.go` | Shared filtered file tree walker (skips vendor/node_modules/.git) |
+| `internal/store/` | Database store interfaces: MetadataStore, DependencyStore |
+| `internal/database/` | SQLite connection, migrations, schema validation |
+| `internal/fs/` | Filesystem abstraction for testability |
+| `internal/logging/` | Structured logging wrapper (zap) |
+| `internal/config/` | Configuration loading |
+| `internal/cli/` | Cobra CLI command tree |
+| `pkg/models/` | Domain model types: Project, Metadata, Dependency, Document, Analysis |
 
 ---
 
