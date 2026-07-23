@@ -45,6 +45,12 @@ func getMigrations() []migration {
 			up:      fts5SearchUp,
 			down:    fts5SearchDown,
 		},
+		{
+			version: 5,
+			name:    "search_indexes",
+			up:      searchIndexesUp,
+			down:    searchIndexesDown,
+		},
 	}
 }
 
@@ -500,6 +506,20 @@ DROP TRIGGER IF EXISTS documents_au;
 DROP TRIGGER IF EXISTS documents_ad;
 DROP TRIGGER IF EXISTS documents_ai;
 DROP TABLE IF EXISTS documents_fts;
+`
+
+const searchIndexesUp = `
+CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name);
+CREATE INDEX IF NOT EXISTS idx_metadata_language ON metadata(language_summary);
+CREATE INDEX IF NOT EXISTS idx_metadata_framework ON metadata(framework_summary);
+CREATE INDEX IF NOT EXISTS idx_documents_kind ON documents(kind);
+`
+
+const searchIndexesDown = `
+DROP INDEX IF EXISTS idx_documents_kind;
+DROP INDEX IF EXISTS idx_metadata_framework;
+DROP INDEX IF EXISTS idx_metadata_language;
+DROP INDEX IF EXISTS idx_projects_name;
 `
 
 const initialSchemaDown = `
