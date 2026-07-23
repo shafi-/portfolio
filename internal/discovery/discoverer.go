@@ -69,20 +69,14 @@ func (d *Discoverer) DiscoverProjects(ctx context.Context) (*DiscoveryResult, er
 	if !d.mutex.TryLock() {
 		return nil, &ConcurrentDiscoveryError{CurrentOperation: "DiscoverProjects"}
 	}
+	defer d.mutex.Unlock()
 
-	// Mark as running BEFORE releasing mutex
+	// Mark as running
 	d.running = true
 	d.logger.Info("Starting project discovery")
 
-	// Release the mutex now that we've marked ourselves as running
-	d.mutex.Unlock()
-
 	// Ensure we mark ourselves as not running when we exit
-	defer func() {
-		d.mutex.Lock()
-		d.running = false
-		d.mutex.Unlock()
-	}()
+	defer func() { d.running = false }()
 
 	// Get configuration
 	roots, err := d.config.GetProjectRoots()

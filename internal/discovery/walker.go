@@ -155,8 +155,8 @@ func (w *Walker) Walk(ctx context.Context, root string, callback WalkCallback) e
 				if err := callback(entryPath, EventFoundRepo, nil); err != nil {
 					return err
 				}
-				// Don't recurse into repository directories
-				continue
+				// Continue recursion to support nested repositories (monorepos)
+				// This allows discovery of repos within repos
 			}
 
 			// Add to queue for BFS processing

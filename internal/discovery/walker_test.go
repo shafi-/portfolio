@@ -310,3 +310,366 @@ func TestWalker_ResetInodeTracking(t *testing.T) {
 		t.Error("walker should not be nil after reset")
 	}
 }
+
+// TestWalker_Walk_NestedRepo tests AC-11: nested repo inside parent repo
+func TestWalker_Walk_NestedRepo(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a parent repository
+	parentRepo := filepath.Join(tmpDir, "parent-project", ".git")
+	if err := os.MkdirAll(parentRepo, 0755); err != nil {
+		t.Fatalf("failed to create parent repo: %v", err)
+	}
+
+	// Create a nested repository inside the parent
+	nestedRepo := filepath.Join(tmpDir, "parent-project", "services", "auth", ".git")
+	if err := os.MkdirAll(nestedRepo, 0755); err != nil {
+		t.Fatalf("failed to create nested repo: %v", err)
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	walker := NewWalker(filesystem, detector, []string{}, 0)
+
+	ctx := context.Background()
+	foundRepos := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		if event == EventFoundRepo {
+			foundRepos = append(foundRepos, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should find both parent and nested repositories
+	if len(foundRepos) != 2 {
+		t.Errorf("expected 2 repositories (parent + nested), found %d", len(foundRepos))
+	}
+
+	// Verify we found the parent repo
+	foundParent := false
+	foundNested := false
+	for _, repo := range foundRepos {
+		if filepath.Base(repo) == "parent-project" {
+			foundParent = true
+		}
+		if filepath.Base(repo) == "auth" {
+			foundNested = true
+		}
+	}
+
+	if !foundParent {
+		t.Error("expected to find parent repository")
+	}
+	if !foundNested {
+		t.Error("expected to find nested repository")
+	}
+}
+
+// TestWalker_Walk_MonorepoStructure tests AC-12: monorepo with multiple nested services
+func TestWalker_Walk_MonorepoStructure(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a monorepo root
+	monorepoRoot := filepath.Join(tmpDir, "monorepo", ".git")
+	if err := os.MkdirAll(monorepoRoot, 0755); err != nil {
+		t.Fatalf("failed to create monorepo root: %v", err)
+	}
+
+	// Create multiple nested service repositories
+	services := []string{"auth", "api", "frontend", "backend"}
+	for _, service := range services {
+		serviceRepo := filepath.Join(tmpDir, "monorepo", "services", service, ".git")
+		if err := os.MkdirAll(serviceRepo, 0755); err != nil {
+			t.Fatalf("failed to create service repo %s: %v", service, err)
+		}
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	walker := NewWalker(filesystem, detector, []string{}, 0)
+
+	ctx := context.Background()
+	foundRepos := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		if event == EventFoundRepo {
+			foundRepos = append(foundRepos, filepath.Base(path))
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should find monorepo root + all service repositories (5 total)
+	if len(foundRepos) != 5 {
+		t.Errorf("expected 5 repositories (monorepo + 4 services), found %d: %v", len(foundRepos), foundRepos)
+	}
+
+	// Verify we found all expected repos
+	foundNames := make(map[string]bool)
+	for _, name := range foundRepos {
+		foundNames[name] = true
+	}
+
+	expectedNames := append([]string{"monorepo"}, services...)
+	for _, name := range expectedNames {
+		if !foundNames[name] {
+			t.Errorf("expected to find repository %s", name)
+		}
+	}
+}
+
+// TestWalker_Walk_DeepNesting tests AC-13: deep nesting (3+ levels)
+func TestWalker_Walk_DeepNesting(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a chain of nested repositories: root > level1 > level2 > level3
+	levels := []string{"root", "level1", "level2", "level3"}
+	for i, level := range levels {
+		pathParts := append([]string{tmpDir}, levels[:i+1]...)
+		repoPath := filepath.Join(pathParts...)
+		gitPath := filepath.Join(repoPath, ".git")
+		if err := os.MkdirAll(gitPath, 0755); err != nil {
+			t.Fatalf("failed to create level %s repo: %v", level, err)
+		}
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	walker := NewWalker(filesystem, detector, []string{}, 0) // No depth limit
+
+	ctx := context.Background()
+	foundRepos := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		if event == EventFoundRepo {
+			foundRepos = append(foundRepos, filepath.Base(path))
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should find all 4 levels of nested repositories
+	if len(foundRepos) != 4 {
+		t.Errorf("expected 4 repositories at different nesting levels, found %d: %v", len(foundRepos), foundRepos)
+	}
+
+	// Verify we found all levels
+	foundNames := make(map[string]bool)
+	for _, name := range foundRepos {
+		foundNames[name] = true
+	}
+
+	for _, level := range levels {
+		if !foundNames[level] {
+			t.Errorf("expected to find repository at level %s", level)
+		}
+	}
+}
+
+// TestWalker_Walk_MixedStructure tests mixed structures (some dirs are repos, some aren't)
+func TestWalker_Walk_MixedStructure(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create parent repository
+	parentRepo := filepath.Join(tmpDir, "project", ".git")
+	if err := os.MkdirAll(parentRepo, 0755); err != nil {
+		t.Fatalf("failed to create parent repo: %v", err)
+	}
+
+	// Create a nested repository
+	nestedRepo := filepath.Join(tmpDir, "project", "libs", "auth", ".git")
+	if err := os.MkdirAll(nestedRepo, 0755); err != nil {
+		t.Fatalf("failed to create nested repo: %v", err)
+	}
+
+	// Create directories that are NOT repositories (should not be reported as repos)
+	nonRepoDirs := []string{
+		filepath.Join(tmpDir, "project", "docs"),
+		filepath.Join(tmpDir, "project", "build"),
+		filepath.Join(tmpDir, "project", "libs", "utils"),
+	}
+	for _, dir := range nonRepoDirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("failed to create non-repo directory: %v", err)
+		}
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	walker := NewWalker(filesystem, detector, []string{}, 0)
+
+	ctx := context.Background()
+	foundRepos := []string{}
+	enteredDirs := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		switch event {
+		case EventFoundRepo:
+			foundRepos = append(foundRepos, filepath.Base(path))
+		case EventEnterDir:
+			enteredDirs = append(enteredDirs, filepath.Base(path))
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should find exactly 2 repositories
+	if len(foundRepos) != 2 {
+		t.Errorf("expected 2 repositories in mixed structure, found %d: %v", len(foundRepos), foundRepos)
+	}
+
+	// Verify we found the expected repos
+	foundNames := make(map[string]bool)
+	for _, name := range foundRepos {
+		foundNames[name] = true
+	}
+
+	if !foundNames["project"] {
+		t.Error("expected to find project repository")
+	}
+	if !foundNames["auth"] {
+		t.Error("expected to find nested auth repository")
+	}
+}
+
+// TestWalker_Walk_SiblingRepos tests sibling repos at same level
+func TestWalker_Walk_SiblingRepos(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create parent repository
+	parentRepo := filepath.Join(tmpDir, "workspace", ".git")
+	if err := os.MkdirAll(parentRepo, 0755); err != nil {
+		t.Fatalf("failed to create parent repo: %v", err)
+	}
+
+	// Create sibling repositories at the same level
+	siblings := []string{"service-a", "service-b", "service-c"}
+	for _, sibling := range siblings {
+		siblingRepo := filepath.Join(tmpDir, "workspace", "services", sibling, ".git")
+		if err := os.MkdirAll(siblingRepo, 0755); err != nil {
+			t.Fatalf("failed to create sibling repo %s: %v", sibling, err)
+		}
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	walker := NewWalker(filesystem, detector, []string{}, 0)
+
+	ctx := context.Background()
+	foundRepos := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		if event == EventFoundRepo {
+			foundRepos = append(foundRepos, filepath.Base(path))
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should find workspace + 3 sibling services (4 total)
+	if len(foundRepos) != 4 {
+		t.Errorf("expected 4 repositories (workspace + 3 siblings), found %d: %v", len(foundRepos), foundRepos)
+	}
+
+	// Verify we found all expected repos
+	foundNames := make(map[string]bool)
+	for _, name := range foundRepos {
+		foundNames[name] = true
+	}
+
+	expectedNames := append([]string{"workspace"}, siblings...)
+	for _, name := range expectedNames {
+		if !foundNames[name] {
+			t.Errorf("expected to find repository %s", name)
+		}
+	}
+}
+
+// TestWalker_Walk_ComplexMonorepo tests a complex monorepo structure
+func TestWalker_Walk_ComplexMonorepo(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create root monorepo
+	monorepo := filepath.Join(tmpDir, "company-monorepo", ".git")
+	if err := os.MkdirAll(monorepo, 0755); err != nil {
+		t.Fatalf("failed to create monorepo: %v", err)
+	}
+
+	// Create services with nested repositories
+	services := []string{"auth", "api", "worker"}
+	for _, service := range services {
+		servicePath := filepath.Join(tmpDir, "company-monorepo", "services", service, ".git")
+		if err := os.MkdirAll(servicePath, 0755); err != nil {
+			t.Fatalf("failed to create service %s: %v", service, err)
+		}
+	}
+
+	// Create libraries with nested repositories
+	libs := []string{"common", "utils"}
+	for _, lib := range libs {
+		libPath := filepath.Join(tmpDir, "company-monorepo", "libs", lib, ".git")
+		if err := os.MkdirAll(libPath, 0755); err != nil {
+			t.Fatalf("failed to create lib %s: %v", lib, err)
+		}
+	}
+
+	// Create nested repository within a service (deep nesting)
+	deepNested := filepath.Join(tmpDir, "company-monorepo", "services", "api", "internal", "core", ".git")
+	if err := os.MkdirAll(deepNested, 0755); err != nil {
+		t.Fatalf("failed to create deeply nested repo: %v", err)
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	walker := NewWalker(filesystem, detector, []string{}, 0)
+
+	ctx := context.Background()
+	foundRepos := []string{}
+
+	err := walker.Walk(ctx, tmpDir, func(path string, event WalkEvent, err error) error {
+		if event == EventFoundRepo {
+			foundRepos = append(foundRepos, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+
+	// Should find: monorepo root + 3 services + 2 libs + 1 deep nested = 7 total
+	if len(foundRepos) != 7 {
+		t.Errorf("expected 7 repositories in complex monorepo, found %d: %v", len(foundRepos), foundRepos)
+	}
+
+	// Verify key repositories are found
+	repoBasenames := make(map[string]bool)
+	for _, repo := range foundRepos {
+		repoBasenames[filepath.Base(repo)] = true
+	}
+
+	// Check for expected repositories
+	expectedBasenames := []string{"company-monorepo", "auth", "api", "worker", "common", "utils", "core"}
+	for _, expected := range expectedBasenames {
+		if !repoBasenames[expected] {
+			t.Errorf("expected to find repository %s", expected)
+		}
+	}
+}

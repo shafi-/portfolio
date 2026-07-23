@@ -3,6 +3,7 @@ package discovery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -117,44 +118,60 @@ func TestDiscoverer_DiscoverProjects_Success(t *testing.T) {
 func TestDiscoverer_DiscoverProjects_Concurrent(t *testing.T) {
 	tmpDir := t.TempDir()
 
+	// Create multiple repositories to ensure discovery takes some time
+	for i := 0; i < 5; i++ {
+		repoPath := filepath.Join(tmpDir, fmt.Sprintf("testrepo%d", i), ".git")
+		if err := os.MkdirAll(repoPath, 0755); err != nil {
+			t.Fatalf("failed to create repo %d: %v", i, err)
+		}
+	}
+
 	osFS := fs.NewOSFilesystem()
 	config := &MockConfigProvider{
 		roots:        []string{tmpDir},
 		ignoredPaths: []string{},
 	}
-	store := &MockProjectStore{}
+	store := &MockProjectStore{
+		upsertDelay: 20 * time.Millisecond, // Add delay for each project
+	}
 	logger, _ := logging.NewLogger("INFO", "console")
 
 	discoverer := NewDiscoverer(osFS, config, store, logger, 0)
 
 	ctx := context.Background()
 
-	// Create a channel to signal when first discovery has started
-	started := make(chan struct{})
-
 	// Start first discovery in background
-	done := make(chan error, 1)
+	firstDone := make(chan error, 1)
 	go func() {
-		close(started) // Signal we've started
 		_, err := discoverer.DiscoverProjects(ctx)
-		done <- err
+		firstDone <- err
 	}()
 
-	// Wait for first discovery to start
-	<-started
+	// Give the first discovery a moment to start
+	time.Sleep(5 * time.Millisecond)
 
-	// Try to start second discovery immediately - should fail
-	_, err := discoverer.DiscoverProjects(ctx)
-	if err == nil {
-		t.Error("expected concurrent discovery to fail")
-	}
+	// Try to start second discovery - should fail immediately
+	secondDone := make(chan error, 1)
+	go func() {
+		_, err := discoverer.DiscoverProjects(ctx)
+		secondDone <- err
+	}()
 
-	if _, ok := err.(*ConcurrentDiscoveryError); !ok {
-		t.Errorf("expected ConcurrentDiscoveryError, got %T", err)
+	// The concurrent call should return quickly with an error
+	select {
+	case err := <-secondDone:
+		if err == nil {
+			t.Error("expected concurrent discovery to fail")
+		}
+		if _, ok := err.(*ConcurrentDiscoveryError); !ok {
+			t.Errorf("expected ConcurrentDiscoveryError, got %T", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("concurrent discovery should have failed quickly, but it didn't return in time")
 	}
 
 	// Wait for first discovery to complete
-	if err := <-done; err != nil {
+	if err := <-firstDone; err != nil {
 		t.Fatalf("first discovery failed: %v", err)
 	}
 }

@@ -69,7 +69,7 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 
 | Epic | Status | Stories | Size | File |
 |------|--------|---------|------|------|
-| [Epic 11 — Dashboard Backend](epic-11-dashboard-backend.md) | todo | 3 | ~7 days | [epic-11-dashboard-backend.md](epic-11-dashboard-backend.md) |
+| [Epic 11 — Dashboard Backend](epic-11-dashboard-backend.md) | todo | 2 | ~4 days | [epic-11-dashboard-backend.md](epic-11-dashboard-backend.md) |
 | [Epic 12 — Dashboard Frontend](epic-12-dashboard-frontend.md) | todo | 5 | ~21 days | [epic-12-dashboard-frontend.md](epic-12-dashboard-frontend.md) |
 
 **Milestone 3 Progress:** 0/2 epics completed (0%)
@@ -82,7 +82,7 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 
 | Epic | Status | Stories | Size | File |
 |------|--------|---------|------|------|
-| [Epic 13 — Relationships](epic-13-relationships.md) | todo | 3 | ~12 days | [epic-13-relationships.md](epic-13-relationships.md) |
+| [Epic 13 — Relationships](epic-13-relationships.md) | todo | 1 | ~4 days | [epic-13-relationships.md](epic-13-relationships.md) |
 | [Epic 14 — Insights](epic-14-insights.md) | todo | 4 | ~18 days | [epic-14-insights.md](epic-14-insights.md) |
 
 **Milestone 4 Progress:** 0/2 epics completed (0%)
