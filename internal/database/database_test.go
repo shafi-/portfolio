@@ -92,8 +92,8 @@ func TestDatabaseInitialization(t *testing.T) {
 		t.Errorf("Failed to get schema version: %v", err)
 	}
 
-	if version != 2 {
-		t.Errorf("Expected schema version 1, got %d", version)
+	if version < 3 {
+		t.Errorf("Expected schema version >= 3, got %d", version)
 	}
 
 	// Check table count
@@ -102,9 +102,8 @@ func TestDatabaseInitialization(t *testing.T) {
 		t.Errorf("Failed to get table count: %v", err)
 	}
 
-	expectedTables := 10 // 9 data tables + 1 migrations table
-	if tableCount < expectedTables {
-		t.Errorf("Expected at least %d tables, got %d", expectedTables, tableCount)
+	if tableCount < 10 {
+		t.Errorf("Expected at least 10 tables, got %d", tableCount)
 	}
 }
 
