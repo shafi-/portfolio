@@ -38,7 +38,7 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 | Epic | Status | Stories | Size | File |
 |------|--------|---------|------|------|
 | [Epic 1 — Project Foundation](epic-01-project-foundation.md) | todo | 5 | ~8 days | [epic-01-project-foundation.md](epic-01-project-foundation.md) |
-| [Epic 2 — Discovery](epic-02-discovery.md) | completed | 5 | ~17 days | [epic-02-discovery.md](epic-02-discovery.md) |
+| [Epic 2 — Discovery](epic-02-discovery.md) | Completed | 5 | ~17 days | [epic-02-discovery.md](epic-02-discovery.md) |
 | [Epic 3 — Metadata Extraction](epic-03-metadata-extraction.md) | todo | 6 | ~18 days | [epic-03-metadata-extraction.md](epic-03-metadata-extraction.md) |
 | [Epic 4 — Documentation Indexing](epic-04-documentation-indexing.md) | todo | 5 | ~15 days | [epic-04-documentation-indexing.md](epic-04-documentation-indexing.md) |
 | [Epic 5 — Knowledge Store](epic-05-knowledge-store.md) | todo | 3 | ~12 days | [epic-05-knowledge-store.md](epic-05-knowledge-store.md) |
