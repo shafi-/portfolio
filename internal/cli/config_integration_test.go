@@ -211,7 +211,7 @@ func TestConfigPathError_TypeAssertion(t *testing.T) {
 	}
 
 	// Test that errors.Is works
-	if !os.Is(err, os.ErrPermission) {
+	if !errors.Is(err, os.ErrPermission) {
 		t.Error("errors.Is should work with ConfigPathError")
 	}
 

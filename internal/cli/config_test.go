@@ -1,17 +1,12 @@
 package cli
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
-
-	"project-dash/internal/config"
-	"project-dash/internal/logging"
-	"project-dash/pkg/models"
 )
 
 // TestSetRoot_CommandStructure tests the set-root command structure
@@ -305,16 +300,4 @@ func TestConfigPathError_Unwrap(t *testing.T) {
 	}
 }
 
-// TestConfigCommands_Integration tests config commands with real config files
-func TestConfigCommands_Integration(t *testing.T) {
-	// Create temporary directory for testing
-	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "config.toml")
-
-	// Create test directories
-	validRoot1 := t.TempDir()
-	validRoot2 := t.TempDir()
-	invalidRoot := "/nonexistent/path"
-
-	// Integration tests moved to config_integration_test.go to avoid issues with command execution
-}
+// Integration tests moved to config_integration_test.go to avoid issues with command execution
