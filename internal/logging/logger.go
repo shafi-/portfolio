@@ -142,9 +142,11 @@ func GetGlobalLogger() *Logger {
 
 // With creates a new logger with a component tag
 func (l *Logger) With(component string) *Logger {
-	newLogger := *l
-	newLogger.component = component
-	return &newLogger
+	return &Logger{
+		zapLogger: l.zapLogger,
+		component: component,
+		once:      sync.Once{}, // New instance, not copied
+	}
 }
 
 // Debug logs a debug message

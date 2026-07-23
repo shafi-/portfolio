@@ -22,7 +22,7 @@ func TestStory12Integration(t *testing.T) {
 			},
 			Discovery: models.DiscoveryConfig{
 				ProjectRoots: []string{tempDir, filepath.Join(tempDir, "projects")},
-				IgnoredPaths:  []string{"node_modules", ".git"},
+				IgnoredPaths: []string{"node_modules", ".git"},
 			},
 			Logging: models.LoggingConfig{
 				Level: "DEBUG",
@@ -253,7 +253,7 @@ func TestStory12Integration(t *testing.T) {
 			},
 			Discovery: models.DiscoveryConfig{
 				ProjectRoots: []string{tempDir},
-				IgnoredPaths:  []string{"updated"},
+				IgnoredPaths: []string{"updated"},
 			},
 			Logging: models.LoggingConfig{
 				Level: "DEBUG",
@@ -290,7 +290,7 @@ func TestConfigurationIntegrationPoints(t *testing.T) {
 			},
 			Discovery: models.DiscoveryConfig{
 				ProjectRoots: []string{tempDir},
-				IgnoredPaths:  []string{"node_modules", ".git"},
+				IgnoredPaths: []string{"node_modules", ".git"},
 			},
 			Logging: models.LoggingConfig{
 				Level: "INFO",

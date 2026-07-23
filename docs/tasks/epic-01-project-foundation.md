@@ -1,7 +1,7 @@
 # Epic 1 — Project Foundation
 
 **Milestone:** 1 — Core Engine
-**Status:** todo
+**Status:** completed
 
 ## Overview
 
@@ -11,7 +11,7 @@ Bootstrap the Go project, establish configuration, logging, CLI framework, and S
 
 ## Story 1.1: Bootstrap Go Project
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** None
 
@@ -29,7 +29,7 @@ As a developer, I want a properly structured Go project so that I can begin impl
 
 ## Story 1.2: Configuration System
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 1.1
 
@@ -51,7 +51,7 @@ As the Portfolio Engine, I want to load and store configuration so that I can di
 
 ## Story 1.3: Logging Framework
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** 1.1
 
@@ -64,11 +64,17 @@ As a developer, I want structured logging so that I can diagnose engine behavior
 - Log output to stdout
 - Configurable log level via environment variable
 
+**Implementation Notes:**
+- Fixed critical concurrency bug in `With` method (2026-07-23)
+- Bug: Copying struct containing `sync.Once` violated Go concurrency safety
+- Fix: Properly create new Logger instances instead of struct copying
+- Location: `internal/logging/logger.go:145`
+
 ---
 
 ## Story 1.4: CLI Framework
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 1.1, 1.3
 
@@ -89,7 +95,7 @@ As a user, I want a command-line interface so that I can initialize and administ
 
 ## Story 1.5: SQLite Initialization
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 1.2
 
@@ -112,11 +118,11 @@ As the Portfolio Engine, I want a SQLite database so that I can store project kn
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 1.1 Bootstrap Go Project | todo | S | — |
-| 1.2 Configuration System | todo | M | 1.1 |
-| 1.3 Logging Framework | todo | S | 1.1 |
-| 1.4 CLI Framework | todo | M | 1.1, 1.3 |
-| 1.5 SQLite Initialization | todo | M | 1.2 |
+| 1.1 Bootstrap Go Project | completed | S | — |
+| 1.2 Configuration System | completed | M | 1.1 |
+| 1.3 Logging Framework | completed | S | 1.1 |
+| 1.4 CLI Framework | completed | M | 1.1, 1.3 |
+| 1.5 SQLite Initialization | completed | M | 1.2 |
 
 **Total Size:** 1M + 2S = ~8 days
 

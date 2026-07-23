@@ -50,10 +50,10 @@ func (d *Database) Connect() error {
 	}
 
 	// Configure connection settings
-	db.SetMaxOpenConns(25)                     // Maximum open connections
-	db.SetMaxIdleConns(25)                     // Maximum idle connections
-	db.SetConnMaxLifetime(5 * time.Minute)    // Connection lifetime
-	db.SetConnMaxIdleTime(1 * time.Minute)    // Idle connection timeout
+	db.SetMaxOpenConns(25)                 // Maximum open connections
+	db.SetMaxIdleConns(25)                 // Maximum idle connections
+	db.SetConnMaxLifetime(5 * time.Minute) // Connection lifetime
+	db.SetConnMaxIdleTime(1 * time.Minute) // Idle connection timeout
 
 	// Enable WAL mode for better concurrency
 	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {

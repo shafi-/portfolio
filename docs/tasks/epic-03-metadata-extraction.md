@@ -29,6 +29,7 @@ As the Portfolio Engine, I want to extract Git repository metadata so that users
 - No commits → git_head is NULL, commit_count is 0
 - Bare repo → limited metadata available
 - Detached HEAD → still record commit SHA
+- Local-only repo (no remote) → default_branch from local HEAD ref
 
 ---
 
@@ -78,7 +79,7 @@ As the Portfolio Engine, I want to detect frameworks so that users can identify 
 As the Portfolio Engine, I want to extract dependency names so that users can see project relationships.
 
 **Acceptance Criteria:**
-- Parses package manager files (package.json, go.mod, requirements.txt, Cargo.toml)
+- Parses package manager files: package.json, go.mod, requirements.txt/pyproject.toml, Cargo.toml, Gemfile, pom.xml/build.gradle
 - Produces dependency_summary (top 10 direct dependencies)
 - Handles different package managers per project type
 - Stores raw dependency list for future relationship analysis

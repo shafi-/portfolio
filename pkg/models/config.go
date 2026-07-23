@@ -7,9 +7,9 @@ import (
 
 // Config represents the complete Portfolio configuration
 type Config struct {
-	General    GeneralConfig   `toml:"general"`
-	Discovery  DiscoveryConfig `toml:"discovery"`
-	Logging    LoggingConfig   `toml:"logging"`
+	General   GeneralConfig   `toml:"general"`
+	Discovery DiscoveryConfig `toml:"discovery"`
+	Logging   LoggingConfig   `toml:"logging"`
 }
 
 // GeneralConfig contains system-wide configuration

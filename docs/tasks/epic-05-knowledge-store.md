@@ -19,7 +19,7 @@ Implement repository layer, migrations system, and search indexes for the SQLite
 As the Portfolio Engine, I want a repository abstraction so that database operations are maintainable.
 
 **Acceptance Criteria:**
-- Repository interface for: projects, metadata, documents, analyses, technologies, relationships
+- Repository interface for: projects, metadata, documents, analyses, features, technologies, relationships, configuration
 - SQL generation or ORM appropriate for Go
 - Transaction support for multi-table operations
 - Proper connection pooling
@@ -36,10 +36,11 @@ As the Portfolio Engine, I want a repository abstraction so that database operat
 As the Portfolio Engine, I want schema migrations so that database can evolve.
 
 **Acceptance Criteria:**
-- Migration table tracking applied versions
+- Migration table tracking applied versions with checksum of migration content
 - Up and down migrations
 - Migration files in structured location
 - Automatic migration on startup
+- Duplicate version detection causes fail-fast startup
 
 ---
 
@@ -53,7 +54,7 @@ As the Portfolio Engine, I want schema migrations so that database can evolve.
 As the Portfolio Engine, I want optimized search indexes so that queries are fast.
 
 **Acceptance Criteria:**
-- Indexes on: project.name, metadata.language_summary, metadata.framework_summary
+- Indexes on: project.name, metadata.language_summary, metadata.framework_summary, documents.kind
 - FTS index on document.content
 - Query performance: <100ms for typical searches
 - Index maintenance on document updates

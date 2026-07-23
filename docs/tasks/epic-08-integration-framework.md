@@ -5,7 +5,7 @@
 
 ## Overview
 
-Implement integration abstraction, installation framework, validation, and upgrade mechanism to support multiple AI agent integrations.
+Implement integration abstraction, installation framework, validation, upgrade mechanism, and removal/uninstall to support multiple AI agent integrations.
 
 ---
 
@@ -80,6 +80,26 @@ As an integration, I want to upgrade itself so that it stays compatible with eng
 
 ---
 
+---
+
+## Story 8.5: Removal/Uninstall
+
+**Status:** todo
+**Size:** S
+**Blocked by:** 8.4
+
+**User Story:**
+As a user, I want to remove an integration so that unused agent integrations don't clutter my setup.
+
+**Acceptance Criteria:**
+- CLI command: `portfolio integration remove <name>`
+- Removes integration metadata and artifacts
+- Unregisters MCP server configuration for the integration
+- Warns if integration is in active use
+- Idempotent — removing an already-removed integration is a no-op
+
+---
+
 ## Epic Status Summary
 
 | Story | Status | Size | Blocked By |
@@ -88,7 +108,8 @@ As an integration, I want to upgrade itself so that it stays compatible with eng
 | 8.2 Installation Framework | todo | M | 8.1 |
 | 8.3 Validation | todo | S | 8.2 |
 | 8.4 Upgrade Mechanism | todo | M | 8.3 |
+| 8.5 Removal/Uninstall | todo | S | 8.4 |
 
-**Total Size:** 3M + 1S = ~11 days
+**Total Size:** 3M + 2S = ~12 days
 
 **Can Start:** Story 8.1 (after Epic 7 complete)

@@ -2,12 +2,12 @@ package models
 
 // Project represents a discovered project
 type Project struct {
-	ID             string    `json:"id"`
-	Name           string    `json:"name"`
-	RootPath       string    `json:"root_path"`
-	RepositoryType string    `json:"repository_type"`
-	DiscoveredAt   string    `json:"discovered_at"`
-	UpdatedAt      string    `json:"updated_at"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	RootPath       string `json:"root_path"`
+	RepositoryType string `json:"repository_type"`
+	DiscoveredAt   string `json:"discovered_at"`
+	UpdatedAt      string `json:"updated_at"`
 }
 
 // Metadata represents project metadata

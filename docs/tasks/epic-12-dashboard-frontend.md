@@ -23,7 +23,7 @@ As a user, I want a portfolio overview so that I can see my entire software port
 - Technology summary chart
 - Activity timeline (recent modifications)
 - Links to project list and detail pages
-- Updates automatically (refresh, no live polling)
+- Manual refresh only (no auto-refresh or polling)
 
 **Technical Context:**
 - Per PlatformSpecification.md and UXGuidelines.md
@@ -60,7 +60,7 @@ As a user, I want a project detail page so that I can see everything about a spe
 
 **Acceptance Criteria:**
 - Sections: Metadata, Documentation, Analysis (if available), Relationships
-- Metadata: git info, languages, frameworks, dependencies, statistics
+- Metadata: git info, languages, frameworks, dependencies
 - Documentation: list of indexed docs with content preview
 - Analysis: summary, purpose, architecture, features (if analyzed)
 - Relationships: links to related projects

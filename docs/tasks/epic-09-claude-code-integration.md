@@ -5,7 +5,7 @@
 
 ## Overview
 
-Implement Claude Code integration including MCP server installation, Portfolio skill installation, verification, and upgrade capabilities.
+Implement Claude Code integration including MCP server installation, Portfolio skill installation, verification, upgrade, and uninstall capabilities.
 
 ---
 
@@ -77,6 +77,26 @@ As a user, I want to update the integration so that it stays compatible with new
 
 ---
 
+---
+
+## Story 9.5: Uninstall Integration
+
+**Status:** todo
+**Size:** S
+**Blocked by:** 9.4
+
+**User Story:**
+As a user, I want to remove the Claude Code integration so that my Portfolio setup stays clean.
+
+**Acceptance Criteria:**
+- `portfolio uninstall claude` command
+- Removes MCP server registration from Claude Code config
+- Removes Portfolio skill file
+- Preserves project data (uninstall is agent-only, not portfolio-wide)
+- Idempotent — re-running after removal reports "not installed"
+
+---
+
 ## Epic Status Summary
 
 | Story | Status | Size | Blocked By |
@@ -85,7 +105,8 @@ As a user, I want to update the integration so that it stays compatible with new
 | 9.2 Install Portfolio Skill | todo | M | 9.1 |
 | 9.3 Verify Integration | todo | S | 9.2 |
 | 9.4 Update Integration | todo | M | 8.4 |
+| 9.5 Uninstall Integration | todo | S | 9.4 |
 
-**Total Size:** 3M + 1S = ~11 days
+**Total Size:** 3M + 2S = ~12 days
 
 **Can Start:** Story 9.1 (after 8.2 complete)

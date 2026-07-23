@@ -5,7 +5,7 @@
 
 ## Overview
 
-Implement dashboard backend including asset serving, API integration, and search endpoints to support the read-only dashboard frontend.
+Implement dashboard backend including asset serving, API integration, search endpoints, and service endpoints to support the read-only dashboard frontend.
 
 ---
 
@@ -60,6 +60,25 @@ As the dashboard, I want rich search so that users can find anything in their po
 
 ---
 
+---
+
+## Story 11.4: Service Endpoints
+
+**Status:** todo
+**Size:** S
+**Blocked by:** 11.2
+
+**User Story:**
+As the dashboard, I want configuration and health endpoints so that I can display engine settings and monitor status.
+
+**Acceptance Criteria:**
+- GET /configuration returns current Portfolio configuration as JSON
+- PATCH /configuration accepts partial updates with validation
+- GET /health returns 200 with uptime and DB connectivity status
+- Invalid PATCH payload returns 400 with validation error details
+
+---
+
 ## Epic Status Summary
 
 | Story | Status | Size | Blocked By |
@@ -67,7 +86,8 @@ As the dashboard, I want rich search so that users can find anything in their po
 | 11.1 Asset Serving | todo | S | Epic 6 |
 | 11.2 Dashboard API Integration | todo | M | Epic 6 |
 | 11.3 Search Endpoints | todo | M | 6.3 |
+| 11.4 Service Endpoints | todo | S | 11.2 |
 
-**Total Size:** 1S + 2M = ~7 days
+**Total Size:** 2S + 2M = ~8 days
 
 **Can Start:** Story 11.1 (after Epic 6 complete)

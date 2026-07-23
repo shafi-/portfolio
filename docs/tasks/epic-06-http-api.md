@@ -5,7 +5,7 @@
 
 ## Overview
 
-Implement RESTful HTTP API endpoints for health, projects, search, configuration, and statistics to serve the dashboard.
+Implement RESTful HTTP API endpoints for health, projects, search, configuration, statistics, and relationships to serve the dashboard.
 
 ---
 
@@ -104,6 +104,25 @@ As the dashboard, I want portfolio statistics so that it can display overview da
 
 ---
 
+---
+
+## Story 6.6: Relationships API
+
+**Status:** todo
+**Size:** S
+**Blocked by:** 6.2, Epic 13
+
+**User Story:**
+As the dashboard, I want to retrieve project relationships so that users can see connections between projects.
+
+**Acceptance Criteria:**
+- GET /projects/{id}/relationships → array of relationships for the project
+- Each relationship includes: source_project, target_project, type, description, confidence
+- Returns 404 if project does not exist
+- Returns empty array if no relationships exist
+
+---
+
 ## Epic Status Summary
 
 | Story | Status | Size | Blocked By |
@@ -113,7 +132,8 @@ As the dashboard, I want portfolio statistics so that it can display overview da
 | 6.3 Search API | todo | M | 6.2 |
 | 6.4 Configuration API | todo | S | 6.1 |
 | 6.5 Statistics API | todo | S | 6.2 |
+| 6.6 Relationships API | todo | S | 6.2, Epic 13 |
 
-**Total Size:** 1XS + 2M + 2S = ~7 days
+**Total Size:** 1XS + 2M + 3S = ~8 days
 
 **Can Start:** Story 6.1 (after 5.1 complete)

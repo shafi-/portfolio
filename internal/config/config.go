@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nerddevsltd/portfolio/pkg/models"
 	"github.com/BurntSushi/toml"
+	"github.com/nerddevsltd/portfolio/pkg/models"
 )
 
 // Loader handles configuration loading and saving

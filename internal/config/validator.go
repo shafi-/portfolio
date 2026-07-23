@@ -130,7 +130,7 @@ func (v *Validator) validateLoggingConfig(config *models.LoggingConfig) error {
 		return &ValidationError{
 			Message: fmt.Sprintf("logging.level must be one of: %s (got: %s)",
 				strings.Join(validLevels, ", "), config.Level),
-			Action:  "Use one of: DEBUG, INFO, WARN, ERROR",
+			Action: "Use one of: DEBUG, INFO, WARN, ERROR",
 		}
 	}
 

@@ -19,7 +19,7 @@ Index README files, docs/ directories, ADRs, CHANGELOG files, and implement full
 As the Portfolio Engine, I want to index README files so that users can search project documentation.
 
 **Acceptance Criteria:**
-- Finds README.md, README.rst, README.txt, readme.md (case-insensitive)
+- Finds README.md, README.rst, README.txt, README (case-insensitive in stem and extension)
 - Stores in documents table: project_id, path, kind="README", content, content_hash, indexed_at
 - Handles missing README (not an error)
 - Handles very large READMEs (>1MB)
@@ -41,6 +41,7 @@ As the Portfolio Engine, I want to index docs/ directories so that users have ac
 - Supports: .md, .rst, .txt, .adoc formats
 - Skips binary files
 - Handles projects without docs/ directory
+- Respects .gitignore — ignored files excluded from indexing
 
 ---
 
@@ -71,7 +72,7 @@ As the Portfolio Engine, I want to index Architecture Decision Records so that u
 As the Portfolio Engine, I want to index CHANGELOG files so that users can see project history.
 
 **Acceptance Criteria:**
-- Finds: CHANGELOG.md, CHANGES.md, HISTORY.md
+- Finds: CHANGELOG.md, CHANGES.md, HISTORY.md (case-insensitive)
 - Stores kind="CHANGELOG"
 - Handles missing CHANGELOG
 

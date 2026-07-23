@@ -8,7 +8,7 @@ import (
 // Config holds logging configuration
 type Config struct {
 	Level      string
-	Format     string // "json" or "console"
+	Format     string            // "json" or "console"
 	Components map[string]string // Component-specific log levels
 }
 

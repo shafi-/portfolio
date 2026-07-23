@@ -5,7 +5,7 @@
 
 ## Overview
 
-Implement MCP server with tools for discovery, search, analysis storage, and configuration to enable AI agent integration.
+Implement MCP server with tools for discovery, search, analysis storage, configuration, and relationships to enable AI agent integration.
 
 ---
 
@@ -100,6 +100,24 @@ As an AI agent, I want to read configuration so that I can understand Portfolio 
 
 ---
 
+---
+
+## Story 7.6: Relationship Tools
+
+**Status:** todo
+**Size:** S
+**Blocked by:** 7.1
+
+**User Story:**
+As an AI agent, I want to query project relationships so that I can understand connections between projects.
+
+**Acceptance Criteria:**
+- listRelationships(projectId) → return all relationships for a project
+- Returns empty list if no relationships exist
+- Each relationship includes: source_project, target_project, type, description, confidence
+
+---
+
 ## Epic Status Summary
 
 | Story | Status | Size | Blocked By |
@@ -109,7 +127,8 @@ As an AI agent, I want to read configuration so that I can understand Portfolio 
 | 7.3 Search Tools | todo | M | 7.1 |
 | 7.4 Analysis Storage Tools | todo | M | 7.1 |
 | 7.5 Configuration Tools | todo | S | 7.1 |
+| 7.6 Relationship Tools | todo | S | 7.1 |
 
-**Total Size:** 4M + 1S = ~14 days
+**Total Size:** 4M + 2S = ~15 days
 
 **Can Start:** Story 7.1 (after 6.2 complete)

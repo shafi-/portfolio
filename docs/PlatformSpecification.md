@@ -50,6 +50,10 @@ analyses
 - summary
 - purpose
 - architecture
+- maturity
+- strengths
+- weaknesses
+- reusable_components
 - notes
 - raw_json
 
@@ -139,6 +143,7 @@ GET /projects/{id}/analysis
 
 GET /search?q=
 
+GET /relationships
 GET /relationships/{projectId}
 
 GET /statistics

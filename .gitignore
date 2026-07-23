@@ -27,6 +27,24 @@ go.work.sum
 # env file
 .env
 
+# Context packs
+.context-pack/
+
+# Requirements
+.requirements/
+
+# Requirements reviews
+.requirements-review/
+
+# Test cases
+.test-cases/
+
+# Guidelines
+.guidelines/
+
+# Architecture
+.architecture/
+
 # Editor/IDE
 # .idea/
 # .vscode/
