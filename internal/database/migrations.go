@@ -26,7 +26,12 @@ func getMigrations() []migration {
 			up:      initialSchemaUp,
 			down:    initialSchemaDown,
 		},
-		// Future migrations will be added here
+		{
+			version: 2,
+			name:    "metadata_extraction",
+			up:      metadataExtractionUp,
+			down:    metadataExtractionDown,
+		},
 	}
 }
 
@@ -236,6 +241,27 @@ CREATE INDEX IF NOT EXISTS idx_analyses_project_id ON analyses(project_id);
 CREATE INDEX IF NOT EXISTS idx_features_analysis_id ON features(analysis_id);
 CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_project);
 CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_project);
+`
+
+const metadataExtractionUp = `
+ALTER TABLE metadata ADD COLUMN last_modified_at TIMESTAMP;
+ALTER TABLE metadata ADD COLUMN commit_count INTEGER DEFAULT 0;
+CREATE TABLE IF NOT EXISTS dependencies (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	manager TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	UNIQUE(project_id, name, manager)
+);
+CREATE INDEX IF NOT EXISTS idx_dependencies_project_id ON dependencies(project_id);
+CREATE INDEX IF NOT EXISTS idx_dependencies_name ON dependencies(name);
+`
+
+const metadataExtractionDown = `
+DROP INDEX IF EXISTS idx_dependencies_name;
+DROP INDEX IF EXISTS idx_dependencies_project_id;
+DROP TABLE IF EXISTS dependencies;
 `
 
 const initialSchemaDown = `
