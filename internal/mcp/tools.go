@@ -68,6 +68,10 @@ func (s *Server) analysisTools() []serverTool {
 				mcp.WithString("summary", mcp.Description("Analysis summary")),
 				mcp.WithString("purpose", mcp.Description("Project purpose")),
 				mcp.WithString("architecture", mcp.Description("Architecture description")),
+				mcp.WithString("maturity", mcp.Description("Project maturity level")),
+				mcp.WithString("strengths", mcp.Description("Project strengths")),
+				mcp.WithString("weaknesses", mcp.Description("Project weaknesses")),
+				mcp.WithString("reusable_components", mcp.Description("Reusable components")),
 				mcp.WithString("notes", mcp.Description("Additional notes")),
 				mcp.WithString("raw_json", mcp.Description("Raw analysis JSON")),
 			),
@@ -103,6 +107,16 @@ func (s *Server) relationshipTools() []serverTool {
 				mcp.WithString("project_id", mcp.Required(), mcp.Description("Project ID")),
 			),
 			Handler: s.handleListRelationships,
+		},
+		{
+			Tool: mcp.NewTool("storeRelationship",
+				mcp.WithString("source_project", mcp.Required(), mcp.Description("Source project ID")),
+				mcp.WithString("target_project", mcp.Required(), mcp.Description("Target project ID")),
+				mcp.WithString("type", mcp.Required(), mcp.Description("Relationship type: Similar, Evolution, Shared Feature, Shared Technology, Reuses Component")),
+				mcp.WithString("description", mcp.Description("Description of the relationship")),
+				mcp.WithNumber("confidence", mcp.Description("Confidence score (0-1)")),
+			),
+			Handler: s.handleStoreRelationship,
 		},
 	}
 }
@@ -316,18 +330,33 @@ func (s *Server) handleStoreAnalysis(ctx context.Context, req mcp.CallToolReques
 		}
 	}
 
+	rawJSON := getStringArg(args, "raw_json")
+	if rawJSON != "" {
+		if err := models.ValidateRawJSON(rawJSON); err != nil {
+			return mcp.NewToolResultErrorFromErr("invalid raw_json", err), nil
+		}
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
 	analysis := &models.Analysis{
-		ID:              uuid.New().String(),
-		ProjectID:       projectID,
-		Analyzer:        analyzer,
-		AnalyzedGitHead: gitHead,
-		AnalyzedAt:      now,
-		Summary:         getStringArg(args, "summary"),
-		Purpose:         getStringArg(args, "purpose"),
-		Architecture:    getStringArg(args, "architecture"),
-		Notes:           getStringArg(args, "notes"),
-		RawJSON:         getStringArg(args, "raw_json"),
+		ID:                 uuid.New().String(),
+		ProjectID:          projectID,
+		Analyzer:           analyzer,
+		AnalyzedGitHead:    gitHead,
+		AnalyzedAt:         now,
+		Summary:            getStringArg(args, "summary"),
+		Purpose:            getStringArg(args, "purpose"),
+		Architecture:       getStringArg(args, "architecture"),
+		Maturity:           getStringArg(args, "maturity"),
+		Strengths:          getStringArg(args, "strengths"),
+		Weaknesses:         getStringArg(args, "weaknesses"),
+		ReusableComponents: getStringArg(args, "reusable_components"),
+		Notes:              getStringArg(args, "notes"),
+		RawJSON:            rawJSON,
+	}
+
+	if err := models.ValidateAnalysis(analysis); err != nil {
+		return mcp.NewToolResultErrorFromErr("validation failed", err), nil
 	}
 
 	if err := s.analyses.CreateAnalysis(analysis); err != nil {
@@ -423,6 +452,58 @@ func (s *Server) handleListRelationships(ctx context.Context, req mcp.CallToolRe
 	}
 
 	return mcp.NewToolResultJSON(relationships)
+}
+
+func (s *Server) handleStoreRelationship(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	sourceProject, _ := args["source_project"].(string)
+	targetProject, _ := args["target_project"].(string)
+	relType, _ := args["type"].(string)
+
+	if sourceProject == "" || targetProject == "" || relType == "" {
+		return mcp.NewToolResultError("source_project, target_project, and type are required"), nil
+	}
+
+	sourceProj, err := s.projects.GetProject(sourceProject)
+	if err != nil || sourceProj == nil {
+		return mcp.NewToolResultError("source_project not found"), nil
+	}
+
+	targetProj, err := s.projects.GetProject(targetProject)
+	if err != nil || targetProj == nil {
+		return mcp.NewToolResultError("target_project not found"), nil
+	}
+
+	confidence := 0.5
+	if cf, ok := args["confidence"].(float64); ok {
+		confidence = cf
+	}
+
+	relationship := &models.Relationship{
+		ID:            uuid.New().String(),
+		SourceProject: sourceProject,
+		TargetProject: targetProject,
+		Type:          relType,
+		Description:   getStringArg(args, "description"),
+		Confidence:    confidence,
+	}
+
+	if err := models.ValidateRelationship(relationship); err != nil {
+		return mcp.NewToolResultErrorFromErr("validation failed", err), nil
+	}
+
+	if err := s.relationships.CreateRelationship(relationship); err != nil {
+		return mcp.NewToolResultErrorFromErr("failed to store relationship", err), nil
+	}
+
+	result := map[string]interface{}{
+		"id":             relationship.ID,
+		"source_project": relationship.SourceProject,
+		"target_project": relationship.TargetProject,
+		"type":           relationship.Type,
+	}
+	return mcp.NewToolResultJSON(result)
 }
 
 func getStringArg(args map[string]interface{}, key string) string {

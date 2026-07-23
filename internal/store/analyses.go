@@ -28,13 +28,13 @@ func (s *AnalysisStore) CreateAnalysisTx(tx *sql.Tx, a *models.Analysis) error {
 
 func (s *AnalysisStore) create(q Querier, a *models.Analysis) error {
 	query := `
-		INSERT INTO analyses (id, project_id, analyzer, analyzed_git_head, analyzed_at,
-		                      summary, purpose, architecture, notes, raw_json)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO analyses (id, project_id, analyzer, analyzed_git_head, analyzed_at,
+		                      summary, purpose, architecture, maturity, strengths, weaknesses, reusable_components, notes, raw_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := q.ExecContext(context.Background(), query,
 		a.ID, a.ProjectID, a.Analyzer, a.AnalyzedGitHead, a.AnalyzedAt,
-		a.Summary, a.Purpose, a.Architecture, a.Notes, a.RawJSON,
+		a.Summary, a.Purpose, a.Architecture, a.Maturity, a.Strengths, a.Weaknesses, a.ReusableComponents, a.Notes, a.RawJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create analysis: %w", err)
@@ -45,13 +45,13 @@ func (s *AnalysisStore) create(q Querier, a *models.Analysis) error {
 func (s *AnalysisStore) GetAnalysis(id string) (*models.Analysis, error) {
 	query := `
 		SELECT id, project_id, analyzer, analyzed_git_head, analyzed_at,
-		       summary, purpose, architecture, notes, raw_json
+		       summary, purpose, architecture, maturity, strengths, weaknesses, reusable_components, notes, raw_json
 		FROM analyses WHERE id = ?
 	`
 	a := &models.Analysis{}
 	err := s.db.QueryRow(query, id).Scan(
 		&a.ID, &a.ProjectID, &a.Analyzer, &a.AnalyzedGitHead, &a.AnalyzedAt,
-		&a.Summary, &a.Purpose, &a.Architecture, &a.Notes, &a.RawJSON,
+		&a.Summary, &a.Purpose, &a.Architecture, &a.Maturity, &a.Strengths, &a.Weaknesses, &a.ReusableComponents, &a.Notes, &a.RawJSON,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -65,7 +65,7 @@ func (s *AnalysisStore) GetAnalysis(id string) (*models.Analysis, error) {
 func (s *AnalysisStore) ListAnalyses(projectID string) ([]*models.Analysis, error) {
 	query := `
 		SELECT id, project_id, analyzer, analyzed_git_head, analyzed_at,
-		       summary, purpose, architecture, notes, raw_json
+		       summary, purpose, architecture, maturity, strengths, weaknesses, reusable_components, notes, raw_json
 		FROM analyses WHERE project_id = ? ORDER BY analyzed_at DESC
 	`
 	rows, err := s.db.Query(query, projectID)
@@ -79,7 +79,7 @@ func (s *AnalysisStore) ListAnalyses(projectID string) ([]*models.Analysis, erro
 		a := &models.Analysis{}
 		if err := rows.Scan(
 			&a.ID, &a.ProjectID, &a.Analyzer, &a.AnalyzedGitHead, &a.AnalyzedAt,
-			&a.Summary, &a.Purpose, &a.Architecture, &a.Notes, &a.RawJSON,
+			&a.Summary, &a.Purpose, &a.Architecture, &a.Maturity, &a.Strengths, &a.Weaknesses, &a.ReusableComponents, &a.Notes, &a.RawJSON,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan analysis row: %w", err)
 		}
@@ -102,4 +102,24 @@ func (s *AnalysisStore) DeleteAllForProject(projectID string) error {
 		return fmt.Errorf("failed to delete analyses for project: %w", err)
 	}
 	return nil
+}
+
+func (s *AnalysisStore) GetAnalysisByProjectAndAnalyzer(projectID, analyzer string) (*models.Analysis, error) {
+	query := `
+		SELECT id, project_id, analyzer, analyzed_git_head, analyzed_at,
+		       summary, purpose, architecture, maturity, strengths, weaknesses, reusable_components, notes, raw_json
+		FROM analyses WHERE project_id = ? AND analyzer = ?
+	`
+	a := &models.Analysis{}
+	err := s.db.QueryRow(query, projectID, analyzer).Scan(
+		&a.ID, &a.ProjectID, &a.Analyzer, &a.AnalyzedGitHead, &a.AnalyzedAt,
+		&a.Summary, &a.Purpose, &a.Architecture, &a.Maturity, &a.Strengths, &a.Weaknesses, &a.ReusableComponents, &a.Notes, &a.RawJSON,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get analysis: %w", err)
+	}
+	return a, nil
 }

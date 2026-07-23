@@ -9,14 +9,15 @@ import (
 )
 
 type projectResponse struct {
-	ID             string             `json:"id"`
-	Name           string             `json:"name"`
-	RootPath       string             `json:"root_path"`
-	RepositoryType string             `json:"repository_type"`
-	DiscoveredAt   string             `json:"discovered_at"`
-	UpdatedAt      string             `json:"updated_at"`
-	Metadata       *models.Metadata   `json:"metadata,omitempty"`
-	Documents      []*models.Document `json:"documents,omitempty"`
+	ID             string              `json:"id"`
+	Name           string              `json:"name"`
+	RootPath       string              `json:"root_path"`
+	RepositoryType string              `json:"repository_type"`
+	DiscoveredAt   string              `json:"discovered_at"`
+	UpdatedAt      string              `json:"updated_at"`
+	Metadata       *models.Metadata     `json:"metadata,omitempty"`
+	Documents      []*models.Document   `json:"documents,omitempty"`
+	Analyses       []*models.Analysis   `json:"analyses,omitempty"`
 }
 
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +115,7 @@ func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 
 	meta, _ := s.metadata.GetMetadata(id)
 	docs, _ := s.documents.ListDocuments(id)
+	analyses, _ := s.analyses.ListAnalyses(id)
 
 	resp := projectResponse{
 		ID:             project.ID,
@@ -124,6 +126,7 @@ func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:      project.UpdatedAt,
 		Metadata:       meta,
 		Documents:      docs,
+		Analyses:       analyses,
 	}
 
 	s.writeJSON(w, http.StatusOK, resp)

@@ -49,6 +49,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /projects", s.handleListProjects)
 	mux.HandleFunc("GET /projects/{id}", s.handleGetProject)
+	mux.HandleFunc("GET /projects/{id}/analysis", s.handleGetAnalysis)
 
 	mux.HandleFunc("GET /search", s.handleSearch)
 
@@ -58,6 +59,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /statistics", s.handleStatistics)
 
 	mux.HandleFunc("GET /relationships/{id}", s.handleListRelationships)
+	mux.HandleFunc("POST /relationships/{id}", s.handleStoreRelationship)
 
 	return withCORS(withLogger(mux, s.logger))
 }

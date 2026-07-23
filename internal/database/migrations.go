@@ -51,6 +51,12 @@ func getMigrations() []migration {
 			up:      searchIndexesUp,
 			down:    searchIndexesDown,
 		},
+		{
+			version: 6,
+			name:    "ai_analysis_schema",
+			up:      aiAnalysisSchemaUp,
+			down:    aiAnalysisSchemaDown,
+		},
 	}
 }
 
@@ -520,6 +526,22 @@ DROP INDEX IF EXISTS idx_documents_kind;
 DROP INDEX IF EXISTS idx_metadata_framework;
 DROP INDEX IF EXISTS idx_metadata_language;
 DROP INDEX IF EXISTS idx_projects_name;
+`
+
+const aiAnalysisSchemaUp = `
+ALTER TABLE analyses ADD COLUMN maturity TEXT;
+ALTER TABLE analyses ADD COLUMN strengths TEXT;
+ALTER TABLE analyses ADD COLUMN weaknesses TEXT;
+ALTER TABLE analyses ADD COLUMN reusable_components TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_analyses_project_analyzer ON analyses(project_id, analyzer);
+`
+
+const aiAnalysisSchemaDown = `
+DROP INDEX IF EXISTS idx_analyses_project_analyzer;
+ALTER TABLE analyses DROP COLUMN IF EXISTS reusable_components;
+ALTER TABLE analyses DROP COLUMN IF EXISTS weaknesses;
+ALTER TABLE analyses DROP COLUMN IF EXISTS strengths;
+ALTER TABLE analyses DROP COLUMN IF EXISTS maturity;
 `
 
 const initialSchemaDown = `
