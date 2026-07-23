@@ -1,0 +1,60 @@
+name: Performance Baseline
+
+on:
+  push:
+    branches: [ main, develop, epic/** ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Run Benchmark Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run benchmark tests
+        run: |
+          echo "Running benchmark tests with memory allocation statistics"
+          go test -bench=. -benchmem -benchtime=10s ./... > benchmark.txt
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark.txt
+          retention-days: 30
+
+      - name: Display benchmark summary
+        run: |
+          echo "=== Benchmark Summary ==="
+          cat benchmark.txt
+          echo ""
+          echo "Benchmark results saved as artifact"
+
+      - name: Check for performance regressions
+        run: |
+          echo "Storing baseline performance metrics"
+          if [ -f benchmark.txt ]; then
+            echo "Benchmark results:"
+            cat benchmark.txt
+            echo ""
+            echo "Baseline established for future comparisons"
+          else
+            echo "No benchmark results found"
+            exit 1
+          fi
