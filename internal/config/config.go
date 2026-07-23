@@ -30,7 +30,6 @@ func (l *Loader) Load() (*models.Config, error) {
 		defaultConfig := models.GetDefaultConfig()
 		if err := l.Save(defaultConfig); err != nil {
 			return nil, &ConfigError{
-				Code:    "CONFIG_CREATE_FAILED",
 				Message: fmt.Sprintf("Cannot create default config: %s", l.configPath),
 				Cause:   err,
 			}
@@ -42,7 +41,6 @@ func (l *Loader) Load() (*models.Config, error) {
 	data, err := os.ReadFile(l.configPath)
 	if err != nil {
 		return nil, &ConfigError{
-			Code:    "CONFIG_NOT_READABLE",
 			Message: fmt.Sprintf("Cannot read config file: %s", l.configPath),
 			Cause:   err,
 		}
@@ -52,7 +50,6 @@ func (l *Loader) Load() (*models.Config, error) {
 	config := models.GetDefaultConfig()
 	if err := toml.Unmarshal(data, config); err != nil {
 		return nil, &ConfigError{
-			Code:    "CONFIG_INVALID_TOML",
 			Message: fmt.Sprintf("Invalid TOML syntax in config file: %s", l.configPath),
 			Cause:   err,
 		}
@@ -85,7 +82,6 @@ func (l *Loader) Save(config *models.Config) error {
 
 // ConfigError represents a configuration error with context
 type ConfigError struct {
-	Code    string
 	Message string
 	Cause   error
 }
@@ -100,4 +96,16 @@ func (e *ConfigError) Error() string {
 // Unwrap returns the underlying cause
 func (e *ConfigError) Unwrap() error {
 	return e.Cause
+}
+
+// EnsureConfigDir ensures the configuration directory exists
+func EnsureConfigDir() error {
+	configPath := models.GetConfigPath()
+	configDir := filepath.Dir(configPath)
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	return nil
 }

@@ -111,7 +111,6 @@ func TestStory12Integration(t *testing.T) {
 	// AC-08: Configuration Validation Functional
 	t.Run("AC08_ConfigurationValidation", func(t *testing.T) {
 		tempDir := t.TempDir()
-		validator := NewValidator()
 
 		// Test validation rules enforceable
 		validConfig := &models.Config{
@@ -126,7 +125,7 @@ func TestStory12Integration(t *testing.T) {
 			},
 		}
 
-		if err := validator.Validate(validConfig); err != nil {
+		if err := Validate(validConfig); err != nil {
 			t.Errorf("Valid config should pass validation: %v", err)
 		}
 
@@ -143,7 +142,7 @@ func TestStory12Integration(t *testing.T) {
 			},
 		}
 
-		if err := validator.Validate(invalidConfig); err == nil {
+		if err := Validate(invalidConfig); err == nil {
 			t.Error("Invalid config should fail validation")
 		}
 	})
@@ -205,10 +204,9 @@ func TestStory12Integration(t *testing.T) {
 			},
 		}
 
-		validator := NewValidator()
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				err := validator.Validate(tc.config)
+				err := Validate(tc.config)
 				if tc.expectErr && err == nil {
 					t.Error("Expected error but got none")
 				}
@@ -231,8 +229,12 @@ func TestStory12Integration(t *testing.T) {
 		configPath := filepath.Join(tempDir, "config.toml")
 
 		// Test creation
-		manager := NewManager(configPath)
-		if err := manager.CreateDefaultConfig(); err != nil {
+		if err := EnsureConfigDir(); err != nil {
+			t.Errorf("Failed to create config directory: %v", err)
+		}
+
+		loader := NewLoader(configPath)
+		if err := loader.Save(models.GetDefaultConfig()); err != nil {
 			t.Errorf("Failed to create default config: %v", err)
 		}
 
@@ -261,7 +263,7 @@ func TestStory12Integration(t *testing.T) {
 			},
 		}
 
-		loader := NewLoader(configPath)
+		loader = NewLoader(configPath)
 		if err := loader.Save(testConfig); err != nil {
 			t.Errorf("Failed to update config: %v", err)
 		}
@@ -304,8 +306,8 @@ func TestConfigurationIntegrationPoints(t *testing.T) {
 		}
 
 		// Test manager interface
-		manager := NewManager(configPath)
-		config, err := manager.LoadConfig()
+		loader = NewLoader(configPath)
+		config, err := loader.Load()
 		if err != nil {
 			t.Errorf("Failed to load config via manager: %v", err)
 		}

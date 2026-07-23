@@ -128,16 +128,19 @@ func TestMigrationSystem(t *testing.T) {
 		t.Fatalf("Migrations failed: %v", err)
 	}
 
-	// Verify migrations table exists
-	result, err := db.ExecuteQuery(
-		"SELECT * FROM schema_migrations ORDER BY version",
-	)
-	if err != nil {
-		t.Errorf("Failed to query migrations table: %v", err)
+	// Verify database is accessible and working
+	if err := db.Ping(); err != nil {
+		t.Errorf("Database not accessible after migrations: %v", err)
 	}
 
-	if len(result.Rows) == 0 {
-		t.Error("No migrations recorded")
+	// Check schema version is set
+	version, err := db.GetSchemaVersion()
+	if err != nil {
+		t.Errorf("Failed to get schema version: %v", err)
+	}
+
+	if version == 0 {
+		t.Error("Schema version should be > 0 after migrations")
 	}
 }
 

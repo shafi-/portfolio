@@ -17,12 +17,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := logging.InitializeGlobalLogger(logConfig.Level, logConfig.Format); err != nil {
+	logger, err := logging.NewLogger(logConfig.Level, logConfig.Format)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
 		os.Exit(1)
 	}
 
-	logger := logging.GetGlobalLogger()
+	logging.SetGlobalLogger(logger)
 	logger.Info("Portfolio Engine starting",
 		models.Field{Key: "version", Value: "0.1.0"},
 	)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -16,12 +15,10 @@ import (
 type Logger struct {
 	zapLogger *zap.Logger
 	component string
-	once      sync.Once
 }
 
 // global logger instance
 var globalLogger *Logger
-var globalMutex sync.Mutex
 
 // NewLogger creates a new structured logger
 func NewLogger(level string, format string) (*Logger, error) {
@@ -112,25 +109,8 @@ func parseLogLevel(level string) (zapcore.Level, error) {
 	}
 }
 
-// InitializeGlobalLogger creates the global logger instance
-func InitializeGlobalLogger(level string, format string) error {
-	globalMutex.Lock()
-	defer globalMutex.Unlock()
-
-	logger, err := NewLogger(level, format)
-	if err != nil {
-		return err
-	}
-
-	globalLogger = logger
-	return nil
-}
-
 // GetGlobalLogger returns the global logger instance
 func GetGlobalLogger() *Logger {
-	globalMutex.Lock()
-	defer globalMutex.Unlock()
-
 	if globalLogger == nil {
 		// Initialize with defaults if not already initialized
 		logger, _ := NewLogger("INFO", "console")
@@ -140,12 +120,16 @@ func GetGlobalLogger() *Logger {
 	return globalLogger
 }
 
+// SetGlobalLogger sets the global logger instance
+func SetGlobalLogger(logger *Logger) {
+	globalLogger = logger
+}
+
 // With creates a new logger with a component tag
 func (l *Logger) With(component string) *Logger {
 	return &Logger{
 		zapLogger: l.zapLogger,
 		component: component,
-		once:      sync.Once{}, // New instance, not copied
 	}
 }
 

@@ -89,13 +89,13 @@ func runInit(cmd *cobra.Command, args []string) {
 		},
 	}
 
-	manager := config.NewManager("")
-	if err := manager.CreateDefaultConfig(); err != nil {
-		handleInitError(err, "Failed to create configuration")
+	// Ensure config directory exists
+	if err := config.EnsureConfigDir(); err != nil {
+		handleInitError(err, "Failed to create config directory")
 		return
 	}
 
-	// Update config with user values
+	// Save configuration
 	loader := config.NewLoader("")
 	if err := loader.Save(cfg); err != nil {
 		handleInitError(err, "Failed to save configuration")

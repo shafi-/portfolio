@@ -76,10 +76,18 @@ func checkConfiguration(logger *logging.Logger) string {
 	}
 
 	// Try to load configuration
-	manager := config.NewManager(configPath)
-	cfg, err := manager.LoadConfig()
+	loader := config.NewLoader(configPath)
+	cfg, err := loader.Load()
 	if err != nil {
 		logger.Error("Failed to load configuration",
+			models.Field{Key: "error", Value: err},
+		)
+		return "✗ Invalid (run 'portfolio doctor')"
+	}
+
+	// Validate configuration
+	if err := config.Validate(cfg); err != nil {
+		logger.Error("Configuration validation failed",
 			models.Field{Key: "error", Value: err},
 		)
 		return "✗ Invalid (run 'portfolio doctor')"
@@ -95,8 +103,8 @@ func checkConfiguration(logger *logging.Logger) string {
 
 func checkDatabaseStatus(logger *logging.Logger) (string, int, time.Time) {
 	// Load configuration to get database path
-	manager := config.NewManager("")
-	cfg, err := manager.LoadConfig()
+	loader := config.NewLoader("")
+	cfg, err := loader.Load()
 	if err != nil {
 		logger.Error("Failed to load configuration for database check",
 			models.Field{Key: "error", Value: err},

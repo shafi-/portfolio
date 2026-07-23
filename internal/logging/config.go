@@ -7,9 +7,8 @@ import (
 
 // Config holds logging configuration
 type Config struct {
-	Level      string
-	Format     string            // "json" or "console"
-	Components map[string]string // Component-specific log levels
+	Level  string
+	Format string // "json" or "console"
 }
 
 // LoadConfigFromEnv loads logging configuration from environment
@@ -62,12 +61,4 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
-}
-
-// GetEffectiveLevel returns the effective log level for a component
-func (c *Config) GetEffectiveLevel(component string) string {
-	if componentLevel, exists := c.Components[component]; exists {
-		return componentLevel
-	}
-	return c.Level
 }

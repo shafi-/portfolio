@@ -107,10 +107,17 @@ func checkConfigFile(logger *logging.Logger) bool {
 	}
 
 	// Check TOML validity
-	manager := config.NewManager(configPath)
-	cfg, err := manager.LoadConfig()
+	loader := config.NewLoader(configPath)
+	cfg, err := loader.Load()
 	if err != nil {
 		fmt.Printf("  ✗ Config file invalid: %s\n", configPath)
+		fmt.Printf("    Error: %v\n", err)
+		return false
+	}
+
+	// Validate configuration
+	if err := config.Validate(cfg); err != nil {
+		fmt.Printf("  ✗ Config validation failed: %s\n", configPath)
 		fmt.Printf("    Error: %v\n", err)
 		return false
 	}
@@ -126,8 +133,8 @@ func checkDatabase(logger *logging.Logger) bool {
 	fmt.Println("\nDatabase Check:")
 
 	// Load configuration to get database path
-	manager := config.NewManager("")
-	cfg, err := manager.LoadConfig()
+	loader := config.NewLoader("")
+	cfg, err := loader.Load()
 	if err != nil {
 		fmt.Printf("  ✗ Cannot load configuration to get database path\n")
 		return false
@@ -175,8 +182,8 @@ func checkDatabase(logger *logging.Logger) bool {
 func checkProjectRoots(logger *logging.Logger) bool {
 	fmt.Println("\nProject Roots Check:")
 
-	manager := config.NewManager("")
-	cfg, err := manager.LoadConfig()
+	loader := config.NewLoader("")
+	cfg, err := loader.Load()
 	if err != nil {
 		fmt.Printf("  ✗ Cannot load configuration to check project roots\n")
 		return false
