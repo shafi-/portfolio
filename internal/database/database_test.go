@@ -92,7 +92,7 @@ func TestDatabaseInitialization(t *testing.T) {
 		t.Errorf("Failed to get schema version: %v", err)
 	}
 
-	if version != 1 {
+	if version != 2 {
 		t.Errorf("Expected schema version 1, got %d", version)
 	}
 
