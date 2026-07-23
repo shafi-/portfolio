@@ -70,16 +70,10 @@ func (r *IndexRunner) Run(ctx context.Context, projectID, rootPath string) (*Ind
 	defer r.mu.Unlock(projectID)
 
 	start := time.Now()
-	result := &IndexResult{
-		ProjectID: projectID,
-	}
-	stats := &IndexStats{
-		StartTime: start.Unix(),
-	}
+	result := &IndexResult{ProjectID: projectID}
+	stats := &IndexStats{StartTime: start.Unix()}
 
-	var allDocs []DocFile
-
-	allDocs = append(allDocs, r.discoverer.FindREADME(rootPath)...)
+	allDocs := r.discoverer.FindREADME(rootPath)
 	allDocs = append(allDocs, r.discoverer.FindDocs(rootPath)...)
 	allDocs = append(allDocs, r.discoverer.FindADRs(rootPath)...)
 	allDocs = append(allDocs, r.discoverer.FindCHANGELOG(rootPath)...)
@@ -88,24 +82,28 @@ func (r *IndexRunner) Run(ctx context.Context, projectID, rootPath string) (*Ind
 		r.logger.Debug("no documentation files found", zap.String("project", projectID))
 	}
 
+	tx, err := r.docStore.StoreDB().Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	var validPaths []string
 
 	for _, doc := range allDocs {
 		content, hash, err := r.reader.Read(doc.AbsPath)
 		if err != nil {
 			result.Errors = append(result.Errors, IndexError{
-				Code:    "READ_FAILED",
-				Message: fmt.Sprintf("%s: %v", doc.RelPath, err),
+				Code: "READ_FAILED", Message: fmt.Sprintf("%s: %v", doc.RelPath, err),
 			})
 			stats.SkippedFiles++
 			continue
 		}
 
-		action, err := r.dedup.Resolve(projectID, doc.RelPath, hash)
+		action, err := r.dedup.ResolveTx(tx, projectID, doc.RelPath, hash)
 		if err != nil {
 			result.Errors = append(result.Errors, IndexError{
-				Code:    "DEDUP_FAILED",
-				Message: fmt.Sprintf("%s: %v", doc.RelPath, err),
+				Code: "DEDUP_FAILED", Message: fmt.Sprintf("%s: %v", doc.RelPath, err),
 			})
 			continue
 		}
@@ -126,10 +124,9 @@ func (r *IndexRunner) Run(ctx context.Context, projectID, rootPath string) (*Ind
 			IndexedAt:   time.Now().UTC().Format(time.RFC3339),
 		}
 
-		if err := r.docStore.UpsertDocument(docModel); err != nil {
+		if err := r.docStore.UpsertDocumentTx(tx, docModel); err != nil {
 			result.Errors = append(result.Errors, IndexError{
-				Code:    "UPSERT_FAILED",
-				Message: fmt.Sprintf("%s: %v", doc.RelPath, err),
+				Code: "UPSERT_FAILED", Message: fmt.Sprintf("%s: %v", doc.RelPath, err),
 			})
 			continue
 		}
@@ -139,18 +136,20 @@ func (r *IndexRunner) Run(ctx context.Context, projectID, rootPath string) (*Ind
 		validPaths = append(validPaths, doc.RelPath)
 	}
 
-	if err := r.cleaner.Clean(ctx, projectID, validPaths); err != nil {
+	if err := r.cleaner.CleanTx(tx, projectID, validPaths); err != nil {
 		result.Errors = append(result.Errors, IndexError{
-			Code:    "ORPHAN_CLEAN_FAILED",
-			Message: err.Error(),
+			Code: "ORPHAN_CLEAN_FAILED", Message: err.Error(),
 		})
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
 	if r.fts.HasFTS5() {
 		if err := r.fts.Rebuild(ctx); err != nil {
 			result.Errors = append(result.Errors, IndexError{
-				Code:    "FTS_BUILD_FAILED",
-				Message: err.Error(),
+				Code: "FTS_BUILD_FAILED", Message: err.Error(),
 			})
 		} else {
 			result.FTSRebuilt = true
@@ -193,9 +192,6 @@ func (r *IndexRunner) computeDocumentationHash(projectID string) (string, error)
 	var joined string
 	for _, h := range hashes {
 		joined += h
-	}
-	if joined == "" {
-		joined = ""
 	}
 
 	combined := sha256.Sum256([]byte(joined))

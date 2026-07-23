@@ -1,8 +1,7 @@
 package indexer
 
 import (
-	"context"
-	"fmt"
+	"database/sql"
 
 	"project-dash/internal/store"
 )
@@ -15,15 +14,15 @@ func NewOrphanCleaner(docStore *store.DocumentStore) *OrphanCleaner {
 	return &OrphanCleaner{docStore: docStore}
 }
 
-func (c *OrphanCleaner) Clean(ctx context.Context, projectID string, validPaths []string) error {
+func (c *OrphanCleaner) CleanTx(tx *sql.Tx, projectID string, validPaths []string) error {
+	docs, err := c.docStore.ListDocumentsTx(tx, projectID)
+	if err != nil {
+		return err
+	}
+
 	valid := make(map[string]bool, len(validPaths))
 	for _, p := range validPaths {
 		valid[p] = true
-	}
-
-	docs, err := c.docStore.ListDocuments(projectID)
-	if err != nil {
-		return fmt.Errorf("list documents for cleanup: %w", err)
 	}
 
 	var orphaned []string
@@ -37,5 +36,5 @@ func (c *OrphanCleaner) Clean(ctx context.Context, projectID string, validPaths 
 		return nil
 	}
 
-	return c.docStore.DeleteDocuments(projectID, orphaned)
+	return c.docStore.DeleteDocumentsTx(tx, projectID, orphaned)
 }

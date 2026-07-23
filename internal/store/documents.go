@@ -1,12 +1,19 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
 	"go.uber.org/zap"
 	"project-dash/pkg/models"
 )
+
+type Querier interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+}
 
 type DocumentStore struct {
 	db     *sql.DB
@@ -17,7 +24,19 @@ func NewDocumentStore(db *sql.DB, logger *zap.Logger) *DocumentStore {
 	return &DocumentStore{db: db, logger: logger}
 }
 
+func (s *DocumentStore) StoreDB() *sql.DB {
+	return s.db
+}
+
 func (s *DocumentStore) UpsertDocument(doc *models.Document) error {
+	return s.upsert(s.db, doc)
+}
+
+func (s *DocumentStore) UpsertDocumentTx(tx *sql.Tx, doc *models.Document) error {
+	return s.upsert(tx, doc)
+}
+
+func (s *DocumentStore) upsert(q Querier, doc *models.Document) error {
 	query := `
 		INSERT INTO documents (id, project_id, path, kind, content, content_hash, indexed_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -26,7 +45,8 @@ func (s *DocumentStore) UpsertDocument(doc *models.Document) error {
 			content_hash = excluded.content_hash,
 			indexed_at = excluded.indexed_at
 	`
-	_, err := s.db.Exec(query,
+	ctx := context.Background()
+	_, err := q.ExecContext(ctx, query,
 		doc.ID, doc.ProjectID, doc.Path, doc.Kind,
 		doc.Content, doc.ContentHash, doc.IndexedAt,
 	)
@@ -37,12 +57,21 @@ func (s *DocumentStore) UpsertDocument(doc *models.Document) error {
 }
 
 func (s *DocumentStore) GetDocument(projectID, path string) (*models.Document, error) {
+	return s.get(s.db, projectID, path)
+}
+
+func (s *DocumentStore) GetDocumentTx(tx *sql.Tx, projectID, path string) (*models.Document, error) {
+	return s.get(tx, projectID, path)
+}
+
+func (s *DocumentStore) get(q Querier, projectID, path string) (*models.Document, error) {
+	ctx := context.Background()
 	query := `
 		SELECT id, project_id, path, kind, content, content_hash, indexed_at
 		FROM documents WHERE project_id = ? AND path = ?
 	`
 	d := &models.Document{}
-	err := s.db.QueryRow(query, projectID, path).Scan(
+	err := q.QueryRowContext(ctx, query, projectID, path).Scan(
 		&d.ID, &d.ProjectID, &d.Path, &d.Kind,
 		&d.Content, &d.ContentHash, &d.IndexedAt,
 	)
@@ -56,28 +85,24 @@ func (s *DocumentStore) GetDocument(projectID, path string) (*models.Document, e
 }
 
 func (s *DocumentStore) DeleteDocuments(projectID string, paths []string) error {
+	return s.deleteDocs(s.db, projectID, paths)
+}
+
+func (s *DocumentStore) DeleteDocumentsTx(tx *sql.Tx, projectID string, paths []string) error {
+	return s.deleteDocs(tx, projectID, paths)
+}
+
+func (s *DocumentStore) deleteDocs(q Querier, projectID string, paths []string) error {
 	if len(paths) == 0 {
 		return nil
 	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	stmt, err := tx.Prepare("DELETE FROM documents WHERE project_id = ? AND path = ?")
-	if err != nil {
-		return fmt.Errorf("failed to prepare delete statement: %w", err)
-	}
-	defer stmt.Close()
-
+	ctx := context.Background()
 	for _, p := range paths {
-		if _, err := stmt.Exec(projectID, p); err != nil {
+		if _, err := q.ExecContext(ctx, "DELETE FROM documents WHERE project_id = ? AND path = ?", projectID, p); err != nil {
 			return fmt.Errorf("failed to delete document %s: %w", p, err)
 		}
 	}
-
-	return tx.Commit()
+	return nil
 }
 
 func (s *DocumentStore) DeleteAllForProject(projectID string) error {
@@ -89,12 +114,21 @@ func (s *DocumentStore) DeleteAllForProject(projectID string) error {
 }
 
 func (s *DocumentStore) ListDocuments(projectID string) ([]*models.Document, error) {
+	return s.list(s.db, projectID)
+}
+
+func (s *DocumentStore) ListDocumentsTx(tx *sql.Tx, projectID string) ([]*models.Document, error) {
+	return s.list(tx, projectID)
+}
+
+func (s *DocumentStore) list(q Querier, projectID string) ([]*models.Document, error) {
+	ctx := context.Background()
 	query := `
 		SELECT id, project_id, path, kind, content, content_hash, indexed_at
 		FROM documents WHERE project_id = ?
 		ORDER BY kind, path
 	`
-	rows, err := s.db.Query(query, projectID)
+	rows, err := q.QueryContext(ctx, query, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list documents: %w", err)
 	}
@@ -112,13 +146,10 @@ func (s *DocumentStore) ListDocuments(projectID string) ([]*models.Document, err
 	return docs, rows.Err()
 }
 
-func (s *DocumentStore) StoreDB() *sql.DB {
-	return s.db
-}
-
 func (s *DocumentStore) CountByKind(projectID string) (map[string]int, error) {
+	ctx := context.Background()
 	query := `SELECT kind, COUNT(*) FROM documents WHERE project_id = ? GROUP BY kind`
-	rows, err := s.db.Query(query, projectID)
+	rows, err := s.db.QueryContext(ctx, query, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count documents by kind: %w", err)
 	}

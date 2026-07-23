@@ -148,6 +148,10 @@ func (d *DocDiscoverer) walkDocs(dir, rootPath string, depth int, files *[]DocFi
 			continue
 		}
 
+		if isGitIgnored(entryPath) {
+			continue
+		}
+
 		relPath, _ := filepath.Rel(rootPath, entryPath)
 		*files = append(*files, DocFile{
 			RelPath: relPath,
@@ -224,6 +228,62 @@ func (d *DocDiscoverer) FindCHANGELOG(rootPath string) []DocFile {
 	}
 
 	return files
+}
+
+func isGitIgnored(path string) bool {
+	dir := filepath.Dir(path)
+	gitDir := filepath.Join(dir, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		parent := filepath.Dir(dir)
+		if parent != dir {
+			return isGitIgnoredInDir(parent, path)
+		}
+		return false
+	}
+	return isGitIgnoredInDir(dir, path)
+}
+
+func isGitIgnoredInDir(dir, path string) bool {
+	gitignorePath := filepath.Join(dir, ".gitignore")
+	data, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		return false
+	}
+
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if strings.HasPrefix(line, "!") {
+			continue
+		}
+
+		line = strings.TrimPrefix(line, "/")
+
+		if matched, _ := filepath.Match(line, rel); matched {
+			return true
+		}
+		if matched, _ := filepath.Match(line, filepath.Base(rel)); matched {
+			return true
+		}
+		if strings.HasSuffix(rel, line) {
+			return true
+		}
+	}
+
+	if strings.Contains(rel, "/") {
+		return isGitIgnoredInDir(filepath.Dir(dir), path)
+	}
+
+	return false
 }
 
 func isBinaryFile(path string) bool {
