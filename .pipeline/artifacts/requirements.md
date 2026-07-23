@@ -1,17 +1,18 @@
-# Epic 3 — Metadata Extraction: Requirements
+# Epic 4 — Documentation Indexing: Requirements
 
 **Milestone:** 1 — Core Engine
 **Status:** Draft
-**Author:** DevFlow Phase 1 — Requirement Collector
-**Date:** 2026-07-22
+**Version:** 0.1
 
 ---
 
 ## Feature Overview
 
-Epic 3 enables the Portfolio Engine to extract deterministic metadata from discovered Git repositories. After Epic 2 inserts project rows via `discoverProjects()`, Epic 3 fills in the `metadata` table with facts about each project's Git state, programming languages, frameworks, dependencies, and documentation content hashes.
+Documentation Indexing is the fourth capability of the Portfolio Engine. It extracts and stores project documentation files into the local SQLite knowledge store as searchable documents, without performing any semantic interpretation. The engine discovers, reads, hashes, and persists documentation content from known locations within each discovered project. A full-text search index (SQLite FTS5) is built over all indexed content to enable cross-portfolio search.
 
-All extraction is deterministic: the same repository at the same Git HEAD always produces the same metadata. No heuristic or AI reasoning is involved.
+This is a purely deterministic operation: the same project at the same git HEAD produces the same index. No AI, no heuristics, no interpretation.
+
+**Lifecycle placement:** After metadata extraction (Epic 2.2) and database layer (Epic 1.5) are complete. Before search (Epic 5), HTTP API (Epic 6), and MCP (Epic 7).
 
 ---
 
@@ -19,261 +20,244 @@ All extraction is deterministic: the same repository at the same Git HEAD always
 
 ### Functional Requirements
 
-#### F-3.1: Git Metadata Extraction
-| ID | Requirement |
-|----|-------------|
-| F-3.1.1 | Extract `default_branch` from the repository's remote origin HEAD reference (e.g., `refs/remotes/origin/HEAD`) or local Git config. |
-| F-3.1.2 | Extract `git_head` — the full SHA of the current HEAD commit. |
-| F-3.1.3 | Extract `last_commit_at` — the author timestamp of the most recent commit. |
-| F-3.1.4 | Extract `last_modified_at` — the most recent file modification timestamp in the working tree (different from last commit, as it may include uncommitted changes). |
-| F-3.1.5 | Extract `commit_count` — total number of commits reachable from HEAD. |
-| F-3.1.6 | Store extracted values in the `metadata` table under the project's `project_id`. |
-| F-3.1.7 | Set `last_scan_at` to the current timestamp after successful extraction. |
-
-#### F-3.2: Language Detection
-| ID | Requirement |
-|----|-------------|
-| F-3.2.1 | Walk project files (excluding vendor/, node_modules/, .git/, build/, dist/, generated code directories) and map file extensions to language names. |
-| F-3.2.2 | Produce a `language_summary` string of comma-separated unique language names sorted by prevalence (most used first), e.g., "Go, TypeScript, Shell". |
-| F-3.2.3 | Support a configurable extension-to-language mapping that can be extended via configuration file (not hardcoded to a single list). |
-| F-3.2.4 | For a project with zero analyzable files, set `language_summary` to NULL. |
-
-#### F-3.3: Framework Detection
-| ID | Requirement |
-|----|-------------|
-| F-3.3.1 | Scan dependency/configuration files for known framework markers (e.g., `react` in `package.json`, `django` in `requirements.txt`, `gin` in `go.mod`, `spring-boot` in `pom.xml`). |
-| F-3.3.2 | Produce a `framework_summary` string of comma-separated framework names. |
-| F-3.3.3 | Support multiple frameworks per project (e.g., a project using both React and Express). |
-| F-3.3.4 | Framework detection rules MUST be defined in an extensible mapping, not hardcoded. New frameworks should be addable via configuration. |
-
-#### F-3.4: Dependency Detection
-| ID | Requirement |
-|----|-------------|
-| F-3.4.1 | Parse project dependency manifest files per project language/ecosystem: `package.json` (npm/yarn/pnpm), `go.mod` (Go), `requirements.txt`/`pyproject.toml` (Python), `Cargo.toml` (Rust), `Gemfile` (Ruby), `pom.xml`/`build.gradle` (Java). |
-| F-3.4.2 | Produce `dependency_summary` as a comma-separated string of the top 10 direct dependency names (not version numbers). |
-| F-3.4.3 | For projects with no recognized manifest files, set `dependency_summary` to NULL. |
-| F-3.4.4 | Do NOT include transitive dependencies in the summary — only direct dependencies declared by the project. |
-| F-3.4.5 | Store all direct dependency names (untruncated) in a separate `dependencies` table or JSON column for downstream relationship analysis (Epic 13). |
-
-
-
-#### F-3.6: Documentation Hashes
-| ID | Requirement |
-|----|-------------|
-| F-3.6.1 | Compute SHA-256 hash of each documentation file's content discovered by Epic 4. |
-| F-3.6.2 | Produce a single `documentation_hash` for the project that covers all documentation files (e.g., a combined hash or hash of hashes). |
-| F-3.6.3 | Store `documentation_hash` in the `metadata` table. |
-| F-3.6.4 | The hash calculation MUST be deterministic: same file contents always produce the same hash. |
+| ID | Requirement | Story |
+|----|------------|-------|
+| FR-1 | Engine shall find and read the project's README file. Must detect README.md, README.rst, README.txt, README (no extension), case-insensitive in both stem and extension (e.g., readme.md, README.TXT, Readme.rst, README all match). | 4.1 |
+| FR-2 | Engine shall store each README as a record in the `documents` table with fields: `project_id`, `path` (relative to project root), `kind="README"`, `content`, `content_hash` (SHA-256 of content), `indexed_at` (UTC timestamp). | 4.1 |
+| FR-3 | Engine shall truncate or stream README content exceeding 1MB; must not fail or OOM on large files. | 4.1 |
+| FR-3.1 | Engine shall apply a 1MB per-file size limit to all indexed documents (DOC, ADR, CHANGELOG). Files exceeding this limit shall be truncated at the 1MB boundary. | All |
+| FR-4 | Engine shall recursively scan the `docs/` directory (relative to project root) for documentation files. | 4.2 |
+| FR-5 | Engine shall index files with extensions: `.md`, `.rst`, `.txt`, `.adoc`. Kind shall be `"DOC"`. | 4.2 |
+| FR-6 | Engine shall detect and skip binary files during docs/ scanning (identify by MIME type or null-byte detection). | 4.2 |
+| FR-7 | Engine shall find ADRs in standard locations: `docs/adr/`, `.adr/`, `adr/` (relative to project root). | 4.3 |
+| FR-8 | Engine shall recognize ADR files by naming patterns: `NNN-*.md` or any `*.md`. Kind shall be `"ADR"`. | 4.3 |
+| FR-9 | Engine shall find changelog/history files: CHANGELOG.md, CHANGES.md, HISTORY.md (case-insensitive). Kind shall be `"CHANGELOG"`. | 4.4 |
+| FR-10 | Engine shall create and maintain a SQLite FTS5 virtual table over `documents.content`. | 4.5 |
+| FR-10.1 | FTS5 tokenizer shall be `unicode61` (baseline). The tokenizer choice must be documented and consistent across all rebuilds. | 4.5 |
+| FR-10.2 | FTS index shall be rebuilt from scratch (delete and repopulate) after each indexing operation. Incremental sync is NOT supported — full rebuild ensures consistency. | 4.5 |
+| FR-11 | Engine shall support phrase queries and Boolean operators (AND, OR, NOT) in FTS search. | 4.5 |
+| FR-12 | Engine shall return ranked search results with project context (project name, path, document kind). | 4.5 |
+| FR-12.1 | Search results shall be limited to 50 results by default, with a configurable maximum of 200. Pagination via offset parameter shall be supported. | 4.5 |
+| FR-13 | Engine shall support cross-portfolio search across all indexed documents. | 4.5 |
+| FR-14 | Engine shall use `content_hash` as deduplication key; re-indexing the same content shall be idempotent. | All |
+| FR-15 | Engine shall update `indexed_at` when content_hash changes (document updated). | All |
+| FR-16 | Engine shall update `metadata.documentation_hash` on the project after indexing completes. | All |
+| FR-17 | Engine shall respect `.gitignore` — files matching gitignore patterns should not be indexed when scanning `docs/`. This does NOT apply to explicitly targeted locations (README root, ADR directories, CHANGELOG root) — those are scanned regardless of gitignore. | 4.2 |
+| FR-18 | Engine shall store the project's current `git_head` (commit SHA) in the metadata table after successful indexing, enabling staleness detection without re-hashing. | All |
 
 ### Non-Functional Requirements
 
-| ID | Requirement | Target |
-|----|-------------|--------|
-| NFR-1 | **Determinism** — Same input (repository at same HEAD) must always produce identical metadata output. | 100% repeatability |
-| NFR-2 | **Performance** — Metadata extraction for a single project must complete within reasonable time. | <5s for repos <10k files; <30s for repos up to 100k files |
-| NFR-3 | **Isolation** — Extraction for one project must not affect or be affected by extraction for another project. | No cross-project coupling |
-| NFR-4 | **Idempotency** — Running extraction multiple times on the same project must produce identical metadata values for all fields except `last_scan_at`, which MUST always be updated to the current timestamp. | Full idempotency |
-| NFR-5 | **Disk respect** — Extraction must avoid reading unnecessary files. | Skip ignored dirs at walk level, not post-filter |
-| NFR-6 | **Graceful degradation** — Partial failure in one extraction story must not block other stories from succeeding. | Each story writes independently |
+| ID | Requirement |
+|----|------------|
+| NFR-1 | Indexing a project with <100 files shall complete in <2s (cold) / <500ms (hot, no changes). |
+| NFR-2 | Memory usage shall not exceed 100MB for any single project indexing operation. |
+| NFR-3 | All indexing operations shall be deterministic — same project at same git HEAD (stored via FR-18) produces identical `content_hash` values for all documents. |
+| NFR-4 | Engine shall never modify files in the repository; indexing is read-only. |
+| NFR-5 | Indexing shall be interrupt-safe — partially written index state must not corrupt the database. Use transactions. |
+| NFR-6 | FTS5 index size must not exceed 2x the raw content size. |
+| NFR-7 | Search queries must return results in <500ms for a portfolio of up to 500 projects. |
+| NFR-8 | All indexing operations must be idempotent; running index twice on an unchanged project is a no-op. |
 
 ---
 
 ## Edge Cases & Error Handling
 
-| # | Edge Case | Expected Behavior |
-|---|-----------|-------------------|
-| EC-1 | **Empty repository** (no commits) | `git_head` = NULL, `commit_count` = 0, `last_commit_at` = NULL, `last_modified_at` = current time or NULL. Other metadata stories still run. |
-| EC-2 | **Bare repository** | Extract available metadata only (no working tree). `last_modified_at` = NULL. Language/framework extraction is skipped. |
-| EC-3 | **Detached HEAD** | `git_head` still records the current commit SHA. `default_branch` remains valid (from remote HEAD ref). All other metadata proceeds normally. |
-| EC-4 | **Repository with no recognized language files** | `language_summary` = NULL. |
-| EC-5 | **Repository with unknown/obscure languages** | Files with unrecognized extensions are not included in `language_summary`. |
-| EC-6 | **Polyglot project** (20+ languages) | `language_summary` lists all detected languages sorted by prevalence. No artificial truncation. |
-| EC-7 | **Multi-framework project** | `framework_summary` lists all detected frameworks. No artificial limit. |
-| EC-8 | **Monorepo with multiple manifest files** | Parse each manifest independently. `dependency_summary` aggregates top 10 across all manifests. |
-| EC-9 | **Corrupted manifest file** (invalid JSON/YAML/TOML) | Gracefully skip the corrupted file, log a warning, continue with other manifests. |
-| EC-10 | **Repository with >100k files** | Use file tree walking with early ignore-directory skipping. LOC estimation may use sampling. |
-| EC-11 | **Repository with no documentation files** | `documentation_hash` = NULL. Story 3.6 produces no hash but does not error. |
-| EC-12 | **Repository deleted or moved between discovery and extraction** | Skip the project, log a warning, and continue. The orphaned project row remains in the `projects` table with its existing metadata; cleanup of orphaned rows is delegated to a future Epic or garbage-collection story. |
-| EC-13 | **Symlinks pointing outside repository** | Do not follow symlinks outside the repository root. |
-| EC-14 | **Non-UTF-8 file content in documentation** | Hash raw bytes, not decoded content. SHA-256 operates on byte sequences. |
-| EC-15 | **Repository with no remote** (local-only) | `default_branch` is determined from local `HEAD` ref (e.g., `refs/heads/main`) rather than remote HEAD. |
-| EC-16 | **Permissions errors on specific files or directories** | Skip inaccessible files, log warning, continue. Do not abort. |
+| Edge Case | Handling |
+|-----------|----------|
+| No README file exists | Skip silently; no error, no warning. |
+| README >1MB | Truncate content at 1MB boundary; log a debug message. |
+| README with non-standard extension | Only the specified patterns are matched; no heuristic guessing. Case-insensitive matching applies to both the stem and extension (e.g., README.TXT matches via readme.txt → TXT matches txt). |
+| `docs/` directory does not exist | Skip silently; no error. |
+| Binary file in `docs/` | Detect and skip; log at debug level with file path. |
+| Symlink in `docs/` | Do not follow symlinks (prevent infinite loops and out-of-repo access). |
+| Nested directory >10 levels deep in `docs/` | Honor recursion but set a max depth of 50 to prevent stack overflow. |
+| No ADR directory exists | Skip silently; no error. |
+| ADR file without NNN- prefix | Still index with kind="ADR" as long as it's .md in an ADR directory. |
+| No CHANGELOG file exists | Skip silently; no error. |
+| Multiple changelog files found | Index all matching files (rare but valid). |
+| File changes between index runs | `content_hash` differs; update content and `indexed_at`. E.g., re-index after `git pull`. |
+| Database transaction failure during indexing | Rollback; error propagates to caller; no partial state persisted. |
+| FTS5 index out of sync with documents table | On re-index, truncate FTS table and rebuild from documents table. |
+| Repository path changes between runs | Project is re-discovered; documents re-keyed by new `project_id` or matched via `root_path`. |
+| File is deleted between index runs | Orphaned document record; clean up on next index (delete from documents where file no longer exists). |
+| Unicode/non-UTF8 file content | Read as bytes; store as text; if encoding detection fails, store raw bytes as BLOB. |
+| Extremely large docs/ directory (>10,000 files) | Process in batches of 100; yield between batches to avoid blocking the event loop. |
+| Concurrency: two index operations on same project | Serialize per-project via mutex/lock; second caller waits or returns "already indexing". |
 
 ---
 
 ## Acceptance Criteria
 
-Derived from the Epic 3 stories. Each AC maps to one or more stories.
+Derived from epic stories, mapped to verifiable outcomes.
 
-### Story 3.1 — Extract Git Metadata
+### Story 4.1 — Index README
 
-| AC ID | Criteria |
-|-------|----------|
-| AC-3.1.1 | Engine extracts `default_branch`, `git_head`, `last_commit_at`, `last_modified_at`, `commit_count` from a Git repository. |
-| AC-3.1.2 | Empty repository (no commits): `git_head` is NULL, `commit_count` is 0, timestamps are NULL. |
-| AC-3.1.3 | Bare repository: extraction produces available metadata, `last_modified_at` is NULL. |
-| AC-3.1.4 | Detached HEAD state: `git_head` still records the commit SHA; `default_branch` is still resolved. |
-| AC-3.1.5 | All extracted values are stored in the `metadata` table per the schema in PlatformSpecification.md. |
+| AC ID | Criterion | Verification |
+|-------|-----------|--------------|
+| AC-4.1-1 | Given a project with README.md, when indexed, a document record exists with kind="README". | Query `documents` table; expect 1 row with kind="README". |
+| AC-4.1-2 | Given a project with README.rst, when indexed, a document record exists with kind="README". | Same as above; file name differs. |
+| AC-4.1-3 | Given a project with a README file of any case variant (readme.md, README.TXT), when indexed, the document is found. | Case-insensitive match confirmed. |
+| AC-4.1-4 | Given a project with no README file, when indexed, no error is raised and 0 README documents are created. | Error-free run; 0 rows with kind="README". |
+| AC-4.1-5 | Given a README file >1MB, when indexed, content is truncated at 1MB boundary without error. | Content length <= 1,048,576 bytes. |
+| AC-4.1-6 | Given a previously indexed README with unchanged content, when re-indexed, `indexed_at` is not updated (idempotent). | Timestamps match. |
 
-### Story 3.2 — Detect Languages
+### Story 4.2 — Index docs/ Directory
 
-| AC ID | Criteria |
-|-------|----------|
-| AC-3.2.1 | Engine analyzes file extensions and produces a `language_summary` (e.g., "Go, TypeScript, Shell"). |
-| AC-3.2.2 | Polyglot projects: all detected languages are listed, sorted by prevalence. |
-| AC-3.2.3 | Extension-to-language mapping is configurable (not hardcoded atomically). |
-| AC-3.2.4 | vendor/, node_modules/, .git/, build/, dist/ directories are excluded from analysis. |
-| AC-3.2.5 | Project with no code files: `language_summary` is NULL. |
+| AC ID | Criterion | Verification |
+|-------|-----------|--------------|
+| AC-4.2-1 | Given a project with docs/ containing .md, .rst, .txt, .adoc files, when indexed, all are stored with kind="DOC". | Query matching rows. |
+| AC-4.2-2 | Given a project with nested subdirectories in docs/, when indexed, files in subdirectories are recursively indexed. | Files from subdirectories present in documents. |
+| AC-4.2-3 | Given a project with a binary file in docs/, when indexed, the binary file is skipped. | No document record for the binary file. |
+| AC-4.2-4 | Given a project with no docs/ directory, when indexed, no error is raised. | Error-free run. |
+| AC-4.2-5 | Given a project with .gitignore'd files in docs/, when indexed, ignored files are excluded. | Ignored files absent from documents. |
 
-### Story 3.3 — Detect Frameworks
+### Story 4.3 — Index ADRs
 
-| AC ID | Criteria |
-|-------|----------|
-| AC-3.3.1 | Engine scans dependency/configuration files for framework markers (React, Vue, Django, Rails, Gin, Spring, etc.). |
-| AC-3.3.2 | `framework_summary` is produced as a comma-separated string. |
-| AC-3.3.3 | Multiple frameworks per project are supported. |
-| AC-3.3.4 | Framework mapping is extensible via configuration. |
+| AC ID | Criterion | Verification |
+|-------|-----------|--------------|
+| AC-4.3-1 | Given ADRs in docs/adr/, when indexed, they are stored with kind="ADR". | Rows with kind="ADR". |
+| AC-4.3-2 | Given ADRs in .adr/ or adr/, when indexed, they are stored with kind="ADR". | Same check for alternative paths. |
+| AC-4.3-3 | Given ADRs named 001-decision.md and plain.md, both are indexed. | Both patterns accepted. |
+| AC-4.3-4 | Given a project with no ADR directory, when indexed, no error is raised. | Error-free run. |
 
-### Story 3.4 — Detect Dependencies
+### Story 4.4 — Index CHANGELOG
 
-| AC ID | Criteria |
-|-------|----------|
-| AC-3.4.1 | Engine parses `package.json`, `go.mod`, `requirements.txt`, `Cargo.toml` (and additional per-language manifests). |
-| AC-3.4.2 | `dependency_summary` contains the top 10 direct dependency names. |
-| AC-3.4.3 | Different package managers are handled per project type. |
-| AC-3.4.4 | No transitive dependencies are included. |
+| AC ID | Criterion | Verification |
+|-------|-----------|--------------|
+| AC-4.4-1 | Given CHANGELOG.md, CHANGES.md, or HISTORY.md, when indexed, they are stored with kind="CHANGELOG". | Rows with kind="CHANGELOG". |
+| AC-4.4-2 | Given a project with no changelog file, when indexed, no error is raised. | Error-free run. |
 
-### Story 3.6 — Compute Documentation Hashes
+### Story 4.5 — Full-Text Search Indexing
 
-| AC ID | Criteria |
-|-------|----------|
-| AC-3.6.1 | Engine computes SHA-256 hashes for all documentation files discovered in Epic 4. |
-| AC-3.6.2 | Combined `documentation_hash` is stored in the `metadata` table. |
-| AC-3.6.3 | Hash is deterministic: same file contents produce the same hash. |
-| AC-3.6.4 | No documentation files: `documentation_hash` is NULL. |
+| AC ID | Criterion | Verification |
+|-------|-----------|--------------|
+| AC-4.5-1 | Given indexed documents, an FTS5 virtual table exists on `documents.content`. | `SELECT count(*) FROM documents_fts` succeeds. |
+| AC-4.5-2 | Given a phrase query ("error handling"), results match the exact phrase. | Results contain documents with the phrase. |
+| AC-4.5-3 | Given Boolean operators (AND, OR, NOT), results respect the boolean logic. | Query "foo AND bar" returns intersection of matches. |
+| AC-4.5-4 | Given a search query, results are ranked by relevance (BM25 or equivalent). | Results ordered by rank score descending. |
+| AC-4.5-5 | Given a search query, results include project name, document path, and kind. | Result set includes joined project context. |
+| AC-4.5-6 | Given documents from multiple projects, search returns cross-portfolio results. | Results include multiple project_ids. |
+| AC-4.5-7 | Given a search with zero matching results, empty result set is returned (no error). | Empty array, not an error. |
 
 ---
 
 ## Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Epic 2 — Discovery                        │
-│  discoverProjects() → inserts rows into `projects` table    │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Epic 3 — Metadata Extraction              │
-│                                                             │
-│  ┌─────────────┐                                            │
-│  │ 3.1 Git     │──► git_head, default_branch,               │
-│  │ Metadata    │    last_commit_at, last_modified_at,        │
-│  │             │    commit_count                             │
-│  └──────┬──────┘                                            │
-│         │                                                   │
-│         ▼                                                   │
-│  ┌─────────────┐                                            │
-│  │ 3.2 Langs   │──► language_summary                        │
-│  └──────┬──────┘                                            │
-│         │                                                   │
-│         ▼                                                   │
-│  ┌─────────────┐                                            │
-│  │ 3.3 Frameworks          │──► framework_summary           │
-│  └──────┬──────┘                                            │
-│         │                                                   │
-│         ▼                                                   │
-│  ┌─────────────┐                                            │
-│  │ 3.4 Deps    │                                            │
-│  │             │──► dependency_summary                      │
-│  └─────────────┘                                            │
-│                                                             │
-│  ┌─────────────┐  (blocked by Epic 4)                       │
-│  │ 3.6 Doc     │──► documentation_hash                      │
-│  │ Hashes      │                                            │
-│  └─────────────┘                                            │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │               Write to metadata table                 │   │
-│  │  UPDATE metadata SET git_head=?, language_summary=?,  │   │
-│  │  ..., last_scan_at=NOW() WHERE project_id = ?         │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Downstream Consumers                     │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────┐  │
-│  │ Epic 5   │  │  MCP     │  │ HTTP API │  │ Dashboard │  │
-│  │ Search   │  │  Tools   │  │          │  │           │  │
-│  └──────────┘  └──────────┘  └──────────┘  └───────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                     Portfolio Engine                      │
+│                                                           │
+│  ┌──────────────┐    ┌──────────────────┐                 │
+│  │ Discovered   │    │  IndexRunner      │                 │
+│  │ Project      │───▶│  (per project)    │                 │
+│  │ (root_path)  │    │                   │                 │
+│  └──────────────┘    │  1. Read README   │                 │
+│                      │  2. Scan docs/    │                 │
+│                      │  3. Find ADRs     │                 │
+│                      │  4. Find CHANGELOG│                 │
+│                      │  5. Hash content  │                 │
+│                      │  6. Upsert into   │                 │
+│                      │     documents table│                │
+│                      │  7. Rebuild FTS   │                 │
+│                      └────────┬──────────┘                 │
+│                               │                            │
+│                               ▼                            │
+│  ┌──────────────────────────────────────────────────┐      │
+│  │                SQLite Knowledge Store             │      │
+│  │                                                    │      │
+│  │  ┌─────────────┐   ┌─────────────────────────┐    │      │
+│  │  │ documents   │   │ documents_fts (FTS5)     │    │      │
+│  │  ├─────────────┤   ├─────────────────────────┤    │      │
+│  │  │ id          │   │ content MATCH ?          │    │      │
+│  │  │ project_id  │   │ rank                     │    │      │
+│  │  │ path        │   └─────────────────────────┘    │      │
+│  │  │ kind        │                                  │      │
+│  │  │ content     │   ┌─────────────────────────┐    │      │
+│  │  │ content_hash│   │ metadata                │    │      │
+│  │  │ indexed_at  │   │ ─────────────────────   │    │      │
+│  │  └─────────────┘   │ documentation_hash      │    │      │
+│  │                    │ last_scan_at             │    │      │
+│  │                    └─────────────────────────┘    │      │
+│  └──────────────────────────────────────────────────┘      │
+│                                                           │
+└──────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌────────────────────┐   ┌──────────────────────────────┐
+│ searchDocumentation │   │ GET /projects/{id}/documents  │
+│ (MCP tool)          │   │ GET /search?q= (HTTP API)    │
+│                     │   │                              │
+│ Query → FTS5 →      │   │ Query → FTS5 → ranked results│
+│ ranked results      │   │ with project context         │
+└────────────────────┘   └──────────────────────────────┘
 ```
 
-### Execution Model
+### Step-by-Step Data Flow
 
-Each story runs as an independent capability (per the "Capabilities over Workflows" principle). The caller (CLI command or MCP tool) may orchestrate them in sequence, but the engine does not mandate a pipeline. This enables:
+1. **Trigger:** Engine receives a request to index a project (via MCP tool `indexDocumentation`, or as part of `discoverProjects` post-processing).
+2. **Resolve paths:** Relative to `project.root_path`, compute candidate paths for README, docs/, adr/, CHANGELOG.
+3. **README:** Check existence of README variants (case-insensitive). Read file, compute SHA-256 hash. If hash differs from stored `content_hash`, upsert into `documents`. If content >1MB, truncate before hashing/storing.
+4. **docs/:** List directory contents recursively. Filter by extension. Skip binary files via MIME/null-byte check. Skip gitignored files. For each file: read, hash, upsert.
+5. **ADRs:** For each known ADR directory (docs/adr/, .adr/, adr/): list *.md files, hash, upsert with kind="ADR".
+6. **CHANGELOG:** Check for CHANGELOG.md, CHANGES.md, HISTORY.md. Hash, upsert with kind="CHANGELOG".
+7. **Cleanup:** Delete `documents` rows for files that no longer exist on disk (comparing indexed paths against current filesystem state).
+8. **FTS rebuild:** Delete and repopulate `documents_fts` from `documents` (full rebuild only — no incremental sync). Transactional.
+9. **Metadata update:** Set `metadata.documentation_hash` to a combined hash of all document hashes. Set `metadata.last_scan_at` to now.
+10. **Return:** Summary of indexed documents (counts per kind, total bytes, duration).
 
-- **Partial re-scanning**: If only languages change, re-run only Story 3.2.
-- **Incremental adoption**: Stories 3.6 can be enabled only after Epic 4 is ready.
-- **Graceful partial failure**: If 3.3 fails, 3.2's output is still persisted.
+### Deduplication Logic
+
+```
+if stored.content_hash == file.content_hash:
+    skip (no change)
+elif stored.content_hash != file.content_hash:
+    update content, content_hash, indexed_at
+else (no stored row):
+    insert new row
+```
 
 ---
 
 ## Dependencies
 
-### Prerequisites (must be complete before Epic 3 can start)
+### Internal Dependencies
 
-| Dependency | Epic | Description |
-|------------|------|-------------|
-| Epic 1 — Database Schema | 1 | `projects` and `metadata` tables must exist in SQLite. |
-| Epic 2 — Project Discovery | 2 | `discoverProjects()` must be inserting project rows so Epic 3 has projects to analyze. |
-
-### Internal Story Dependencies
-
-| Story | Depends On | Rationale |
-|-------|-----------|-----------|
-| 3.1 Git Metadata | — | No dependency — can start first when Epics 1 and 2 are done. |
-| 3.2 Detect Languages | 3.1 | Needs project root from discovered project. |
-| 3.3 Detect Frameworks | 3.2 | Framework detection reads language-specific dependency files. |
-| 3.4 Detect Dependencies | 3.3 | Dependency detection uses the same manifest files as framework detection. |
-| 3.6 Doc Hashes | Epic 4 | Must know which files are "documentation files" — Epic 4 defines that. |
+| Dependency | Epic/Story | Why |
+|------------|-----------|-----|
+| Database schema (documents table, metadata table) | Epic 1.5 | Tables must exist before indexing can write. |
+| Project discovery (project_id, root_path) | Epic 2.1 | Indexing operates per discovered project. |
+| Metadata extraction (metadata row exists, git tracking) | Epic 3 | Indexing updates metadata.documentation_hash; git HEAD used for staleness detection. |
+| Search API (searchDocumentation MCP tool) | Epic 5 | Consumes the FTS5 index built in 4.5. |
+| HTTP API (GET /projects/{id}/documents, GET /search) | Epic 6 | Exposes indexed documents to dashboard and external consumers. |
 
 ### External Dependencies
 
-| Dependency | Notes |
-|------------|-------|
-| `git` CLI or libgit2 | For Git metadata extraction (Story 3.1). |
-| Go standard library `crypto/sha256` | For documentation hashing (Story 3.6). |
-| JSON/TOML/YAML parsers | For manifest file parsing (Stories 3.3, 3.4). Language: Go's `encoding/json`, third-party TOML/YAML libs. |
-| File system walk | Go's `filepath.Walk` or `fs.WalkDir`. Must support early directory skipping for ignored dirs. |
+| Dependency | Version | Why |
+|------------|---------|-----|
+| Go standard library `os`, `path/filepath`, `crypto/sha256` | stdlib | File system traversal, path handling, content hashing. |
+| SQLite via Go driver (e.g., `modernc.org/sqlite` or `mattn/go-sqlite3`) | latest stable | FTS5 virtual table support required. |
+| `mattn/go-sqlite3` FTS5 enabled build tag | — | FTS5 is not always compiled in by default; must verify build tag. |
 
-### Downstream Consumers
+### Implementation Order Within Epic
 
-| Consumer | Epic | What It Uses |
-|----------|------|-------------|
-| Search Indexing | Epic 5 | `language_summary`, `framework_summary`, `dependency_summary` for search filtering. |
-| Change Detection | (ongoing) | `git_head`, `documentation_hash`, `last_scan_at` to detect when re-analysis is needed. |
-| Dashboard | Epic 3+ | All metadata fields for display in Project Detail and Portfolio Overview pages. |
-| AI Agent Analysis | (ongoing) | `language_summary`, `framework_summary` inform agent about project stack before deep analysis. |
+```
+4.1 Index README ──▶ 4.2 Index docs/ ──▶ 4.3 Index ADRs
+      │                                    (blocked by 4.2)
+      └──▶ 4.4 Index CHANGELOG
+             │
+             ▼
+          4.5 Full-Text Search Indexing
+             (blocked by 4.1-4.4)
+```
 
----
+Stories 4.1 and 4.4 can be implemented after 4.1's README scanning framework is built, since both are single-file patterns. Story 4.3 requires the recursive directory traversal from 4.2. Story 4.5 requires all document kinds to be indexed first.
 
-## Principles Applied
+### Risks
 
-From Guideline.md:
-
-1. **Engine Knows, Agent Thinks** — All six stories are purely deterministic. No LLM calls, no heuristic reasoning, no AI.
-2. **Deterministic by Default** — Same git HEAD → same metadata. Story 3.6's SHA-256 hash is the purest expression of this.
-3. **Store Facts, Compute Indicators** — Store `documentation_hash`, `git_head`, `last_scan_at`; compute `needs_analysis`, `documentation_changed`, `analysis_outdated` at query time.
-4. **Capabilities over Workflows** — Each story is a standalone capability (`extractGitMetadata`, `detectLanguages`, etc.). No engine-level metadata pipeline.
-5. **Ignore Generated** — vendor/, node_modules/, .git/, build/, dist/ are universally excluded.
-6. **Single Knowledge Model** — All outputs map to the `metadata` table defined in PlatformSpecification.md. No synthetic fields.
-
----
-
-## Open Questions
-
-1. Should `dependency_summary` be stored as a raw JSON array instead of a comma-separated string for easier querying? (The schema says "top 10 names" as string — confirm if structured storage is preferred.)
-2. Should Story 3.6 hash each doc file individually and combine via hash-of-hashes, or compute a single rolling hash over all doc file content? The former is more deterministic and debuggable.
-4. Should language detection use a built-in mapping or load from a config file path? A built-in default with optional per-user overrides is recommended.
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| FTS5 not available in SQLite build | Cannot build search index | Use Go FTS5 driver or fall back to LIKE search. Detect at startup. |
+| Very large monorepo with thousands of docs | Slow indexing, memory pressure | Batch processing; streaming reads; configurable max file count per project. |
+| Encoded/non-UTF8 text files | Content corruption in DB | Detect encoding; store as BLOB if not valid UTF-8; skip truly binary files. |
+| Symlink loops in docs/ | Infinite recursion | Max depth limit (50); do not follow symlinks. |
+| Race condition: repo modified during indexing | Stale or inconsistent index | Use git HEAD snapshot; document that index reflects a point-in-time state. |

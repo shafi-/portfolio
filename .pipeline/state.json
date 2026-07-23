@@ -1,67 +1,43 @@
 {
   "phase": "4",
-  "feature": "Epic 3 - Metadata Extraction",
-  "branch": "epic-03-metadata-extraction",
-  "archivePath": ".pipeline/archive/epic-03-metadata-extraction/",
-  "archivedAt": "2026-07-23T20:35:00Z",
-  "mergedAt": "2026-07-23T20:35:00Z",
-  "mergedTo": "main",
-  "mergeCommit": "b4d7cfd",
+  "feature": "Epic 4 - Documentation Indexing",
+  "branch": "epic-04-documentation-indexing",
+  "archivePath": ".pipeline/archive/epic-04-documentation-indexing/",
   "artifactPaths": {
-    "context-pack": ".pipeline/archive/epic-03-metadata-extraction/05-artifacts/context-pack.md",
-    "requirements": ".pipeline/archive/epic-03-metadata-extraction/01-requirements-phase/requirements.md",
-    "architecture": ".pipeline/archive/epic-03-metadata-extraction/02-architecture-phase/architecture.md",
-    "architecture-review": ".pipeline/archive/epic-03-metadata-extraction/02-architecture-phase/architecture-review.md"
+    "context-pack": ".pipeline/archive/epic-04-documentation-indexing/00-setup/context-pack.md",
+    "requirements": ".pipeline/archive/epic-04-documentation-indexing/01-requirements-phase/requirements.md",
+    "requirements-review": ".pipeline/archive/epic-04-documentation-indexing/01-requirements-phase/requirements-review.md",
+    "test-cases": ".pipeline/archive/epic-04-documentation-indexing/01-requirements-phase/test-cases.md",
+    "architecture": ".pipeline/archive/epic-04-documentation-indexing/02-architecture-phase/architecture.md",
+    "architecture-review": ".pipeline/archive/epic-04-documentation-indexing/02-architecture-phase/architecture-review.md",
+    "guideline": ".pipeline/archive/epic-04-documentation-indexing/02-architecture-phase/guideline.md"
   },
   "retryCount": 0,
-  "status": "completed",
-  "timestamp": "2026-07-23T20:30:00Z",
+  "status": "in_progress",
+  "timestamp": "2026-07-23T22:00:00Z",
   "metadata": {
     "approach": "story-by-story-implementation",
-    "totalStories": 6,
-    "blockedStories": [
-      "3.6-compute-documentation-hashes"
-    ],
-    "currentStory": "3.6-compute-documentation-hashes",
+    "totalStories": 5,
+    "blockedStories": [],
+    "currentStory": "4.1-index-readme",
     "stories": [
-      "3.1-extract-git-metadata",
-      "3.2-detect-languages",
-      "3.3-detect-frameworks",
-      "3.4-detect-dependencies",
-      "3.5-service-assembly",
-      "3.6-compute-documentation-hashes"
+      "4.1-index-readme",
+      "4.2-index-docs",
+      "4.3-index-adrs",
+      "4.4-index-changelog",
+      "4.5-full-text-search"
     ],
-    "completedStories": [
-      "3.1-extract-git-metadata",
-      "3.2-detect-languages",
-      "3.3-detect-frameworks",
-      "3.4-detect-dependencies",
-      "3.5-service-assembly"
-    ],
+    "completedStories": [],
     "agentsInProgress": [],
     "agentsCompleted": [
       "git-operator-phase-0a",
       "repo-scout-phase-0b",
       "requirement-collector-phase-1",
       "requirements-reviewer-phase-1",
+      "test-case-writer-phase-1",
       "architect-phase-2",
       "architecture-reviewer-phase-2",
-      "story-3.1-developer",
-      "story-3.1-reviewer",
-      "story-3.1-git-operator",
-      "story-3.2-developer",
-      "story-3.2-reviewer",
-      "story-3.2-git-operator",
-      "story-3.3-developer",
-      "story-3.3-reviewer",
-      "story-3.3-git-operator",
-      "story-3.4-developer",
-      "story-3.4-reviewer",
-      "story-3.4-git-operator",
-      "story-3.5-developer",
-      "story-3.5-reviewer",
-      "story-3.5-git-operator",
-      "build-validator-phase-4"
+      "guideline-author-phase-2"
     ]
   }
 }

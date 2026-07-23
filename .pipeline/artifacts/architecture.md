@@ -1,19 +1,8 @@
-# Epic 3 — Metadata Extraction: Architecture
+# Epic 4 — Documentation Indexing: Architecture
 
 **Milestone:** 1 — Core Engine
 **Status:** Draft
-**Date:** 2026-07-22
-
----
-
-## Table of Contents
-
-1. [Component Design](#1-component-design)
-2. [Schema Changes](#2-schema-changes)
-3. [Sequence Diagrams](#3-sequence-diagrams)
-4. [Error Handling](#4-error-handling)
-5. [Test Strategy](#5-test-strategy)
-6. [Implementation Order](#6-implementation-order)
+**Version:** 0.1
 
 ---
 
@@ -23,575 +12,609 @@
 
 ```
 internal/
-  metadata/
-    service.go              # MetadataService orchestrator
-    git.go                  # Story 3.1 — extractGitMetadata
-    languages.go            # Story 3.2 — detectLanguages
-    frameworks.go           # Story 3.3 — detectFrameworks
-    dependencies.go         # Story 3.4 — detectDependencies
-
-    dochash.go              # Story 3.6 — computeDocHash
-    walk.go                 # Shared: filtered file tree walker
-    config.go               # Shared: language/framework mapping config
-    metadata_test.go
-    git_test.go
-    languages_test.go
-    frameworks_test.go
-    dependencies_test.go
-
-    walk_test.go
-
-internal/
-  store/
-    metadata.go             # metadata table CRUD
-    dependencies.go         # dependencies table CRUD
+  indexer/
+    indexer.go            # Indexer — public API, orchestrates per-project indexing
+    runner.go             # IndexRunner — per-project indexing pipeline
+    reader.go             # DocReader — file reading, hashing, size limiting
+    discoverer.go         # DocDiscoverer — finds files by kind across project
+    fts.go                # FTSManager — FTS5 query (index synced via Epic 5 triggers)
+    dedup.go              # DedupEngine — content_hash comparison, upsert logic
+    cleanup.go            # OrphanCleaner — removes stale document rows
+    types.go              # IndexResult, IndexStats, DocFile values
 
 pkg/
   models/
-    metadata.go             # Metadata struct + dependency struct
+    document.go           # Document, DocumentKind types
+    metadata.go           # Metadata fields (documentation_hash, git_head)
 ```
 
-### 1.2 Core Types
+### 1.2 Public API (Indexer)
 
 ```go
-// pkg/models/metadata.go
-
-package models
-
-import "time"
-
-type Metadata struct {
-    ProjectID        string     `json:"project_id"`
-    GitHead          *string    `json:"git_head"`
-    DefaultBranch    *string    `json:"default_branch"`
-    LastCommitAt     *time.Time `json:"last_commit_at"`
-    LastModifiedAt   *time.Time `json:"last_modified_at"`
-    CommitCount      int        `json:"commit_count"`
-    LanguageSummary  *string    `json:"language_summary"`
-    FrameworkSummary *string    `json:"framework_summary"`
-    DependencySummary *string   `json:"dependency_summary"`
-    DocumentationHash *string   `json:"documentation_hash"`
-
-    LastScanAt       time.Time  `json:"last_scan_at"`
+type Indexer struct {
+    db     *sql.DB         // SQLite connection
+    logger *slog.Logger
+    cfg    *IndexerConfig
 }
 
-type Dependency struct {
-    ProjectID string `json:"project_id"`
-    Name      string `json:"name"`
-    Manager   string `json:"manager"` // e.g. "npm", "go_mod", "pip"
+func NewIndexer(db *sql.DB, logger *slog.Logger, cfg *IndexerConfig) *Indexer
+
+// IndexProject indexes a single project. Idempotent, transactional.
+func (idx *Indexer) IndexProject(ctx context.Context, projectID uuid.UUID, rootPath string) (*IndexResult, error)
+
+// IndexAll indexes all discovered projects. Wraps IndexProject per project.
+func (idx *Indexer) IndexAll(ctx context.Context) (map[uuid.UUID]*IndexResult, error)
+
+// Search performs a full-text search across all indexed documents.
+// Supports phrase queries and Boolean operators (AND, OR, NOT).
+// Returns ranked results with project context.
+func (idx *Indexer) Search(ctx context.Context, query string, limit, offset int) ([]SearchResult, error)
+
+type SearchResult struct {
+    ID          string       `json:"id"`
+    ProjectID   string       `json:"project_id"`
+    Path        string       `json:"path"`
+    Kind        DocumentKind `json:"kind"`
+    Content     string       `json:"content"`
+    ContentHash string       `json:"content_hash"`
+    IndexedAt   string       `json:"indexed_at"`
+    Rank        float64      `json:"rank"`
 }
 ```
 
-### 1.3 MetadataService
+### 1.3 Internal Components
+
+#### DocDiscoverer
+
+```
+DocDiscoverer
+  .FindREADME(rootPath)     → []DocFile (0 or 1)
+  .FindDocs(rootPath)       → []DocFile (recursive, .md/.rst/.txt/.adoc)
+  .FindADRs(rootPath)       → []DocFile (docs/adr/, .adr/, adr/)
+  .FindCHANGELOG(rootPath)  → []DocFile (0-3: CHANGELOG, CHANGES, HISTORY)
+```
+
+- Each method returns a slice of `DocFile` values (path relative, absolute path, kind).
+- All paths case-insensitive for discovery (readdir + strings.EqualFold).
+- Symlinks not followed (lstat, skip if mode&os.ModeSymlink).
+- Binary detection: read first 512 bytes, check for null byte.
+- `.gitignore` respect: use `git check-ignore` or a `.gitignore`-aware walker for `docs/` scanning.
+
+#### DocReader
 
 ```go
-// internal/metadata/service.go
-
-package metadata
-
-type Service struct {
-    store  Store
-    walker FileWalker
-    logger *zap.Logger
+type DocReader struct {
+    maxFileSize int64 // default 1MB (1048576)
 }
 
-type Store interface {
-    UpsertMetadata(m *models.Metadata) error
-    GetMetadata(projectID string) (*models.Metadata, error)
-    InsertDependencies(deps []models.Dependency) error
-    ReplaceDependencies(projectID string, deps []models.Dependency) error
-}
-
-type FileWalker interface {
-    Walk(root string, fn func(path string, info os.FileInfo) error) error
-    WalkWithConfig(root string, cfg WalkConfig, fn func(path string, info os.FileInfo) error) error
-}
+func (r *DocReader) Read(path string) (content string, contentHash string, err error)
 ```
 
-### 1.4 Capability Functions
+- Reads file, computes SHA-256, truncates at `maxFileSize`.
+- Non-UTF8: store raw bytes as BLOB.
+- Returns content as string, hex-encoded SHA-256, and any error.
 
-Each story maps to a single exported function. Functions accept a project root path and return their specific output. Functions are independent — no shared state, no pipeline.
-
-| Capability | Signature | Output |
-|---|---|---|
-| `ExtractGitMetadata` | `func(root string) (*GitResult, error)` | `default_branch`, `git_head`, `last_commit_at`, `last_modified_at`, `commit_count` |
-| `DetectLanguages` | `func(root string, walker FileWalker, langMap LanguageMap) (*string, error)` | `language_summary` (comma-sep, prevalence-sorted) |
-| `DetectFrameworks` | `func(root string, walker FileWalker, fwMap FrameworkMap) (*string, error)` | `framework_summary` (comma-sep) |
-| `DetectDependencies` | `func(root string, walker FileWalker) ([]models.Dependency, *string, error)` | dependency list + `dependency_summary` (top 10) |
-| `ComputeDocHash` | `func(docPaths []string) (*string, error)` | `documentation_hash` (SHA-256 hash-of-hashes) |
-
-### 1.5 Walk Service
+#### DedupEngine
 
 ```go
-// internal/metadata/walk.go
-
-type WalkConfig struct {
-    IgnoredDirs   []string   // skip these directory basenames
-    MaxFiles      int        // safety limit, 0 = unlimited
-    FollowSymlink bool       // false = skip symlinks outside root
+type DedupEngine struct {
+    db *sql.DB
 }
 
-type FileWalker struct {
-    logger *zap.Logger
-}
-
-func (w *FileWalker) Walk(root string, fn WalkFn) error
-func (w *FileWalker) WalkWithConfig(root string, cfg WalkConfig, fn WalkFn) error
+// Resolve returns action: skip | update | insert
+func (d *DedupEngine) Resolve(projectID uuid.UUID, path string, contentHash string) (DedupAction, error)
 ```
 
-Walk uses `filepath.WalkDir` with early pruning: when a directory basename matches an entry in `IgnoredDirs`, `fs.SkipDir` is returned immediately. This ensures ignored dirs are never descended into (NFR-5: Disk respect).
+Implements the dedup table from requirements:
 
-### 1.6 Config for Mappings
+| stored.content_hash | action |
+|---------------------|--------|
+| == file hash | skip |
+| != file hash | update content, hash, indexed_at |
+| not found | insert new row |
+
+#### FTSManager
 
 ```go
-// internal/metadata/config.go
-
-type LanguageMap struct {
-    Extensions map[string]string  // ".go" -> "Go", ".ts" -> "TypeScript"
+type FTSManager struct {
+    db *sql.DB
 }
 
-type FrameworkMap struct {
-    Markers []FrameworkMarker     // ordered list of detection rules
-}
-
-type FrameworkMarker struct {
-    Name       string             // "React"
-    Manifest   string             // "package.json"
-    Pattern    string             // "react" (dependency name or key)
-    Ecosystem  string             // "npm"
-}
+// Search queries the FTS5 virtual table (synced automatically via Epic 5 triggers).
+// FTS sync is handled by SQLite triggers on the documents table — no manual rebuild needed.
+func (f *FTSManager) Search(ctx context.Context, query string, limit, offset int) ([]SearchResult, error)
 ```
 
-Language mappings and framework markers are loaded at startup from a default set embedded in the binary (via `//go:embed`), with optional user overrides via TOML config.
-
-Default language mapping is embedded in `internal/metadata/languages_data.go` as a Go map (top 10 common extensions: .go, .ts/.tsx, .js/.jsx, .py, .rs, .java, .rb, .c/.h, .cs, .swift). The user can override in `~/.portfolio/config.toml`:
-
-```toml
-[metadata.languages]
-".foo" = "FooLang"
-```
-
-Framework mappings are embedded in `internal/metadata/frameworks_data.go`. User overrides:
-
-```toml
-[metadata.frameworks]
-"MyFramework" = { manifest = "my.json", pattern = "my-framework" }
-```
-
-### 1.7 Git Metadata Extraction
-
-Implemented via `os/exec` calling the `git` CLI (not libgit2):
+#### OrphanCleaner
 
 ```go
-// internal/metadata/git.go
-
-func ExtractGitMetadata(root string) (*GitResult, error)
-
-type GitResult struct {
-    GitHead        *string
-    DefaultBranch  *string
-    LastCommitAt   *time.Time
-    LastModifiedAt *time.Time
-    CommitCount    int
+type OrphanCleaner struct {
+    db *sql.DB
 }
+
+// Clean removes document rows for files that no longer exist on disk.
+// Accepts the set of currently-valid relative paths; deletes the rest.
+func (c *OrphanCleaner) Clean(ctx context.Context, projectID uuid.UUID, validPaths []string) error
 ```
 
-**Commands used:**
-
-| Field | Git Command | Edge Cases |
-|---|---|---|
-| `git_head` | `git rev-parse HEAD` | Fails on empty repo → NULL |
-| `default_branch` | `git symbolic-ref refs/remotes/origin/HEAD` → strip refs/remotes/origin/ prefix. Fallback: `git rev-parse --abbrev-ref HEAD` | No remote → local HEAD ref |
-| `last_commit_at` | `git log -1 --format=%ct HEAD` (Unix timestamp) | Empty repo → NULL |
-| `last_modified_at` | `git status --porcelain` → check for unstaged; then `git log -1 --format=%ct` for last commit time | Unstaged changes → use `stat` on modified files |
-| `commit_count` | `git rev-list --count HEAD` | Empty repo → 0 |
-
-Bare repo detection: check if `root/.git` is missing but `root/HEAD` and `root/objects` exist → `last_modified_at` = NULL, skip language/framework detection.
-
-### 1.8 Language Detection
+### 1.4 IndexRunner (Orchestration)
 
 ```
-Walk(root, skip=vendor,node_modules,.git,build,dist)
-  → for each file: extract extension
-  → map extension → language name (via LanguageMap)
-  → count files per language
-  → sort by count (descending)
-  → join names: "Go, TypeScript, Shell"
+IndexRunner.Run(ctx, projectID, rootPath) → *IndexResult
+
+  Sequence:
+  1. ResolvePaths(rootPath) → PathSet
+  2. docs := discoverer.FindREADME(rootPath)
+           + discoverer.FindDocs(rootPath)
+           + discoverer.FindADRs(rootPath)
+           + discoverer.FindCHANGELOG(rootPath)
+  3. BEGIN TRANSACTION
+  4. For each doc in docs:
+       a. reader.Read(doc.absPath) → content, hash
+       b. dedup.Resolve(projectID, doc.relPath, hash) → action
+       c. If action == skip: continue
+       d. If action == insert: INSERT INTO documents
+       e. If action == update: UPDATE documents SET content, content_hash, indexed_at
+   5. Cleaner.Clean(ctx, projectID, validPaths)
+   // FTS sync is automatic via Epic 5 SQLite triggers on documents table
+   6. sortedHashes := sort.Strings(collect all content_hashes from documents for this project)
+  8. documentationHash := SHA-256 hex of strings.Join(sortedHashes, "")
+  9. UPDATE metadata SET documentation_hash = ?, git_head = ?, last_scan_at = NOW
+ 10. COMMIT
+ 11. Return IndexResult{...}
 ```
-
-Zero code files → `language_summary` = NULL.
-
-### 1.9 Framework Detection
-
-```
-Walk(root, skip=vendor,node_modules,.git,build,dist)
-  → for each known manifest file (package.json, go.mod, etc.):
-    → parse manifest
-    → for each FrameworkMarker with matching manifest:
-      → check if pattern exists in dependencies/devDependencies
-      → if match → add to detected set
-  → join detected framework names: "React, Vite, Express"
-```
-
-### 1.10 Dependency Detection
-
-```
-Walk(root, skip=ignored dirs)
-  → for each manifest file:
-    → parse by type (JSON, TOMT, requirements.txt line parsing)
-    → extract direct dependency names (NOT devDependencies for npm unless also in deps)
-    → deduplicate across manifests
-  → sort by occurrence across manifests (most referenced first)
-  → top 10 → "express, react, lodash, ..."
-  → store ALL deps in dependencies table (F-3.4.5)
-```
-
-Supported manifest formats:
-
-| Manifest | Parser | Ecosystem |
-|---|---|---|
-| `package.json` | Go `encoding/json` | npm/yarn/pnpm |
-| `go.mod` | Custom line parser | Go |
-| `requirements.txt` | Custom line parser | pip |
-| `pyproject.toml` | TOML parser | Poetry |
-| `Cargo.toml` | TOML parser | Rust/Cargo |
-| `Gemfile` | Custom line parser | Ruby/Bundler |
-| `pom.xml` | XML parser | Maven |
-| `build.gradle` | Custom line parser | Gradle |
-
-### 1.11 Documentation Hash
-
-```go
-// internal/metadata/dochash.go
-
-func ComputeDocHash(docContents [][]byte) string {
-    // Sort doc paths for determinism (Epic 4 provides sorted paths)
-    // For each doc: sha256(content)
-    // Combine: sha256(hash1 + hash2 + ... + hashN)
-    // Return hex string
-}
-```
-
-Hashes raw bytes (non-UTF-8 safe). Deterministic by construction. No docs → returns empty string → stored as NULL.
-
-### 1.13 Orchestrator Behavior
-
-`MetadataService.ExtractAll(projectID string) error`:
-
-1. Load project from store (get `root_path`, check existence, handle EC-12)
-2. Execute each capability function independently
-3. Accumulate partial results — if one capability fails, log warning, continue
-4. Assemble `Metadata` struct from results
-5. `store.UpsertMetadata(&metadata)` — single SQL UPDATE with all fields
-6. If Story 3.4 succeeded: `store.ReplaceDependencies(projectID, deps)`
-7. Return nil (partial failures are logged, not propagated)
 
 ---
 
-## 2. Schema Changes
+## 2. Schema Changes (FTS5 Tables)
 
-### 2.1 Extended `metadata` Table
-
-The schema from PlatformSpecification.md is extended with a field from story 3.1 (commit_count):
+### 2.1 Existing documents Table (Epic 1.5)
 
 ```sql
-CREATE TABLE IF NOT EXISTS metadata (
-    project_id        TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
-
-    -- Story 3.1 — Git Metadata
-    git_head          TEXT,
-    default_branch    TEXT,
-    last_commit_at    TEXT,            -- ISO 8601 timestamp
-    last_modified_at  TEXT,            -- ISO 8601 timestamp
-    commit_count      INTEGER DEFAULT 0,
-
-    -- Story 3.2 — Language Detection
-    language_summary  TEXT,            -- comma-separated, e.g. "Go, TypeScript, Shell"
-
-    -- Story 3.3 — Framework Detection
-    framework_summary TEXT,            -- comma-separated, e.g. "React, Express"
-
-    -- Story 3.4 — Dependency Detection
-    dependency_summary TEXT,           -- comma-separated top 10, e.g. "express, react, lodash"
-
-    -- Story 3.6 — Documentation Hash
-    documentation_hash TEXT,           -- SHA-256 hex
-
-    -- Tracking
-    last_scan_at      TEXT             -- ISO 8601 timestamp
+CREATE TABLE documents (
+    id            TEXT PRIMARY KEY,       -- UUID
+    project_id    TEXT NOT NULL,          -- FK → projects.id
+    path          TEXT NOT NULL,          -- relative to project root
+    kind          TEXT NOT NULL,          -- 'README', 'DOC', 'ADR', 'CHANGELOG'
+    content       TEXT NOT NULL,
+    content_hash  TEXT NOT NULL,          -- SHA-256 hex
+    indexed_at    TEXT NOT NULL,          -- ISO 8601 UTC
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    UNIQUE(project_id, path)
 );
 ```
 
-### 2.2 New `dependencies` Table
+### 2.2 FTS5 Virtual Table (Defined in Epic 5 Migration)
 
-Stores ALL direct dependencies (not just top 10), supporting downstream Epic 13 (relationship analysis).
+The FTS5 virtual table, triggers, and index maintenance are owned by **Epic 5 (Knowledge Store)**.
+The FTS table uses `content=documents` content-sync mode with SQLite triggers:
 
 ```sql
-CREATE TABLE IF NOT EXISTS dependencies (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    name        TEXT NOT NULL,             -- dependency package name
-    manager     TEXT NOT NULL,             -- ecosystem: "npm", "go_mod", "pip", "cargo", "bundler", "maven", "gradle"
-    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-
-    UNIQUE(project_id, name, manager)
+-- Defined in Epic 5 migration (001_initial_schema.up.sql):
+CREATE VIRTUAL TABLE documents_fts USING fts5(
+    content,
+    tokenize='unicode61 remove_diacritics 2',
+    content=documents,
+    content_rowid=rowid
 );
 
-CREATE INDEX idx_dependencies_project_id ON dependencies(project_id);
-CREATE INDEX idx_dependencies_name ON dependencies(name);
+-- Triggers keep FTS in sync on insert, update, delete:
+--   AFTER INSERT → INSERT INTO documents_fts
+--   AFTER UPDATE → DELETE old + INSERT new
+--   AFTER DELETE → DELETE FROM documents_fts
+-- (Full trigger definitions in Epic 5 architecture §3.11)
+```
+
+**Why not full rebuild?** DedupEngine ensures most index runs are incremental
+(few changed files). SQLite triggers provide automatic sync with zero application
+logic. Full rebuild on every index is redundant and conflicts with trigger-based sync.
+
+### 2.3 Corruption Recovery
+
+On startup, Epic 5 verifies FTS integrity by comparing row counts and content
+hashes. If corruption is detected, it triggers a rebuild. Epic 4 does not
+initiate rebuilds — it writes to `documents` and lets triggers handle FTS sync.
+
+### 2.4 Search Query Template
+
+```sql
+SELECT
+    d.id,
+    d.project_id,
+    d.path,
+    d.kind,
+    d.content,
+    d.content_hash,
+    d.indexed_at,
+    bm25(documents_fts) AS rank
+FROM documents_fts
+JOIN documents d ON documents_fts.rowid = d.rowid
+WHERE documents_fts MATCH ?
+ORDER BY rank
+LIMIT ? OFFSET ?;
+```
+
+### 2.5 metadata.documentation_hash Update
+
+```sql
+-- After all documents indexed for a project, compute an aggregate hash
+-- over all document content_hashes (sorted, joined, SHA-256 of the concatenation)
+-- Also store git_head for staleness detection
+UPDATE metadata SET
+    documentation_hash = ?,
+    git_head = ?,
+    last_scan_at = ?
+WHERE project_id = ?;
+```
+
+### 2.6 Indexes
+
+```sql
+-- For faster kind-filtered queries
+CREATE INDEX IF NOT EXISTS idx_documents_project_kind ON documents(project_id, kind);
+
+-- For orphan cleanup
+CREATE INDEX IF NOT EXISTS idx_documents_path ON documents(project_id, path);
 ```
 
 ---
 
 ## 3. Sequence Diagrams
 
-### 3.1 Full Metadata Extraction
+### 3.1 IndexProject
 
 ```
-Caller (CLI/MCP)         MetadataService         Git          Walk        Frameworks    Store
-        |                       |                  |            |            |            |
-        |--- ExtractAll(id) --->|                  |            |            |            |
-        |                       |--- getProject--->|            |            |            |
-        |                       |<-- rootPath -----|            |            |            |
-        |                       |                  |            |            |            |
-        |                       |-- E1: gitHead -->|            |            |            |
-        |                       |<-- GitResult ----|            |            |            |
-        |                       |                  |            |            |            |
-        |                       |-- E2: langs ---->|-- Walk --->|            |            |
-        |                       |<-- langSummary <-|<-- files --|            |            |
-        |                       |                  |            |            |            |
-        |                       |-- E3: fwks ---->|-- Walk --->|            |            |
-        |                       |                  |            |-- parse -->|            |
-        |                       |<-- fwSummary ---|            |            |            |
-        |                       |                  |            |            |            |
-        |                       |-- E4: deps ---->|-- Walk --->|            |            |
-        |                       |                  |            |-- parse -->|            |
-        |                       |<-- [deps], top10|            |            |            |
-        |                       |                  |            |            |            |
-        |                       |-- E5: docHash -->|            |            |            |
-        |                       |<-- hash --------|            |            |            |
-        |                       |                  |            |            |            |
-        |                       |--- UpsertMeta ---------------------------->|            |
-        |                       |--- ReplaceDeps ---------------------------->|            |
-        |<-- OK ----------------|                  |            |            |            |
+┌──────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌────────┐    ┌───────────┐
+│ Caller   │    │  Indexer     │    │ DocDiscoverer│    │  DocReader   │    │ Dedup  │    │ SQLite   │
+│ (MCP/CLI)│    │              │    │              │    │              │    │ Engine │    │          │
+└────┬─────┘    └──────┬───────┘    └──────┬───────────┘    └──────┬──────┘    └───┬────┘    └────┬─────┘
+     │                 │                    │                       │              │             │
+     │ IndexProject    │                    │                       │              │             │
+     │ (project, path) │                    │                       │              │             │
+     │────────────────▶│                    │                       │              │             │
+     │                 │  FindREADME(path)  │                       │              │             │
+     │                 │───────────────────▶│                       │              │             │
+     │                 │  []DocFile         │                       │              │             │
+     │                 │◀───────────────────│                       │              │             │
+     │                 │  FindDocs(path)    │                       │              │             │
+     │                 │───────────────────▶│                       │              │             │
+     │                 │  []DocFile         │                       │              │             │
+     │                 │◀───────────────────│                       │              │             │
+     │                 │  FindADRs(path)    │                       │              │             │
+     │                 │───────────────────▶│                       │              │             │
+     │                 │  []DocFile         │                       │              │             │
+     │                 │◀───────────────────│                       │              │             │
+     │                 │  FindCHANGELOG(path)                      │              │             │
+     │                 │───────────────────▶│                       │              │             │
+     │                 │  []DocFile         │                       │              │             │
+     │                 │◀───────────────────│                       │              │             │
+     │                 │                    │                       │              │             │
+     │                 │  ── begin tx ──────│───────────────────────│──────────────│────────────▶│
+     │                 │                    │                       │              │             │
+     │                 │  for each doc:     │                       │              │             │
+     │                 │  Read(absPath)     │                       │              │             │
+     │                 │───────────────────────────────────────────▶│              │             │
+     │                 │  content, hash     │                       │              │             │
+     │                 │◀───────────────────────────────────────────│              │             │
+     │                 │  Resolve(proj,path,hash)                   │              │             │
+     │                 │──────────────────────────────────────────────────────────▶│             │
+     │                 │  skip/update/insert                       │              │             │
+     │                 │◀──────────────────────────────────────────────────────────│             │
+     │                 │  [if update/insert]                        │              │             │
+     │                 │  UPSERT documents  │                       │              │             │
+     │                 │───────────────────────────────────────────────────────────────────────▶│
+     │                 │  ok               │                       │              │             │
+     │                 │◀───────────────────────────────────────────────────────────────────────│
+     │                 │                    │                       │              │             │
+     │                 │  Clean(validPaths) │                       │              │             │
+     │                 │───────────────────────────────────────────────────────────────────────▶│
+     │                 │  ok               │                       │              │             │
+     │                 │◀───────────────────────────────────────────────────────────────────────│
+     │                 │                    │                       │              │             │
+     │                 │  FTS Rebuild       │                       │              │             │
+     │                 │───────────────────────────────────────────────────────────────────────▶│
+     │                 │  ok               │                       │              │             │
+     │                 │◀───────────────────────────────────────────────────────────────────────│
+     │                 │                    │                       │              │             │
+     │                 │  Update metadata   │                       │              │             │
+     │                 │───────────────────────────────────────────────────────────────────────▶│
+     │                 │  ok               │                       │              │             │
+     │                 │◀───────────────────────────────────────────────────────────────────────│
+     │                 │  ── commit tx ────│───────────────────────│──────────────│────────────▶│
+     │                 │                    │                       │              │             │
+     │  IndexResult    │                    │                       │              │             │
+     │◀────────────────│                    │                       │              │             │
 ```
 
-### 3.2 Partial Re-scan (e.g. Story 3.2 Only)
+### 3.2 Search
 
 ```
-Caller                     MetadataService         Walk          Store
-  |--- DetectLanguages ---->|                       |              |
-  |                         |--- Walk(root) ------->|              |
-  |                         |<-- files -------------|              |
-  |                         | (count extensions)    |              |
-  |                         |--- UpsertMeta(lang) -->|              |
-  |<-- langSummary ---------|                       |              |
+┌─────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│ Caller  │    │   Indexer    │    │  FTSManager  │    │   SQLite     │
+└────┬────┘    └──────┬───────┘    └──────┬────────┘    └──────┬──────┘
+     │                │                    │                    │
+     │ Search(q)      │                    │                    │
+     │───────────────▶│                    │                    │
+     │                │  Search(q,lim,off) │                    │
+     │                │───────────────────▶│                    │
+     │                │                    │ SELECT FROM        │
+     │                │                    │ documents_fts      │
+     │                │                    │ JOIN documents      │
+     │                │                    │ WHERE MATCH ?       │
+     │                │                    │────────────────────▶│
+     │                │                    │    ranked results   │
+     │                │                    │◀────────────────────│
+     │                │  []SearchResult    │                    │
+     │                │◀───────────────────│                    │
+     │ []SearchResult │                    │                    │
+     │◀───────────────│                    │                    │
 ```
 
-### 3.3 Partial Failure (Story 3.3 Fails)
+### 3.3 IndexAll (Portfolio-Wide)
 
 ```
-Caller                     MetadataService         Frameworks    Store
-  |--- ExtractAll(id) ---->|                       |              |
-  |                         |-- Git OK ----------->|              |
-  |                         |-- Langs OK --------->|              |
-  |                         |                       |              |
-  |                         |-- Frameworks -------->|              |
-  |                         |    (corrupted        |              |
-  |                         |     go.mod)          |              |
-  |                         |<-- error ------------|              |
-  |                         |  log WARN "framework |              |
-  |                         |  detection failed"   |              |
-  |                         |                       |              |
-  |                         |-- Deps OK ---------->|              |
-  |                         |                       |              |
-  |                         |-- UpsertMeta -------->|              |
-  |                         |  (git+lang+deps      |              |
-  |                         |   +frameworks)        |              |
-  |<-- OK (partial) --------|                       |              |
+IndexAll(ctx):
+  for each project in projects:
+    result, err := idx.IndexProject(ctx, project.ID, project.RootPath)
+    collect result
+  return map[projectID]result
 ```
 
-### 3.4 Empty Repository
-
-```
-Caller                     MetadataService         Git            Store
-  |--- ExtractAll(id) ---->|                       |                |
-  |                         |-- git rev-parse ---->|                |
-  |                         |<-- error ------------|                |
-  |                         |  (fatal: bad revision HEAD)          |
-  |                         |                       |                |
-  |                         |-- is-empty-repo? ---->|                |
-  |                         |  git rev-list --count HEAD           |
-  |                         |<-- error ------------|                |
-  |                         |                       |                |
-  |                         | Result:                              |
-  |                         |   git_head=NULL                       |
-  |                         |   commit_count=0                      |
-  |                         |   last_commit_at=NULL                 |
-  |                         |   default_branch=origin_HEAD or main  |
-  |                         |   lang/stats/deps/fw = (skip)         |
-  |                         |                       |                |
-  |                         |-- UpsertMeta(NULLs) ->|                |
-  |<-- OK ------------------|                       |                |
-```
+No parallelism in v1 (serial per project to keep memory predictable). Future optimization: goroutine per project with semaphore limit.
 
 ---
 
 ## 4. Error Handling
 
-### 4.1 Error Classification
+### 4.1 Error Types
 
-| Category | Example | Behavior |
-|---|---|---|
-| **Skip-and-continue** | Permission denied on file | Log WARN, skip file, continue walk |
-| **Capability failure** | Corrupted manifest JSON | Log WARN, return nil for that field, continue other capabilities |
-| **Project not found** | Deleted/moved repo | Log WARN, skip project entirely, return nil |
-| **Fatal** | DB write failure, config parse failure | Return error, abort entire operation |
-
-### 4.2 Edge Case Handling
-
-| EC | Handler |
-|---|---|
-| **EC-1 Empty repo** | `gitHead`: git command fails → set NULL. `commitCount`: 0. Other capabilities: walk repo with no files → NULLs/zeros. |
-| **EC-2 Bare repo** | Check for `.git` being absent but `HEAD` present. Skip language/framework/deps/stats. `lastModifiedAt` = NULL. |
-| **EC-3 Detached HEAD** | `git rev-parse HEAD` still works. `defaultBranch` resolved from `refs/remotes/origin/HEAD` not local HEAD. |
-| **EC-4 No recognized language** | Walk produces files but no extensions match → `languageSummary` = NULL. `codeFiles` = 0, `locEstimate` = 0. |
-| **EC-5 Unknown extensions** | Files count toward `totalFiles` but not `codeFiles`. Not included in `languageSummary`. |
-| **EC-6 Polyglot 20+** | No truncation in summary. Sorted by extension count descending. All names included. |
-| **EC-7 Multi-framework** | No limit on framework count. Union of all matches across manifests. |
-| **EC-8 Monorepo** | Walk finds multiple manifests at different depths. Each is parsed independently. Dependencies deduplicated by name across manifests. |
-| **EC-9 Corrupted manifest** | JSON/TOML/XML parse error → log WARN with path, skip that file, continue. |
-| **EC-10 >100k files** | `WalkConfig.MaxFiles` set high. LOC estimation uses sampling: count lines in every Nth file (N=ceil(totalFiles/10000)). |
-| **EC-11 No doc files** | `ComputeDocHash([])` returns empty string → stored as NULL. |
-| **EC-12 Deleted/moved repo** | `os.Stat(rootPath)` fails → log WARN "project directory not found, skipping", return nil. |
-| **EC-13 Symlink escape** | Walk: `filepath.EvalSymlinks` on symlink targets. If symlink target is outside `root`, skip. |
-| **EC-14 Non-UTF-8 docs** | Read as `[]byte`, hash raw bytes, not decoded string. |
-| **EC-15 No remote** | `git symbolic-ref refs/remotes/origin/HEAD` fails → fallback to `git rev-parse --abbrev-ref HEAD` for local branch. |
-| **EC-16 Permission error** | Walk: `os.Stat` / `os.Open` returns permission error → log WARN, `return nil` for the single file, continue walk. |
-
-### 4.3 Logging Conventions
-
+```go
+type IndexError struct {
+    Code    string   // machine-readable error code
+    Message string   // human-readable description
+    Cause   error    // wrapped error (optional)
+    Project uuid.UUID // project context (optional)
+    Path    string   // file path context (optional)
+}
 ```
-[WARN] [metadata] skipped inaccessible file: /path/to/file (permission denied)
-[WARN] [metadata] corrupt manifest, skipping: /path/to/package.json (invalid JSON at line 42)
-[WARN] [metadata] framework detection failed for project abc-123: no manifest files found
-[INFO] [metadata] extracted metadata for project abc-123 (6/6 capabilities OK)
-[INFO] [metadata] extracted metadata for project abc-123 (5/6 capabilities, frameworks skipped)
-```
+
+### 4.2 Error Code Catalog
+
+| Code | When | Handling |
+|------|------|----------|
+| `DB_CONNECTION_FAILED` | SQLite open/ping fails | Return error; caller retries |
+| `TX_BEGIN_FAILED` | Cannot start transaction | Return error; caller retries |
+| `TX_COMMIT_FAILED` | Commit fails after successful work | Log; index may be stale; retry on next call |
+| `READ_FAILED` | File read error (permissions, I/O) | Log at error level; skip file; continue |
+| `HASH_FAILED` | SHA-256 computation fails | Log; skip file (should not happen) |
+| `FTS_BUILD_FAILED` | FTS5 rebuild query fails | Rollback transaction; return error |
+| `ORPHAN_CLEAN_FAILED` | DELETE of orphaned rows fails | Log; continue (non-fatal) |
+| `MISSING_PROJECT` | project_id not found in projects table | Return error |
+| `SEARCH_PARSE_FAILED` | FTS5 query syntax error | Return empty results with error detail |
+| `ENCODING_FAILURE` | Cannot decode file as valid UTF-8 | Store raw bytes as BLOB; continue |
+| `GITIGNORE_EVAL_FAILED` | git check-ignore call fails | Log warning; index the file anyway (safe but may index more than expected) |
+
+### 4.3 Edge Case Matrix
+
+| Scenario | Detection | Action |
+|----------|-----------|--------|
+| README >1MB | `stat.Size() > maxFileSize` | Truncate to `maxFileSize` bytes; log debug |
+| Binary file in `docs/` | First 512 bytes contain null byte | Skip; log debug with filename |
+| Symlink | `lstat().Mode()&os.ModeSymlink != 0` | Do not follow; skip |
+| Directory depth >50 | Depth counter exceeds limit | Log warning; skip subtree |
+| Non-UTF8 content | `utf8.ValidString()` fails | Store as BLOB; log debug |
+| Concurrent index of same project | Mutex per projectID | Block second caller; return result after first completes |
+| gitignore eval failure | `exec.Command("git", "check-ignore")` fails | Log warn; index file anyway |
+| Deleted file between runs | `row exists but file missing` | `Cleaner.Clean()` deletes orphaned row |
+| Changed file between runs | `content_hash != stored hash` | Update content, hash, indexed_at |
+| FTS5 not available | `SELECT * FROM pragma_compile_options` lacks ENABLE_FTS5 | Fall back to LIKE scan; log warning |
+| docs/ contains 10k+ files | `os.ReadDir` with batch iterator | Process in batches of 100; yield via `runtime.Gosched()` |
 
 ---
 
 ## 5. Test Strategy
 
-### 5.1 Unit Tests
+### 5.1 Test Levels
 
-| Package | Tests | Approach |
-|---|---|---|
-| `internal/metadata/git_test.go` | 5 | Use `testdata/` git repos with known states: normal, empty, bare, detached HEAD, no remote |
-| `internal/metadata/languages_test.go` | 4 | Use synthetic file trees. Assert correct prevalence sorting, unknown ext handling, empty project |
-| `internal/metadata/frameworks_test.go` | 4 | Use manifest fixtures (package.json with react, go.mod with gin, etc.) |
-| `internal/metadata/dependencies_test.go` | 6 | One per manifest format + monorepo + corrupted manifest + empty |
-| `internal/metadata/dochash_test.go` | 3 | Known content → known hash, determinism, empty input |
-| `internal/metadata/walk_test.go` | 4 | Ignored dir skipping, symlink handling, permission error, max files limit |
-
-### 5.2 Integration Tests
-
-| Test | Description |
-|---|---|
-| `TestFullExtraction` | Create real git repo with files, run all 6 stories, verify DB state |
-| `TestPartialReScan` | Extract, change one file, re-run single capability, verify only that field updates |
-| `TestIdempotency` | Run extraction twice on same repo, verify all fields match (except last_scan_at) |
-| `TestConcurrentExtraction` | Extract metadata for two projects in parallel, verify no cross-contamination |
-
-### 5.3 Test Fixtures
+#### Unit Tests (∼80% coverage target for indexer logic)
 
 ```
-testdata/
-  repos/
-    normal/              # Real git repo: Go + JS files, frameworks, deps
-    empty/               # git init with no commits
-    bare.git/            # git init --bare
-    detached/            # git checkout --detached
-    no-remote/           # Local-only repo
-    polyglot/            # 5+ languages, 3+ frameworks
-    monorepo/            # Multiple manifests in subdirs
-    corrupt-manifest/    # Invalid package.json
-    >100k/               # (generated at test time if needed)
-
-  fixtures/
-    package.json
-    go.mod
-    Cargo.toml
-    requirements.txt
-    pyproject.toml
-    Gemfile
-    pom.xml
-    build.gradle
+internal/indexer/
+  indexer_test.go     — IndexProject happy path, error propagation
+  runner_test.go      — orchestration sequencing, tx lifecycle
+  reader_test.go      — encoding, truncation, hashing
+  discoverer_test.go  — file discovery patterns, missing dirs, case sensitivity
+  dedup_test.go       — content_hash comparison, upsert decision matrix
+  cleanup_test.go     — orphan detection, dry-run vs actual delete
+  fts_test.go         — rebuild, search queries, phrase + boolean operators
 ```
 
-### 5.4 Testing Principles
+Test techniques:
+- **filesystem fixtures**: `t.TempDir()` with known file layouts for discoverer/reader tests
+- **table-driven tests**: for dedup decision matrix (skip/insert/update)
+- **golden files**: for expected FTS query results
 
-- Git-backed test repos are actual git repos (created via shell or `go-git`), not mock files
-- Language/framework detection tested against real manifests, not stubs
-- Walk tests use real filesystem, not in-memory
-- Permission tests: `chmod 000` + defer `chmod 644`
-- Determinism assertions: run twice, assert field equality
-- Performance regression tests: use `testing.B` benchmarks for each capability
+#### Integration Tests (∼60% coverage)
+
+```
+internal/indexer/
+  indexer_integration_test.go  — full pipeline: discover → read → dedup → upsert → fts
+```
+
+- Use in-memory SQLite (`:memory:`) for fast setup/teardown.
+- Pre-populate `projects` and `metadata` tables.
+- Run full `IndexProject` against a temp directory fixture.
+- Verify `documents` rows, FTS query results, orphan cleanup.
+
+#### Behavior-Driven Tests (Acceptance)
+
+Map acceptance criteria to test cases:
+
+| AC ID | Test Name | Coverage |
+|-------|-----------|----------|
+| AC-4.1-1 | `TestIndexREADME_ReadmeMD` | discoverer + runner |
+| AC-4.1-3 | `TestIndexREADME_CaseInsensitive` | discoverer |
+| AC-4.1-5 | `TestIndexREADME_Truncation` | reader |
+| AC-4.1-6 | `TestIndexREADME_Idempotent` | dedup |
+| AC-4.2-1 | `TestIndexDocs_SupportedFormats` | discoverer |
+| AC-4.2-3 | `TestIndexDocs_SkipBinary` | discoverer |
+| AC-4.2-5 | `TestIndexDocs_RespectGitignore` | discoverer (with mock exec) |
+| AC-4.3-1 | `TestIndexADRs_StandardPaths` | discoverer |
+| AC-4.4-1 | `TestIndexCHANGELOG_Variants` | discoverer |
+| AC-4.5-1 | `TestFTS_VirtualTableExists` | fts |
+| AC-4.5-2 | `TestFTS_PhraseQuery` | fts |
+| AC-4.5-3 | `TestFTS_BooleanOperators` | fts |
+| AC-4.5-4 | `TestFTS_RankedResults` | fts |
+| AC-4.5-5 | `TestFTS_ProjectContext` | fts + integration |
+| AC-4.5-6 | `TestFTS_CrossPortfolio` | integration |
+
+### 5.2 Test Fixtures
+
+```
+internal/indexer/testdata/
+  project-with-readme/
+    README.md                      # simple readme
+  project-case-insensitive/
+    Readme.MD                      # case variant
+  project-large-readme/
+    README.md                      # >1MB (generated in test setup)
+  project-with-docs/
+    docs/
+      getting-started.md
+      api/
+        reference.rst
+      guide.txt
+      changelog.adoc
+      binary-file.bin              # binary (null byte at offset 3)
+  project-no-readme/
+    main.go                        # no readme at all
+  project-with-adrs/
+    docs/adr/
+      001-use-go.md
+      002-adopt-sqlite.md
+    .adr/
+      template.md
+    adr/
+      other.md
+  project-gitignored/
+    README.md
+    docs/
+      internal.md                  # gitignored
+    .gitignore                     # internal.md
+```
+
+### 5.3 Benchmarks
+
+| Benchmark | File Count | Target |
+|-----------|-----------|--------|
+| `BenchmarkIndexProject_Small` | 10 files | <500ms hot |
+| `BenchmarkIndexProject_Medium` | 100 files | <2s cold |
+| `BenchmarkIndexProject_Large` | 500 files | <10s cold |
+| `BenchmarkFTS_Search` | 10k documents | <100ms per query |
+| `BenchmarkDedup_NoChanges` | 100 files | <200ms (no-op) |
 
 ---
 
 ## 6. Implementation Order
 
-```
-Story 3.1 ───────────────────────────────────────── 3 days
-  ├── internal/metadata/git.go
-  ├── internal/metadata/walk.go              (shared dependency)
-  ├── internal/store/metadata.go             (UpsertMetadata)
-  ├── store schema migration (add columns)
-  └── internal/metadata/git_test.go
+### Phase 1: Foundation (Days 1-3)
 
-Story 3.2 ───────────────────────────────────────── 3 days
-  ├── internal/metadata/languages.go
-  ├── internal/metadata/config.go            (LanguageMap)
-  ├── internal/metadata/languages_data.go    (embedded map)
-  └── internal/metadata/languages_test.go
+**Story 4.1 — Index README**
 
-Story 3.3 ───────────────────────────────────────── 3 days
-  ├── internal/metadata/frameworks.go
-  ├── internal/metadata/frameworks_data.go   (embedded markers)
-  └── internal/metadata/frameworks_test.go
+1. Define `Document` model in `pkg/models/document.go`:
+   ```go
+   type DocumentKind string
+   const (
+       DocKindREADME    DocumentKind = "README"
+       DocKindDOC       DocumentKind = "DOC"
+       DocKindADR       DocumentKind = "ADR"
+       DocKindCHANGELOG DocumentKind = "CHANGELOG"
+   )
+   type Document struct {
+       ID          string       `json:"id"`
+       ProjectID   string       `json:"project_id"`
+       Path        string       `json:"path"`
+       Kind        DocumentKind `json:"kind"`
+       Content     string       `json:"content"`
+       ContentHash string       `json:"content_hash"`
+       IndexedAt   string       `json:"indexed_at"`
+   }
+   ```
+2. Implement `DocDiscoverer.FindREADME()` — case-insensitive glob in repo root.
+3. Implement `DocReader.Read()` — read, hash, truncate at 1MB.
+4. Implement `DedupEngine` — query content_hash, return action.
+5. Implement `IndexProject` with README-only pipeline.
+6. **Tests:** discoverer, reader, dedup, README-only integration.
 
-Story 3.4 ───────────────────────────────────────── 3 days
-  ├── internal/metadata/dependencies.go
-  ├── internal/store/dependencies.go         (ReplaceDependencies)
-  ├── dependencies table migration
-  └── internal/metadata/dependencies_test.go
+### Phase 2: Directory Scanning (Days 4-7)
 
-Story 3.6 ───────────────────────────────────────── 1 day
-  ├── internal/metadata/dochash.go
-  └── internal/metadata/dochash_test.go
+**Story 4.2 — Index docs/**
 
-Service assembly ────────────────────────────────── 2 days
-  ├── internal/metadata/service.go           (orchestrator)
-  ├── internal/metadata/service_test.go
-  └── Integration tests
-```
+1. Implement `DocDiscoverer.FindDocs()` — recursive `filepath.WalkDir`, filtered by extension.
+2. Binary detection (first 512 bytes, null-byte check).
+3. Depth limiter (max 50).
+4. `.gitignore` respect: shell out to `git check-ignore` or embed `go-gitignore` library.
+5. Implement `OrphanCleaner`.
+6. Wire docs/ into `IndexRunner`.
+7. **Tests:** docs/ discovery, binary skip, gitignore, orphan cleanup.
 
-**Total: ~15 days** (within Epic 3 estimate of ~15 days)
+### Phase 3: ADRs + CHANGELOG (Days 8-10)
+
+**Stories 4.3 + 4.4**
+
+1. `DocDiscoverer.FindADRs()` — check three directories, accept NNN-*.md and *.md.
+2. `DocDiscoverer.FindCHANGELOG()` — case-insensitive for known names.
+3. Wire both into `IndexRunner`.
+4. **Tests:** ADR paths, CHANGELOG variants.
+
+### Phase 4: Full-Text Search (Days 11-14)
+
+**Story 4.5 — FTS5 Indexing**
+
+1. Implement `FTSManager.Rebuild()` — transactional rebuild from `documents`.
+2. Implement `FTSManager.Search()` — MATCH with ranked results.
+3. FTS5 availability check at startup (compile_options).
+4. Query sanitization (FTS5 syntax errors → safe fallback).
+5. Wire FTS rebuild into `IndexRunner` (after dedup + cleanup).
+6. **Tests:** phrase queries, Boolean operators, ranking, cross-portfolio.
+7. **Benchmarks:** search latency, rebuild time.
+
+### Phase 5: Polish (Days 15)
+
+1. `IndexAll()` — iterate all projects, collect results.
+2. Metadata update (documentation_hash computation, git_head capture).
+3. Per-project mutex for concurrency safety.
+4. Error wrapping (`IndexError` types).
+5. Logging (structured, slog, per-operation).
+6. Full integration test suite.
+7. Documentation (update ADRs if needed).
 
 ---
 
-## 7. MCP Tool Mapping
+## 7. Configuration
 
-Each capability is exposed as a separate MCP tool (principle: capabilities over workflows):
+Add to `models.Config`:
 
-| MCP Tool | Maps To | Returns |
-|---|---|---|
-| `extractGitMetadata(projectId)` | Story 3.1 | Git fields |
-| `detectLanguages(projectId)` | Story 3.2 | `language_summary` |
-| `detectFrameworks(projectId)` | Story 3.3 | `framework_summary` |
-| `detectDependencies(projectId)` | Story 3.4 | `dependency_summary` + dependency list |
-| `computeDocumentationHash(projectId)` | Story 3.6 | `documentation_hash` |
-| `extractMetadata(projectId)` | Aggregate | All metadata fields (writes to store) |
+```go
+type IndexerConfig struct {
+    MaxFileSize    int  `toml:"max_file_size"`    // default 1048576 (1MB)
+    MaxDocsPerBatch int `toml:"max_docs_per_batch"` // default 100, for docs/ scanning
+    MaxDepth       int  `toml:"max_depth"`         // default 50
+    SearchMaxResults int `toml:"search_max_results"` // default 200
+}
+```
 
-A caller (CLI agent or AI agent) can invoke individual capabilities or the full aggregate. The engine does NOT mandate a pipeline — agents compose workflows.
+---
+
+## 8. Key Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| FTS sync strategy | SQLite triggers (Epic 5) | Automatic sync on document insert/update/delete; no application logic; Epic 5 verifies integrity on startup |
+| Tokenizer | `unicode61 remove_diacritics 2` | Good baseline for English + code; no Porter stemmer (code terms are not natural language) |
+| Parallelism | Serial per project | Predictable memory; parallelism adds complexity; can be added later with semaphore |
+| Binary detection | Null-byte in first 512 bytes | Simple, fast, no external dependency; covers 99% of cases |
+| gitignore respect | `git check-ignore` via exec | Matches actual git behavior; falls back to index-all on failure |
+| Per-file limit | 1MB truncation | Prevents OOM; stream is overkill for 99% of docs; truncation is deterministic |
+| documentation_hash | SHA-256 of sorted concatenated content hashes | Deterministic aggregate; fast to compute; single field to compare |
+| Orphan cleanup | Full diff after indexing | Guarantees consistency; document-level granularity |
