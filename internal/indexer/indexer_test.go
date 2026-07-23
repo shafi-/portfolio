@@ -483,6 +483,94 @@ func TestBinaryDetection(t *testing.T) {
 	}
 }
 
+func TestDocumentationHash_Stored(t *testing.T) {
+	db := tempDB(t)
+	projectID := "proj-h1"
+	rootPath := t.TempDir()
+
+	initSchema(t, db, projectID, rootPath)
+	writeFile(t, filepath.Join(rootPath, "README.md"), "# Project A")
+	writeFile(t, filepath.Join(rootPath, "docs", "guide.md"), "# Guide A")
+
+	logger, _ := zap.NewDevelopment()
+	idx := NewIndexer(db, logger)
+
+	result, err := idx.IndexProject(context.Background(), projectID, rootPath)
+	if err != nil {
+		t.Fatalf("IndexProject failed: %v", err)
+	}
+	if result.Documentation == "" {
+		t.Fatal("documentation_hash should not be empty after indexing")
+	}
+
+	var storedHash string
+	err = db.QueryRow("SELECT documentation_hash FROM metadata WHERE project_id = ?", projectID).Scan(&storedHash)
+	if err != nil {
+		t.Fatalf("read documentation_hash: %v", err)
+	}
+	if storedHash == "" {
+		t.Fatal("documentation_hash should be stored in metadata table")
+	}
+	if storedHash != result.Documentation {
+		t.Errorf("stored hash %q != result hash %q", storedHash, result.Documentation)
+	}
+}
+
+func TestDocumentationHash_Changed(t *testing.T) {
+	db := tempDB(t)
+	projectID := "proj-h2"
+	rootPath := t.TempDir()
+
+	initSchema(t, db, projectID, rootPath)
+	writeFile(t, filepath.Join(rootPath, "README.md"), "# Initial")
+
+	logger, _ := zap.NewDevelopment()
+	idx := NewIndexer(db, logger)
+
+	r1, err := idx.IndexProject(context.Background(), projectID, rootPath)
+	if err != nil {
+		t.Fatalf("first index: %v", err)
+	}
+	if r1.DocsChanged {
+		t.Log("first index: DocsChanged=true (expected on first run with no prior hash)")
+	}
+
+	writeFile(t, filepath.Join(rootPath, "README.md"), "# Modified content")
+
+	r2, err := idx.IndexProject(context.Background(), projectID, rootPath)
+	if err != nil {
+		t.Fatalf("second index: %v", err)
+	}
+	if !r2.DocsChanged {
+		t.Error("DocsChanged should be true when content changes")
+	}
+}
+
+func TestDocumentationHash_Unchanged(t *testing.T) {
+	db := tempDB(t)
+	projectID := "proj-h3"
+	rootPath := t.TempDir()
+
+	initSchema(t, db, projectID, rootPath)
+	writeFile(t, filepath.Join(rootPath, "README.md"), "# Stable content")
+
+	logger, _ := zap.NewDevelopment()
+	idx := NewIndexer(db, logger)
+
+	_, err := idx.IndexProject(context.Background(), projectID, rootPath)
+	if err != nil {
+		t.Fatalf("first index: %v", err)
+	}
+
+	r2, err := idx.IndexProject(context.Background(), projectID, rootPath)
+	if err != nil {
+		t.Fatalf("second index: %v", err)
+	}
+	if r2.DocsChanged {
+		t.Error("DocsChanged should be false when content is unchanged")
+	}
+}
+
 func TestDocumentStore(t *testing.T) {
 	db := tempDB(t)
 	initSchema(t, db, "proj-s", "/tmp")

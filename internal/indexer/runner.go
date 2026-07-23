@@ -156,11 +156,18 @@ func (r *IndexRunner) Run(ctx context.Context, projectID, rootPath string) (*Ind
 		}
 	}
 
+	oldMeta, _ := r.metaStore.GetMetadata(projectID)
+	oldHash := ""
+	if oldMeta != nil {
+		oldHash = oldMeta.DocumentationHash
+	}
+
 	docHash, err := r.computeDocumentationHash(projectID)
 	if err != nil {
 		r.logger.Warn("failed to compute documentation hash", zap.String("project", projectID), zap.Error(err))
 	} else {
 		result.Documentation = docHash
+		result.DocsChanged = docHash != oldHash
 		meta := &models.Metadata{
 			ProjectID:         projectID,
 			DocumentationHash: docHash,
