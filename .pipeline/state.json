@@ -1,5 +1,5 @@
 {
-  "phase": "4",
+  "phase": "4.3",
   "feature": "Epic 3 - Metadata Extraction",
   "branch": "epic-03-metadata-extraction",
   "archivePath": ".pipeline/archive/epic-03-metadata-extraction/",
