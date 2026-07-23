@@ -48,3 +48,20 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# AI coding assistant configs
+.agents/
+.claude/
+.continue/
+.forge/
+.kilocode/
+.windsurf/
+
+# Skills lock
+skills-lock.json
+
+# Supabase (unused)
+supabase/
+
+# Pipeline artifacts (archive directory itself tracked, contents dynamic)
+# .pipeline/
