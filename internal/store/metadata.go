@@ -26,11 +26,7 @@ func (s *MetadataStore) UpsertMetadataTx(tx *sql.Tx, m *models.Metadata) error {
 	return s.upsertMetadata(tx, m)
 }
 
-type metaExecer interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-}
-
-func (s *MetadataStore) upsertMetadata(q metaExecer, m *models.Metadata) error {
+func (s *MetadataStore) upsertMetadata(q Querier, m *models.Metadata) error {
 	ctx := context.Background()
 	query := `
 		INSERT OR REPLACE INTO metadata (
@@ -53,6 +49,14 @@ func (s *MetadataStore) upsertMetadata(q metaExecer, m *models.Metadata) error {
 }
 
 func (s *MetadataStore) GetMetadata(projectID string) (*models.Metadata, error) {
+	return s.getMetadata(s.db, projectID)
+}
+
+func (s *MetadataStore) GetMetadataTx(tx *sql.Tx, projectID string) (*models.Metadata, error) {
+	return s.getMetadata(tx, projectID)
+}
+
+func (s *MetadataStore) getMetadata(q Querier, projectID string) (*models.Metadata, error) {
 	query := `
 		SELECT project_id, git_head, default_branch, last_commit_at,
 		       last_modified_at, commit_count, language_summary,
@@ -63,7 +67,7 @@ func (s *MetadataStore) GetMetadata(projectID string) (*models.Metadata, error) 
 	var gitHead, defaultBranch, lastCommitAt, lastModifiedAt *string
 	var languageSummary, frameworkSummary, dependencySummary, documentationHash, lastScanAt *string
 
-	err := s.db.QueryRow(query, projectID).Scan(
+	err := q.QueryRowContext(context.Background(), query, projectID).Scan(
 		&m.ProjectID, &gitHead, &defaultBranch, &lastCommitAt,
 		&lastModifiedAt, &m.CommitCount, &languageSummary,
 		&frameworkSummary, &dependencySummary, &documentationHash, &lastScanAt,

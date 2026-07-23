@@ -1,7 +1,10 @@
 package database
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -9,7 +12,6 @@ import (
 	"project-dash/pkg/models"
 )
 
-// migration represents a database migration
 type migration struct {
 	version int
 	name    string
@@ -17,7 +19,6 @@ type migration struct {
 	down    string
 }
 
-// getMigrations returns all available migrations
 func getMigrations() []migration {
 	return []migration{
 		{
@@ -44,10 +45,95 @@ func getMigrations() []migration {
 			up:      fts5SearchUp,
 			down:    fts5SearchDown,
 		},
+		{
+			version: 5,
+			name:    "search_indexes",
+			up:      searchIndexesUp,
+			down:    searchIndexesDown,
+		},
 	}
 }
 
-// Migrate runs pending migrations
+func loadMigrations() []migration {
+	embedded := getMigrations()
+	fileMigrations := loadFileMigrations()
+
+	seen := make(map[int]bool)
+	for _, m := range embedded {
+		seen[m.version] = true
+	}
+
+	for _, fm := range fileMigrations {
+		if !seen[fm.version] {
+			embedded = append(embedded, fm)
+			seen[fm.version] = true
+		}
+	}
+
+	sort.Slice(embedded, func(i, j int) bool {
+		return embedded[i].version < embedded[j].version
+	})
+	return embedded
+}
+
+func loadFileMigrations() []migration {
+	const migrationsDir = "migrations"
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return nil
+	}
+
+	var fileMigs []migration
+	seen := make(map[int]*migration)
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if filepath.Ext(name) != ".sql" {
+			continue
+		}
+
+		var version int
+		var suffix string
+		if _, err := fmt.Sscanf(name, "%d.%s", &version, &suffix); err != nil {
+			continue
+		}
+		if _, err := fmt.Sscanf(name, "%d-", &version); err == nil {
+		}
+
+		if _, ok := seen[version]; !ok {
+			seen[version] = &migration{version: version, name: name}
+		}
+
+		data, err := os.ReadFile(filepath.Join(migrationsDir, name))
+		if err != nil {
+			continue
+		}
+
+		m := seen[version]
+		if suffix == "up.sql" || suffix == "up" || !isDownSuffix(name, version) {
+			m.up = string(data)
+		} else {
+			m.down = string(data)
+		}
+	}
+
+	for _, m := range seen {
+		if m.up != "" {
+			fileMigs = append(fileMigs, *m)
+		}
+	}
+
+	return fileMigs
+}
+
+func isDownSuffix(name string, version int) bool {
+	return len(name) > len(fmt.Sprintf("%d-", version))+3 &&
+		(name[len(name)-len(".down.sql"):] == ".down.sql" || name[len(name)-len("-down"):] == "-down")
+}
+
 func (d *Database) Migrate() error {
 	d.logger.Info("Starting database migrations",
 		models.Field{Key: "path", Value: d.dbPath},
@@ -55,6 +141,10 @@ func (d *Database) Migrate() error {
 
 	if err := d.createMigrationsTable(); err != nil {
 		return fmt.Errorf("failed to create migrations table: %w", err)
+	}
+
+	if err := d.verifyAppliedMigrations(); err != nil {
+		return fmt.Errorf("migration checksum mismatch: %w", err)
 	}
 
 	currentVersion, err := d.GetSchemaVersion()
@@ -66,10 +156,7 @@ func (d *Database) Migrate() error {
 		models.Field{Key: "version", Value: currentVersion},
 	)
 
-	migrations := getMigrations()
-	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i].version < migrations[j].version
-	})
+	migrations := loadMigrations()
 
 	for _, m := range migrations {
 		if m.version > currentVersion {
@@ -101,6 +188,102 @@ func (d *Database) Migrate() error {
 	return nil
 }
 
+func (d *Database) verifyAppliedMigrations() error {
+	rows, err := d.db.Query("SELECT version, checksum FROM schema_migrations ORDER BY version")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	applied := make(map[int]string)
+	for rows.Next() {
+		var version int
+		var checksum string
+		if err := rows.Scan(&version, &checksum); err != nil {
+			return err
+		}
+		applied[version] = checksum
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	migrations := loadMigrations()
+	for _, m := range migrations {
+		if expected, ok := applied[m.version]; ok {
+			actual := calculateChecksum(m.up)
+			if expected != actual {
+				return fmt.Errorf("migration %d (%s) checksum changed: expected %s, got %s",
+					m.version, m.name, expected, actual)
+			}
+		}
+	}
+	return nil
+}
+
+func (d *Database) MigrateDown(targetVersion int) error {
+	d.logger.Info("Rolling back migrations", models.Field{Key: "target", Value: targetVersion})
+
+	migrations := loadMigrations()
+	sort.Slice(migrations, func(i, j int) bool {
+		return migrations[i].version > migrations[j].version
+	})
+
+	for _, m := range migrations {
+		if m.version <= targetVersion {
+			continue
+		}
+		if m.down == "" {
+			d.logger.Warn("no down migration available", models.Field{Key: "version", Value: m.version})
+			continue
+		}
+
+		d.logger.Info("Rolling back migration",
+			models.Field{Key: "version", Value: m.version},
+			models.Field{Key: "name", Value: m.name},
+		)
+
+		tx, err := d.db.Begin()
+		if err != nil {
+			return fmt.Errorf("failed to start transaction: %w", err)
+		}
+
+		if _, err := tx.Exec(m.down); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("migration %d down failed: %w", m.version, err)
+		}
+
+		if _, err := tx.Exec("DELETE FROM schema_migrations WHERE version = ?", m.version); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to remove migration record: %w", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit rollback: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (d *Database) ListAppliedMigrations() ([]int, error) {
+	rows, err := d.db.Query("SELECT version FROM schema_migrations ORDER BY version")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var versions []int
+	for rows.Next() {
+		var version int
+		if err := rows.Scan(&version); err != nil {
+			return nil, err
+		}
+		versions = append(versions, version)
+	}
+	return versions, rows.Err()
+}
+
 func (d *Database) HasFTS5() bool {
 	_, err := d.db.Exec("CREATE VIRTUAL TABLE _fts5_test USING fts5(content TEXT)")
 	if err != nil {
@@ -110,7 +293,6 @@ func (d *Database) HasFTS5() bool {
 	return true
 }
 
-// createMigrationsTable creates the schema_migrations table
 func (d *Database) createMigrationsTable() error {
 	_, err := d.db.Exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -153,10 +335,9 @@ func (d *Database) recordMigration(version int, checksum string) error {
 	return err
 }
 
-// calculateChecksum calculates a simple checksum for migration SQL
 func calculateChecksum(sql string) string {
-	// Simple checksum - can be improved with proper hash
-	return fmt.Sprintf("%x", len(sql)+int(sql[0]))
+	h := sha256.Sum256([]byte(sql))
+	return fmt.Sprintf("%x", h)
 }
 
 // initial schema migration SQL
@@ -325,6 +506,20 @@ DROP TRIGGER IF EXISTS documents_au;
 DROP TRIGGER IF EXISTS documents_ad;
 DROP TRIGGER IF EXISTS documents_ai;
 DROP TABLE IF EXISTS documents_fts;
+`
+
+const searchIndexesUp = `
+CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name);
+CREATE INDEX IF NOT EXISTS idx_metadata_language ON metadata(language_summary);
+CREATE INDEX IF NOT EXISTS idx_metadata_framework ON metadata(framework_summary);
+CREATE INDEX IF NOT EXISTS idx_documents_kind ON documents(kind);
+`
+
+const searchIndexesDown = `
+DROP INDEX IF EXISTS idx_documents_kind;
+DROP INDEX IF EXISTS idx_metadata_framework;
+DROP INDEX IF EXISTS idx_metadata_language;
+DROP INDEX IF EXISTS idx_projects_name;
 `
 
 const initialSchemaDown = `

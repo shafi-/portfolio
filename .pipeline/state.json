@@ -1,68 +1,24 @@
 {
-  "phase": "4",
-  "feature": "Epic 4 - Documentation Indexing",
-  "branch": "epic-04-documentation-indexing",
-  "archivePath": ".pipeline/archive/epic-04-documentation-indexing/",
-  "artifactPaths": {
-    "context-pack": ".pipeline/archive/epic-04-documentation-indexing/00-setup/context-pack.md",
-    "requirements": ".pipeline/archive/epic-04-documentation-indexing/01-requirements-phase/requirements.md",
-    "requirements-review": ".pipeline/archive/epic-04-documentation-indexing/01-requirements-phase/requirements-review.md",
-    "test-cases": ".pipeline/archive/epic-04-documentation-indexing/01-requirements-phase/test-cases.md",
-    "architecture": ".pipeline/archive/epic-04-documentation-indexing/02-architecture-phase/architecture.md",
-    "architecture-review": ".pipeline/archive/epic-04-documentation-indexing/02-architecture-phase/architecture-review.md",
-    "guideline": ".pipeline/archive/epic-04-documentation-indexing/02-architecture-phase/guideline.md"
-  },
+  "phase": "5",
+  "feature": "Epic 5 - Knowledge Store",
+  "branch": "epic-05-knowledge-store",
+  "archivePath": ".pipeline/archive/epic-05-knowledge-store/",
+  "artifactPaths": {},
   "retryCount": 0,
-  "status": "completed",
-  "mergedAt": "2026-07-23T22:28:39Z",
-  "mergedTo": "main",
-  "mergeCommit": "11db10ea7b59ffbfb3d2e099a910b7c72072f297",
-  "timestamp": "2026-07-23T22:00:00Z",
+  "status": "in_progress",
+  "timestamp": "2026-07-23T22:45:00Z",
   "metadata": {
-    "approach": "story-by-story-implementation",
-    "totalStories": 5,
+    "approach": "epic-pipeline",
+    "totalStories": 3,
     "blockedStories": [],
     "currentStory": "",
     "stories": [
-      "4.1-index-readme",
-      "4.2-index-docs",
-      "4.3-index-adrs",
-      "4.4-index-changelog",
-      "4.5-full-text-search"
+      "5.1-repository-layer",
+      "5.2-migrations-system",
+      "5.3-search-indexes"
     ],
-    "completedStories": [
-      "4.1-index-readme",
-      "4.2-index-docs",
-      "4.3-index-adrs",
-      "4.4-index-changelog",
-      "4.5-full-text-search"
-    ],
+    "completedStories": [],
     "agentsInProgress": [],
-    "agentsCompleted": [
-      "git-operator-phase-0a",
-      "repo-scout-phase-0b",
-      "requirement-collector-phase-1",
-      "requirements-reviewer-phase-1",
-      "test-case-writer-phase-1",
-      "architect-phase-2",
-      "architecture-reviewer-phase-2",
-      "guideline-author-phase-2",
-      "story-4.1-developer",
-      "story-4.1-reviewer",
-      "story-4.1-git-operator",
-      "story-4.2-developer",
-      "story-4.2-reviewer",
-      "story-4.2-git-operator",
-      "story-4.3-developer",
-      "story-4.3-reviewer",
-      "story-4.3-git-operator",
-      "story-4.4-developer",
-      "story-4.4-reviewer",
-      "story-4.4-git-operator",
-      "story-4.5-developer",
-      "story-4.5-reviewer",
-      "story-4.5-git-operator",
-      "build-validator-phase-4"
-    ]
+    "agentsCompleted": []
   }
 }

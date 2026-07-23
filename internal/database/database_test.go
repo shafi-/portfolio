@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -193,5 +194,67 @@ func TestDatabasePermissions(t *testing.T) {
 	mode := info.Mode().Perm()
 	if mode&0077 != 0 {
 		t.Logf("Warning: Database file has loose permissions: %o", mode)
+	}
+}
+
+func initBenchDB(b *testing.B) *Database {
+	b.Helper()
+	dir := b.TempDir()
+	logger, _ := logging.NewLogger("ERROR", "console")
+	db, err := NewDatabase(filepath.Join(dir, "bench.db"), logger)
+	if err != nil {
+		b.Fatalf("NewDatabase: %v", err)
+	}
+	if err := db.Connect(); err != nil {
+		b.Fatalf("Connect: %v", err)
+	}
+	if err := db.Initialize(); err != nil {
+		b.Fatalf("Initialize: %v", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		id := fmt.Sprintf("proj-%d", i)
+		name := fmt.Sprintf("project-%d", i)
+		db.db.Exec("INSERT OR IGNORE INTO projects (id, name, root_path, repository_type) VALUES (?, ?, ?, ?)",
+			id, name, "/tmp/"+id, "git")
+		db.db.Exec("INSERT OR IGNORE INTO metadata (project_id, language_summary, framework_summary) VALUES (?, ?, ?)",
+			id, "Go", "Gin")
+	}
+
+	db.db.Exec("INSERT OR IGNORE INTO documents (id, project_id, path, kind, content) VALUES (?, ?, ?, ?, ?)",
+		"doc-bench", "proj-0", "README.md", "README", "Benchmark content for FTS search")
+	return db
+}
+
+func BenchmarkProjectSearch(b *testing.B) {
+	db := initBenchDB(b)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		row := db.db.QueryRow("SELECT COUNT(*) FROM projects WHERE name LIKE ?", "project-%")
+		var count int
+		row.Scan(&count)
+	}
+}
+
+func BenchmarkMetadataFilter(b *testing.B) {
+	db := initBenchDB(b)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		row := db.db.QueryRow("SELECT COUNT(*) FROM metadata WHERE language_summary = ?", "Go")
+		var count int
+		row.Scan(&count)
+	}
+}
+
+func BenchmarkDocumentKindLookup(b *testing.B) {
+	db := initBenchDB(b)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		row := db.db.QueryRow("SELECT COUNT(*) FROM documents WHERE kind = ?", "README")
+		var count int
+		row.Scan(&count)
 	}
 }
