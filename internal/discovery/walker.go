@@ -151,10 +151,46 @@ func (a *walkerFSAdapter) Lstat(path string) (os.FileInfo, error) {
 	return a.fs.Lstat(path)
 }
 
+// normalizePath performs comprehensive path normalization
+func normalizePath(path string) (string, error) {
+	// Check for empty path
+	if path == "" {
+		return "", fmt.Errorf("path cannot be empty")
+	}
+
+	// Expand home directory if present
+	if strings.HasPrefix(path, "~") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot expand home directory: %w", err)
+		}
+		path = filepath.Join(homeDir, path[1:])
+	}
+
+	// Clean the path (removes redundant separators, . , .. etc)
+	// This handles trailing slashes and other path issues
+	path = filepath.Clean(path)
+
+	// Convert to absolute path if relative
+	if !filepath.IsAbs(path) {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return "", fmt.Errorf("cannot convert to absolute path: %w", err)
+		}
+		path = abs
+	}
+
+	return path, nil
+}
+
 // Walk performs a breadth-first search of the directory tree
 func (w *Walker) Walk(ctx context.Context, root string, callback WalkCallback) error {
-	// Normalize root path
-	root = filepath.Clean(root)
+	// Normalize root path with comprehensive handling
+	normalizedRoot, err := normalizePath(root)
+	if err != nil {
+		return fmt.Errorf("path normalization failed for %s: %w", root, err)
+	}
+	root = normalizedRoot
 
 	// Check if root exists
 	info, err := w.fs.Lstat(root)

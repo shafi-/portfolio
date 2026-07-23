@@ -2,10 +2,12 @@ package discovery
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"project-dash/internal/fs"
 	"project-dash/internal/logging"
+	"strings"
 	"testing"
 )
 
@@ -899,5 +901,293 @@ func TestWalker_IgnoreMatcher_DebugLogging(t *testing.T) {
 	// Verify that ignored directories were skipped
 	if skippedCount == 0 {
 		t.Error("expected directories to be skipped")
+	}
+}
+
+// TestNormalizePath tests path normalization edge cases
+func TestNormalizePath(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		wantErr     bool
+		checkResult func(string) error
+	}{
+		{
+			name:    "empty path",
+			input:   "",
+			wantErr: true,
+		},
+		{
+			name:    "trailing slash",
+			input:   "/home/user/projects/",
+			wantErr: false,
+			checkResult: func(result string) error {
+				if result != "/home/user/projects" {
+					return fmt.Errorf("expected trailing slash to be removed, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "multiple trailing slashes",
+			input:   "/home/user/projects///",
+			wantErr: false,
+			checkResult: func(result string) error {
+				if result != "/home/user/projects" {
+					return fmt.Errorf("expected multiple trailing slashes to be cleaned, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "relative path with dot",
+			input:   "./projects",
+			wantErr: false,
+			checkResult: func(result string) error {
+				// Should convert to absolute path
+				if !filepath.IsAbs(result) {
+					return fmt.Errorf("expected absolute path, got %s", result)
+				}
+				if !strings.HasSuffix(result, "projects") {
+					return fmt.Errorf("expected path to end with 'projects', got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "relative path with double dot",
+			input:   "../projects",
+			wantErr: false,
+			checkResult: func(result string) error {
+				if !filepath.IsAbs(result) {
+					return fmt.Errorf("expected absolute path, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "multiple slashes in path",
+			input:   "/home//user///projects",
+			wantErr: false,
+			checkResult: func(result string) error {
+				if strings.Contains(result, "//") {
+					return fmt.Errorf("expected multiple slashes to be cleaned, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "absolute path remains absolute",
+			input:   "/home/user/projects",
+			wantErr: false,
+			checkResult: func(result string) error {
+				if !filepath.IsAbs(result) {
+					return fmt.Errorf("expected absolute path, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "path with current directory reference",
+			input:   "/home/user/./projects",
+			wantErr: false,
+			checkResult: func(result string) error {
+				if strings.Contains(result, "/./") {
+					return fmt.Errorf("expected ./ to be cleaned, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "complex path with multiple issues",
+			input:   "/home/user/./projects///subdir/../projects",
+			wantErr: false,
+			checkResult: func(result string) error {
+				// Should be cleaned and normalized
+				if strings.Contains(result, ".") || strings.Contains(result, "//") {
+					return fmt.Errorf("expected path to be fully cleaned, got %s", result)
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a temporary directory for relative path tests
+			tmpDir := t.TempDir()
+
+			// Change to temp dir for relative path tests
+			originalDir, _ := os.Getwd()
+			defer os.Chdir(originalDir)
+
+			if err := os.Chdir(tmpDir); err != nil {
+				t.Fatalf("failed to change to temp directory: %v", err)
+			}
+
+			result, err := normalizePath(tt.input)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if tt.checkResult != nil {
+				if err := tt.checkResult(result); err != nil {
+					t.Errorf("path validation failed: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestNormalizePath_HomeDirectory tests home directory expansion
+func TestNormalizePath_HomeDirectory(t *testing.T) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("cannot get home directory for testing")
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		check   func(result string) error
+	}{
+		{
+			name:    "home directory with tilde",
+			input:   "~/Projects",
+			wantErr: false,
+			check: func(result string) error {
+				if !strings.HasPrefix(result, homeDir) {
+					return fmt.Errorf("expected path to start with home dir, got %s", result)
+				}
+				if !strings.HasSuffix(result, "Projects") {
+					return fmt.Errorf("expected path to end with Projects, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "home directory with tilde and trailing slash",
+			input:   "~/Projects/",
+			wantErr: false,
+			check: func(result string) error {
+				if !strings.HasPrefix(result, homeDir) {
+					return fmt.Errorf("expected path to start with home dir, got %s", result)
+				}
+				if strings.HasSuffix(result, "/") {
+					return fmt.Errorf("expected no trailing slash, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "just tilde",
+			input:   "~",
+			wantErr: false,
+			check: func(result string) error {
+				if result != homeDir {
+					return fmt.Errorf("expected home directory, got %s", result)
+				}
+				return nil
+			},
+		},
+		{
+			name:    "tilde with slash",
+			input:   "~/",
+			wantErr: false,
+			check: func(result string) error {
+				if result != homeDir {
+					return fmt.Errorf("expected home directory, got %s", result)
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := normalizePath(tt.input)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if tt.check != nil {
+				if err := tt.check(result); err != nil {
+					t.Errorf("home directory check failed: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestWalker_Walk_PathNormalization tests that walker properly normalizes paths
+func TestWalker_Walk_PathNormalization(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a repository
+	repoPath := filepath.Join(tmpDir, "myproject", ".git")
+	if err := os.MkdirAll(repoPath, 0755); err != nil {
+		t.Fatalf("failed to create repo directory: %v", err)
+	}
+
+	filesystem := fs.NewOSFilesystem()
+	detector := NewDetector(filesystem)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
+
+	// Test various path formats
+	testPaths := []string{
+		tmpDir,
+		tmpDir + "/",  // trailing slash
+		tmpDir + "//", // multiple trailing slashes
+		filepath.Join(tmpDir, ".", "myproject", ".."), // with . and ..
+	}
+
+	for _, testPath := range testPaths {
+		t.Run(fmt.Sprintf("path_%s", filepath.Base(testPath)), func(t *testing.T) {
+			ctx := context.Background()
+			foundRepo := false
+			var foundPath string
+
+			err := walker.Walk(ctx, testPath, func(path string, event WalkEvent, err error) error {
+				if event == EventFoundRepo {
+					foundRepo = true
+					foundPath = path
+				}
+				return nil
+			})
+
+			if err != nil {
+				t.Errorf("Walk failed for path %s: %v", testPath, err)
+				return
+			}
+
+			if !foundRepo {
+				t.Errorf("expected to find repository for path %s, but found none", testPath)
+			}
+
+			expectedPath := filepath.Join(tmpDir, "myproject")
+			if foundPath != expectedPath {
+				t.Errorf("expected path %s, got %s", expectedPath, foundPath)
+			}
+		})
 	}
 }

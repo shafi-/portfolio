@@ -13,6 +13,38 @@ import (
 	"project-dash/pkg/models"
 )
 
+// normalizePath performs comprehensive path normalization with robust edge case handling
+func normalizePath(path string) (string, error) {
+	// Check for empty path
+	if path == "" {
+		return "", fmt.Errorf("path cannot be empty")
+	}
+
+	// Expand home directory if present
+	if strings.HasPrefix(path, "~") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot expand home directory: %w", err)
+		}
+		path = filepath.Join(homeDir, path[1:])
+	}
+
+	// Clean the path (removes redundant separators, . , .. etc)
+	// This handles trailing slashes and other path issues
+	path = filepath.Clean(path)
+
+	// Convert to absolute path if relative
+	if !filepath.IsAbs(path) {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return "", fmt.Errorf("cannot convert to absolute path: %w", err)
+		}
+		path = abs
+	}
+
+	return path, nil
+}
+
 // configCmd represents the config command
 var configCmd = &cobra.Command{
 	Use:   "config",
@@ -20,7 +52,42 @@ var configCmd = &cobra.Command{
 	Long: `Manage Portfolio Engine configuration settings.
 
 This command provides subcommands for managing project roots, ignored paths,
-and other configuration settings stored in the Portfolio configuration file.`,
+and other configuration settings stored in the Portfolio configuration file.
+
+Available Subcommands:
+  • set-root    - Add a project root directory for discovery
+  • remove-root - Remove a project root directory from configuration
+  • list-roots  - List all configured project roots with validation status
+
+Common Workflows:
+  1. Set up your first project root:
+     portfolio config set-root ~/Projects
+     portfolio config list-roots
+
+  2. Add multiple workspace directories:
+     portfolio config set-root ~/work/frontend
+     portfolio config set-root ~/work/backend
+     portfolio config set-root ~/work/devops
+
+  3. Review and clean up configuration:
+     portfolio config list-roots
+     portfolio config remove-root ~/old-workspace
+
+Path Normalization:
+  All paths are automatically normalized to handle:
+  • Trailing slashes: ~/Projects/ → ~/Projects
+  • Relative paths: ./projects → /full/path/to/projects
+  • Home directory expansion: ~ → /home/user
+  • Multiple/redundant slashes: /home//user → /home/user
+
+Examples:
+  # Show help for config subcommands
+  portfolio config set-root --help
+  portfolio config list-roots --help
+
+  # Common configuration workflow
+  portfolio config set-root ~/Projects
+  portfolio config list-roots`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// If no subcommand provided, show help
 		cmd.Help()
@@ -42,12 +109,33 @@ var setRootCmd = &cobra.Command{
 	Short: "Add a project root directory",
 	Long: `Add a directory path to the list of project roots for discovery.
 
-The path must exist, be accessible, and be a directory. If the path is already
-in the project roots list, this command does nothing.
+The path must exist, be accessible, and be a directory. The path is automatically
+normalized to handle trailing slashes, relative paths, and home directory expansion.
+If the path is already in the project roots list, this command does nothing.
 
-Example:
-  portfolio config set-root /home/user/Projects
-  portfolio config set-root ~/Developer`,
+Common Use Cases:
+  • Add your main projects directory for discovery
+  • Add multiple workspace directories for different project types
+  • Include nested directories for specific project categories
+
+Path Normalization:
+  • Trailing slashes are automatically handled: ~/Projects/ → ~/Projects
+  • Relative paths are converted to absolute: ./projects → /full/path/to/projects
+  • Home directory expansion works: ~/Developer → /home/user/Developer
+  • Multiple slashes are handled: /home//user/Projects → /home/user/Projects
+
+Examples:
+  # Add home projects directory
+  portfolio config set-root ~/Projects
+
+  # Add workspace directory with trailing slash
+  portfolio config set-root /home/user/workspace/
+
+  # Add relative path (gets converted to absolute)
+  portfolio config set-root ./projects
+
+  # Add specific workspace
+  portfolio config set-root /home/user/Developer/frontend`,
 	Args: cobra.ExactArgs(1),
 	Run:  runSetRoot,
 }
@@ -58,11 +146,35 @@ var removeRootCmd = &cobra.Command{
 	Short: "Remove a project root directory",
 	Long: `Remove a directory path from the list of project roots.
 
-The path must match exactly (including case) a path already in the project
-roots list. If the path is not found, this command does nothing.
+The path is normalized before matching (handles trailing slashes, relative paths,
+home directory expansion). If the path is not found in the project roots list,
+this command does nothing but displays a message. At least one project root must
+remain configured.
 
-Example:
-  portfolio config remove-root /home/user/Projects`,
+Common Use Cases:
+  • Remove a workspace directory that's no longer needed
+  • Clean up duplicate or outdated project roots
+  • Reorganize your project discovery layout
+
+Path Matching:
+  • Paths are normalized before comparison
+  • Must match exactly (after normalization) to be removed
+  • Cannot remove the last remaining project root
+
+Examples:
+  # Remove home projects directory
+  portfolio config remove-root ~/Projects
+
+  # Remove specific workspace (with trailing slash handling)
+  portfolio config remove-root /home/user/workspace/
+
+  # Try removing a path that doesn't exist (shows helpful message)
+  portfolio config remove-root /nonexistent/path
+
+Notes:
+  • Use 'portfolio config list-roots' to see current roots
+  • Add new roots first before removing the last one
+  • Case-sensitive matching on all platforms`,
 	Args: cobra.ExactArgs(1),
 	Run:  runRemoveRoot,
 }
@@ -71,13 +183,35 @@ Example:
 var listRootsCmd = &cobra.Command{
 	Use:   "list-roots",
 	Short: "List all configured project root directories",
-	Long: `Display all configured project root directories.
+	Long: `Display all configured project root directories with validation status.
 
-Shows the complete list of directories where Portfolio searches for projects.
-Each path is validated for existence and accessibility when configured.
+Shows the complete list of directories where Portfolio searches for projects,
+along with real-time validation of each path's accessibility. Each path is
+checked for existence and accessibility to ensure discovery will work properly.
 
-Example:
-  portfolio config list-roots`,
+Output Format:
+  • ✓ - Path is accessible and valid for discovery
+  • ✗ - Path has issues (removed, unreadable, or not a directory)
+
+Common Use Cases:
+  • Verify your project roots are configured correctly
+  • Check if workspace directories are still accessible
+  • Troubleshoot discovery issues
+  • Review your current discovery layout
+
+Examples:
+  # List all project roots with validation status
+  portfolio config list-roots
+
+  # Use with other commands to manage configuration
+  portfolio config set-root ~/projects
+  portfolio config list-roots
+
+Notes:
+  • Paths are displayed in the order they were added
+  • Use this command after system changes to verify accessibility
+  • Consider removing roots that show ✗ status
+  • See 'portfolio discover' to start project discovery`,
 	Args: cobra.NoArgs,
 	Run:  runListRoots,
 }
@@ -87,8 +221,13 @@ func runSetRoot(cmd *cobra.Command, args []string) {
 
 	path := args[0]
 
-	// Clean the path
-	path = filepath.Clean(path)
+	// Normalize the path with comprehensive handling
+	normalizedPath, err := normalizePath(path)
+	if err != nil {
+		handleConfigError(err, "path normalization failed")
+		return
+	}
+	path = normalizedPath
 
 	// Validate the path
 	if err := validatePathForRoot(path); err != nil {
@@ -134,8 +273,13 @@ func runRemoveRoot(cmd *cobra.Command, args []string) {
 
 	path := args[0]
 
-	// Clean the path
-	path = filepath.Clean(path)
+	// Normalize the path with comprehensive handling
+	normalizedPath, err := normalizePath(path)
+	if err != nil {
+		handleConfigError(err, "path normalization failed")
+		return
+	}
+	path = normalizedPath
 
 	// Load current configuration
 	loader := config.NewLoader("")
