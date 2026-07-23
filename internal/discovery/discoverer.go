@@ -222,15 +222,15 @@ func (d *Discoverer) createProject(path string) *Project {
 	// Extract project name from path
 	name := filepath.Base(path)
 
-	// Determine repository type using detector
-	detector := NewDetector(d.osFS)
-	repoType := detector.GetRepositoryType(path)
+	// Detect project type using marker detector
+	markerDetector := NewMarkerDetector(d.osFS)
+	projectType := markerDetector.DetectProjectType(path)
 
 	return &Project{
 		ID:             id,
 		Name:           name,
 		RootPath:       path,
-		RepositoryType: repoType,
+		RepositoryType: projectType,
 		DiscoveredAt:   time.Now().UTC(),
 	}
 }
