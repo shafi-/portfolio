@@ -17,6 +17,7 @@ type IndexResult struct {
 	Skipped       int          `json:"skipped"`
 	Errors        []IndexError `json:"errors,omitempty"`
 	Documentation string       `json:"documentation_hash"`
+	DocsChanged   bool         `json:"docs_changed"`
 }
 
 type IndexStats struct {

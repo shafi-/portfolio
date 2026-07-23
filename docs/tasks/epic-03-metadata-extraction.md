@@ -1,7 +1,7 @@
 # Epic 3 — Metadata Extraction
 
 **Milestone:** 1 — Core Engine
-**Status:** in_progress
+**Status:** completed
 
 ## Overview
 
@@ -88,7 +88,7 @@ As the Portfolio Engine, I want to extract dependency names so that users can se
 
 ## Story 3.6: Compute Documentation Hashes
 
-**Status:** blocked
+**Status:** completed
 **Size:** M
 **Blocked by:** Epic 4
 
@@ -115,12 +115,11 @@ As the Portfolio Engine, I want to hash documentation files so that I can detect
 | 3.3 Detect Frameworks | completed | M | 3.2 |
 | 3.4 Detect Dependencies | completed | M | 3.3 |
 | 3.5 Service Assembly | completed | M | 3.4 |
-| 3.6 Compute Documentation Hashes | blocked | M | Epic 4 |
+| 3.6 Compute Documentation Hashes | completed | M | Epic 4 |
 
 **Total Size:** 1L + 4M = ~18 days
 
-**Completed:** 4L+M = ~14 days
-**Blocked:** 1 story (3.6 — waiting on Epic 4)
+**Completed:** all 6 stories
 
 **Completed Stories:**
 - Story 3.1 — Extract Git Metadata: `internal/metadata/git.go`, `walk.go`, `internal/store/metadata.go`
@@ -128,3 +127,4 @@ As the Portfolio Engine, I want to hash documentation files so that I can detect
 - Story 3.3 — Detect Frameworks: `internal/metadata/frameworks.go`, `frameworks_data.go`
 - Story 3.4 — Detect Dependencies: `internal/metadata/dependencies.go`, `internal/store/dependencies.go`
 - Story 3.5 — Service Assembly: `internal/metadata/service.go`
+- Story 3.6 — Compute Documentation Hashes: `internal/indexer/runner.go` (hash computation + storage), `internal/indexer/types.go` (DocsChanged indicator)
