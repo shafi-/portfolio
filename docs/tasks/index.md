@@ -144,14 +144,14 @@ These stories have no dependencies and can be started immediately:
 
 ## Recently Completed
 
-**Epic 2 — Discovery** (2025-01-23)
+**Epic 2 — Discovery** (2026-07-23)
 - Story 2.1: Configure Project Roots ✅
 - Story 2.2: Recursive Project Discovery ✅
 - Story 2.3: Support Nested Folders ✅
 - Story 2.4: Detect Common Project Types ✅
 - Story 2.5: Ignore Generated Directories ✅
 
-The discovery system is now fully functional with intelligent directory scanning and filtering capabilities.
+The discovery system is now fully functional with intelligent directory scanning and filtering capabilities. Merged to main as commit 82c6fe8.
 
 ---
 
