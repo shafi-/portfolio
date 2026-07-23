@@ -1,42 +1,61 @@
 {
-  "phase": "4b",
-  "feature": "Epic 8 - Integration Framework",
-  "branch": "epic-08-integration-framework",
-  "archivePath": ".pipeline/archive/epic-08-integration-framework/",
+  "phase": "5",
+  "feature": "Epic 9 - Claude Code Integration",
+  "branch": "main",
+  "archivePath": ".pipeline/archive/epic-09-claude-code-integration/",
   "artifactPaths": {
-    "context-pack": ".pipeline/artifacts/epic-08-context-pack.md",
-    "requirements": ".pipeline/artifacts/epic-08-requirements.md",
-    "architecture": ".pipeline/artifacts/epic-08-architecture.md",
-    "architecture-review": ".pipeline/artifacts/epic-08-architecture-review.md"
+    "context-pack": ".pipeline/artifacts/epic-09-context-pack.md",
+    "requirements": ".pipeline/artifacts/epic-09-requirements.md",
+    "requirements-review": ".pipeline/artifacts/epic-09-requirements-review.md",
+    "architecture": ".pipeline/artifacts/epic-09-architecture.md",
+    "architecture-review": ".pipeline/artifacts/epic-09-architecture-review.md",
+    "test-cases": ".pipeline/artifacts/epic-09-test-cases.md",
+    "implementation-guideline": ".pipeline/artifacts/epic-09-implementation-guideline.md"
   },
   "retryCount": 0,
   "status": "completed",
-  "timestamp": "2026-07-24T00:42:00Z",
+  "timestamp": "2026-07-24T01:45:00Z",
   "metadata": {
     "approach": "epic-pipeline",
     "totalStories": 5,
     "blockedStories": [],
     "currentStory": "",
     "stories": [
-      "8.1-integration-abstraction",
-      "8.2-installation-framework",
-      "8.3-validation",
-      "8.4-upgrade-mechanism",
-      "8.5-removal-uninstall"
+      "9.1-install-mcp",
+      "9.2-install-skill",
+      "9.3-verify-integration",
+      "9.4-upgrade-integration",
+      "9.5-uninstall-integration"
     ],
     "completedStories": [
-      "8.1-integration-abstraction",
-      "8.2-installation-framework",
-      "8.3-validation",
-      "8.4-upgrade-mechanism",
-      "8.5-removal-uninstall"
+      "9.1-install-mcp",
+      "9.2-install-skill",
+      "9.3-verify-integration",
+      "9.4-upgrade-integration",
+      "9.5-uninstall-integration"
     ],
     "agentsInProgress": [],
     "agentsCompleted": [
+      "repo-scout-phase-0b",
+      "requirement-collector-phase-1",
+      "requirements-reviewer-phase-1.2",
+      "architect-phase-2",
+      "architecture-reviewer-phase-2.1a",
+      "developer-phase-3",
+      "implementation-reviewer-phase-3.1",
       "build-validator-phase-4"
     ],
+    "phasesCompleted": ["0b", "1", "2", "3", "4"],
     "buildStatus": "passed",
-    "implementationReviewStatus": "completed",
-    "reviewFindings": "All acceptance criteria met. Architecture aligns with specifications. Tests comprehensive and passing. Code follows established patterns."
+    "implementationReviewStatus": "approved",
+    "criticalIssues": 4,
+    "criticalIssuesFixed": 4,
+    "commitHash": "",
+    "pushed": false,
+    "remoteBranch": "",
+    "prNumber": 0,
+    "prUrl": ""
   }
+}
+}
 }

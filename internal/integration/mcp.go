@@ -3,6 +3,11 @@ package integration
 import (
 	"context"
 	"fmt"
+	"time"
+)
+
+const (
+	timeout = 5 * time.Second
 )
 
 type MCPClient interface {

@@ -52,6 +52,9 @@ func (m *Manager) Upgrade(ctx context.Context, name string, opts UpgradeOptions)
 		return meta, nil
 	}
 
+	upgradeOpts := opts
+	upgradeOpts.EngineVersion = m.engineVersion
+
 	backupPath := filepath.Join(meta.InstallPath, "backup")
 	if err := m.createBackup(ctx, meta.InstallPath, backupPath); err != nil {
 		return nil, NewError(ErrCodeUpgradeFailed, "Failed to create backup before upgrade", err)
@@ -68,12 +71,19 @@ func (m *Manager) Upgrade(ctx context.Context, name string, opts UpgradeOptions)
 		}
 	}()
 
-	upgradeResult, err := integration.Upgrade(ctx, opts)
+	upgradeResult, err := integration.Upgrade(ctx, upgradeOpts)
 	if err != nil {
 		m.logger.Error("Integration upgrade failed",
 			zap.String("name", name),
 			zap.Error(err))
 		return nil, NewError(ErrCodeUpgradeFailed, fmt.Sprintf("Upgrade failed for integration '%s'", name), err)
+	}
+
+	if upgradeResult.NoOp {
+		m.logger.Info("Integration upgrade no-op (already at target version)",
+			zap.String("name", name),
+			zap.String("version", upgradeResult.NewVersion))
+		return meta, nil
 	}
 
 	m.logger.Info("Validating upgraded integration", zap.String("name", name))

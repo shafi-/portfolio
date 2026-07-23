@@ -30,12 +30,14 @@ type InstallResult struct {
 
 type UpgradeOptions struct {
 	TargetVersion string
+	EngineVersion string
 }
 
 type UpgradeResult struct {
 	PreviousVersion string
 	NewVersion      string
 	RolledBack      bool
+	NoOp            bool
 }
 
 type ValidationResult struct {
