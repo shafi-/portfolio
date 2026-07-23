@@ -39,13 +39,13 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 |------|--------|---------|------|------|
 | [Epic 1 — Project Foundation](epic-01-project-foundation.md) | Completed | 5 | ~8 days | [epic-01-project-foundation.md](epic-01-project-foundation.md) |
 | [Epic 2 — Discovery](epic-02-discovery.md) | Completed | 5 | ~17 days | [epic-02-discovery.md](epic-02-discovery.md) |
-| [Epic 3 — Metadata Extraction](epic-03-metadata-extraction.md) | in_progress | 6 | ~18 days | [epic-03-metadata-extraction.md](epic-03-metadata-extraction.md) |
-| [Epic 4 — Documentation Indexing](epic-04-documentation-indexing.md) | todo | 5 | ~15 days | [epic-04-documentation-indexing.md](epic-04-documentation-indexing.md) |
-| [Epic 5 — Knowledge Store](epic-05-knowledge-store.md) | todo | 3 | ~12 days | [epic-05-knowledge-store.md](epic-05-knowledge-store.md) |
+| [Epic 3 — Metadata Extraction](epic-03-metadata-extraction.md) | Completed | 6 | ~18 days | [epic-03-metadata-extraction.md](epic-03-metadata-extraction.md) |
+| [Epic 4 — Documentation Indexing](epic-04-documentation-indexing.md) | Completed | 5 | ~15 days | [epic-04-documentation-indexing.md](epic-04-documentation-indexing.md) |
+| [Epic 5 — Knowledge Store](epic-05-knowledge-store.md) | Completed | 3 | ~12 days | [epic-05-knowledge-store.md](epic-05-knowledge-store.md) |
 | [Epic 6 — HTTP API](epic-06-http-api.md) | todo | 5 | ~7 days | [epic-06-http-api.md](epic-06-http-api.md) |
 | [Epic 7 — MCP Server](epic-07-mcp-server.md) | todo | 5 | ~14 days | [epic-07-mcp-server.md](epic-07-mcp-server.md) |
 
-**Milestone 1 Progress:** 2/7 epics completed (28%)
+**Milestone 1 Progress:** 5/7 epics completed (71%)
 
 ---
 

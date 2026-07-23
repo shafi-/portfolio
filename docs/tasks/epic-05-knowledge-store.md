@@ -1,7 +1,7 @@
 # Epic 5 — Knowledge Store
 
 **Milestone:** 1 — Core Engine
-**Status:** todo
+**Status:** completed
 
 ## Overview
 
@@ -11,7 +11,7 @@ Implement repository layer, migrations system, and search indexes for the SQLite
 
 ## Story 5.1: Repository Layer
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 1.5
 
@@ -28,7 +28,7 @@ As the Portfolio Engine, I want a repository abstraction so that database operat
 
 ## Story 5.2: Migrations System
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 1.5, 5.1
 
@@ -46,7 +46,7 @@ As the Portfolio Engine, I want schema migrations so that database can evolve.
 
 ## Story 5.3: Search Indexes
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 4.5
 
@@ -65,10 +65,13 @@ As the Portfolio Engine, I want optimized search indexes so that queries are fas
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 5.1 Repository Layer | todo | M | 1.5 |
-| 5.2 Migrations System | todo | M | 1.5, 5.1 |
-| 5.3 Search Indexes | todo | M | 4.5 |
+| 5.1 Repository Layer | completed | M | 1.5 |
+| 5.2 Migrations System | completed | M | 1.5, 5.1 |
+| 5.3 Search Indexes | completed | M | 4.5 |
 
 **Total Size:** 3M = ~9-15 days
 
-**Can Start:** Story 5.1 (after 1.5 complete)
+**Completed Stories:**
+- Story 5.1 — Repository Layer: `internal/store/projects.go`, `internal/store/analyses.go`, `internal/store/features.go`, `internal/store/technologies.go`, `internal/store/relationships.go`, `internal/store/configuration.go`; Tx variants added to `internal/store/metadata.go`, `internal/store/dependencies.go`
+- Story 5.2 — Migrations System: SHA-256 checksum verification, `MigrateDown()`, file-based migration loading, `ListAppliedMigrations()`
+- Story 5.3 — Search Indexes: migration 5 (search indexes on project.name, metadata.language_summary, metadata.framework_summary, documents.kind), query benchmarks (<15μs)

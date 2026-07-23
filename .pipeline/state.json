@@ -5,8 +5,11 @@
   "archivePath": ".pipeline/archive/epic-05-knowledge-store/",
   "artifactPaths": {},
   "retryCount": 0,
-  "status": "in_progress",
-  "timestamp": "2026-07-23T22:45:00Z",
+  "status": "completed",
+  "mergedAt": "2026-07-23T22:55:00Z",
+  "mergedTo": "main",
+  "mergeCommit": "4a8e20b",
+  "timestamp": "2026-07-23T22:55:00Z",
   "metadata": {
     "approach": "epic-pipeline",
     "totalStories": 3,
@@ -17,8 +20,17 @@
       "5.2-migrations-system",
       "5.3-search-indexes"
     ],
-    "completedStories": [],
+    "completedStories": [
+      "5.1-repository-layer",
+      "5.2-migrations-system",
+      "5.3-search-indexes"
+    ],
     "agentsInProgress": [],
-    "agentsCompleted": []
+    "agentsCompleted": [
+      "developer-story-5.1",
+      "developer-story-5.2",
+      "developer-story-5.3",
+      "build-validator-phase-5"
+    ]
   }
 }
