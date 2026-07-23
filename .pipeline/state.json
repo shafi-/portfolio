@@ -1,17 +1,19 @@
 {
-  "phase": "4",
+  "phase": "4b",
   "feature": "Epic 2 - Discovery",
   "branch": "epic/02-discovery",
+  "archivePath": ".pipeline/archive/epic-02-discovery/",
+  "archivedAt": "2026-07-23T19:52:00Z",
   "artifactPaths": {
-    "context-pack": ".pipeline/artifacts/context-pack.md",
-    "requirements": ".pipeline/artifacts/requirements.md",
-    "architecture": ".pipeline/artifacts/architecture.md",
-    "implementation": ".pipeline/artifacts/implementation.md",
-    "story-2.5-completion": ".pipeline/artifacts/story-2.5-completion.md"
+    "context-pack": ".pipeline/archive/epic-02-discovery/05-artifacts/context-pack.md",
+    "requirements": ".pipeline/archive/epic-02-discovery/01-requirements-phase/requirements.md",
+    "architecture": ".pipeline/archive/epic-02-discovery/02-architecture-phase/architecture.md",
+    "story-2.5-completion": ".pipeline/archive/epic-02-discovery/03-implementation-phase/story-2.5-completion.md",
+    "epic-2-completion": ".pipeline/archive/epic-02-discovery/04-validation-phase/epic-2-completion.md"
   },
   "retryCount": 0,
-  "status": "epic-2-completed",
-  "timestamp": "2025-01-23T19:30:00Z",
+  "status": "archived",
+  "timestamp": "2026-07-23T19:52:00Z",
   "metadata": {
     "approach": "story-by-story-implementation",
     "totalStories": 5,
