@@ -116,7 +116,7 @@ As the dashboard, I want portfolio statistics so that it can display overview da
 As the dashboard, I want to retrieve project relationships so that users can see connections between projects.
 
 **Acceptance Criteria:**
-- GET /projects/{id}/relationships → array of relationships for the project
+- GET /relationships/{projectId} → array of relationships for the project
 - Each relationship includes: source_project, target_project, type, description, confidence
 - Returns 404 if project does not exist
 - Returns empty array if no relationships exist
