@@ -1,1 +1,54 @@
-{"phase":"complete","feature":"Epic 1 - Project Foundation","branch":"epic/01-project-foundation","artifactPaths":{"archived":".pipeline/archive/epic-01-project-foundation/"},"retryCount":0,"status":"completed","timestamp":"2025-01-23T09:15:00Z","cleanupCompleted":"2025-01-23T10:30:00Z","metadata":{"approach":"story-by-story-implementation","totalStories":5,"currentStory":"epic-1-complete","completedStories":["1.1-bootstrap","1.2-config","1.3-logging","1.4-cli","1.5-sqlite"],"agentsCompleted":["repo-scout","story-1.1-requirements","epic-level-requirements","requirements-reviewer","requirements-reviewer-retry","test-case-writer","architect","architecture-reviewer","implementation-guideline-author","story-1.1-developer","story-1.2-and-1.3-developer","stories-1.2-and-1.3-reviewer","stories-1.2-and-1.3-fix","stories-1.2-and-1.3-review-retry-1","stories-1.2-and-1.3-git-operator","stories-1.4-and-1.5-developer","stories-1.4-and-1.5-reviewer","stories-1.4-and-1.5-git-operator","artifact-archiver","git-operator-merge","post-merge-cleanup"],"agentsInProgress":[],"archiveLocation":".pipeline/archive/epic-01-project-foundation/","mergeCompleted":"2025-01-23T09:15:00Z","mergeTarget":"main"}}
+{
+  "phase": "4b",
+  "feature": "Epic 2 - Discovery",
+  "branch": "epic/02-discovery",
+  "archivePath": ".pipeline/archive/epic-02-discovery/",
+  "archivedAt": "2026-07-23T19:52:00Z",
+  "artifactPaths": {
+    "context-pack": ".pipeline/archive/epic-02-discovery/05-artifacts/context-pack.md",
+    "requirements": ".pipeline/archive/epic-02-discovery/01-requirements-phase/requirements.md",
+    "architecture": ".pipeline/archive/epic-02-discovery/02-architecture-phase/architecture.md",
+    "story-2.5-completion": ".pipeline/archive/epic-02-discovery/03-implementation-phase/story-2.5-completion.md",
+    "epic-2-completion": ".pipeline/archive/epic-02-discovery/04-validation-phase/epic-2-completion.md"
+  },
+  "retryCount": 0,
+  "status": "archived",
+  "timestamp": "2026-07-23T19:52:00Z",
+  "metadata": {
+    "approach": "story-by-story-implementation",
+    "totalStories": 5,
+    "currentStory": "2.5-ignore-generated-directories",
+    "completedStories": [
+      "2.1-configure-project-roots",
+      "2.2-recursive-project-discovery",
+      "2.3-support-nested-folders",
+      "2.4-detect-common-project-types",
+      "2.5-ignore-generated-directories"
+    ],
+    "stories": [
+      "2.1-configure-project-roots",
+      "2.2-recursive-project-discovery",
+      "2.3-support-nested-folders",
+      "2.4-detect-common-project-types",
+      "2.5-ignore-generated-directories"
+    ],
+    "agentsInProgress": [],
+    "agentsCompleted": [
+      "git-operator-phase-0a",
+      "story-2.1-developer",
+      "story-2.1-reviewer",
+      "story-2.1-git-operator",
+      "story-2.2-developer",
+      "story-2.2-reviewer",
+      "story-2.2-git-operator",
+      "story-2.3-developer",
+      "story-2.3-reviewer",
+      "story-2.3-git-operator",
+      "story-2.4-developer",
+      "story-2.4-reviewer",
+      "story-2.4-git-operator",
+      "story-2.5-analysis",
+      "story-2.5-git-operator"
+    ]
+  }
+}

@@ -11,6 +11,7 @@ require (
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

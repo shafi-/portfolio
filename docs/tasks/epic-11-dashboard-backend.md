@@ -5,7 +5,7 @@
 
 ## Overview
 
-Implement dashboard backend including asset serving, API integration, search endpoints, and service endpoints to support the read-only dashboard frontend.
+Implement dashboard backend serving layer — static asset serving for the frontend, plus endpoint review and search/config/health enhancements on top of the Epic 6 HTTP API.
 
 ---
 
@@ -26,56 +26,26 @@ As the Portfolio Engine, I want to serve static assets so that the dashboard can
 
 ---
 
-## Story 11.2: Dashboard API Integration
-
-**Status:** todo
-**Size:** M
-**Blocked by:** Epic 6
-
-**User Story:**
-As the dashboard, I want API endpoints so that I can fetch portfolio data.
-
-**Acceptance Criteria:**
-- All HTTP API endpoints available for dashboard
-- CORS configuration for local development
-- Authentication not required (local only)
-- Error responses with proper status codes
-
----
-
-## Story 11.3: Search Endpoints
-
-**Status:** todo
-**Size:** M
-**Blocked by:** 6.3
-
-**User Story:**
-As the dashboard, I want rich search so that users can find anything in their portfolio.
-
-**Acceptance Criteria:**
-- Unified search endpoint
-- Search filters: by technology, by framework, by date range
-- Pagination support
-- Highlighted snippets in results
-
----
-
----
-
-## Story 11.4: Service Endpoints
+## Story 11.2: Endpoint Review
 
 **Status:** todo
 **Size:** S
-**Blocked by:** 11.2
+**Blocked by:** Epic 6
 
 **User Story:**
-As the dashboard, I want configuration and health endpoints so that I can display engine settings and monitor status.
+As the dashboard, I want reviewed and enhanced API endpoints so that the frontend has a polished data surface.
 
 **Acceptance Criteria:**
-- GET /configuration returns current Portfolio configuration as JSON
-- PATCH /configuration accepts partial updates with validation
-- GET /health returns 200 with uptime and DB connectivity status
-- Invalid PATCH payload returns 400 with validation error details
+- Review all Epic 6 HTTP endpoints for dashboard consumption
+- Add enhanced search filters: by technology, by framework, by date range
+- Add pagination support to search results
+- Add highlighted snippets in search results
+- Verify GET /health returns uptime and DB connectivity
+- Verify GET /configuration returns current config as JSON
+- Verify PATCH /configuration accepts partial updates with validation
+- Verify error responses use proper HTTP status codes and consistent format
+- CORS enabled for local development
+- Authentication not required (local only)
 
 ---
 
@@ -84,10 +54,8 @@ As the dashboard, I want configuration and health endpoints so that I can displa
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
 | 11.1 Asset Serving | todo | S | Epic 6 |
-| 11.2 Dashboard API Integration | todo | M | Epic 6 |
-| 11.3 Search Endpoints | todo | M | 6.3 |
-| 11.4 Service Endpoints | todo | S | 11.2 |
+| 11.2 Endpoint Review | todo | S | Epic 6 |
 
-**Total Size:** 2S + 2M = ~8 days
+**Total Size:** 2S = ~4 days
 
 **Can Start:** Story 11.1 (after Epic 6 complete)
