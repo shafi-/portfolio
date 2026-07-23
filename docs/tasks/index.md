@@ -37,15 +37,15 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 
 | Epic | Status | Stories | Size | File |
 |------|--------|---------|------|------|
-| [Epic 1 — Project Foundation](epic-01-project-foundation.md) | todo | 5 | ~8 days | [epic-01-project-foundation.md](epic-01-project-foundation.md) |
-| [Epic 2 — Discovery](epic-02-discovery.md) | completed | 5 | ~17 days | [epic-02-discovery.md](epic-02-discovery.md) |
-| [Epic 3 — Metadata Extraction](epic-03-metadata-extraction.md) | todo | 6 | ~18 days | [epic-03-metadata-extraction.md](epic-03-metadata-extraction.md) |
+| [Epic 1 — Project Foundation](epic-01-project-foundation.md) | Completed | 5 | ~8 days | [epic-01-project-foundation.md](epic-01-project-foundation.md) |
+| [Epic 2 — Discovery](epic-02-discovery.md) | Completed | 5 | ~17 days | [epic-02-discovery.md](epic-02-discovery.md) |
+| [Epic 3 — Metadata Extraction](epic-03-metadata-extraction.md) | in_progress | 6 | ~18 days | [epic-03-metadata-extraction.md](epic-03-metadata-extraction.md) |
 | [Epic 4 — Documentation Indexing](epic-04-documentation-indexing.md) | todo | 5 | ~15 days | [epic-04-documentation-indexing.md](epic-04-documentation-indexing.md) |
 | [Epic 5 — Knowledge Store](epic-05-knowledge-store.md) | todo | 3 | ~12 days | [epic-05-knowledge-store.md](epic-05-knowledge-store.md) |
 | [Epic 6 — HTTP API](epic-06-http-api.md) | todo | 5 | ~7 days | [epic-06-http-api.md](epic-06-http-api.md) |
 | [Epic 7 — MCP Server](epic-07-mcp-server.md) | todo | 5 | ~14 days | [epic-07-mcp-server.md](epic-07-mcp-server.md) |
 
-**Milestone 1 Progress:** 1/7 epics completed (14%)
+**Milestone 1 Progress:** 2/7 epics completed (28%)
 
 ---
 
@@ -92,12 +92,12 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 ## Overall Progress
 
 **Total Epics:** 14
-**Completed:** 1
-**In Progress:** 0
-**Todo:** 13
+**Completed:** 2
+**In Progress:** 1
+**Todo:** 11
 
 **Total Estimated Size:** ~163 days (~6-7 months for one developer)
-**Completed Size:** ~17 days
+**Completed Size:** ~31 days
 
 ---
 
@@ -142,16 +142,26 @@ These stories have no dependencies and can be started immediately:
 
 - **Story 1.1** — Bootstrap Go Project (Epic 1)
 
-## Recently Completed
+## Recently Updated
 
-**Epic 2 — Discovery** (2025-01-23)
+**Epic 3 — Metadata Extraction** (2026-07-23)
+- Story 3.1: Extract Git Metadata ✅
+- Story 3.2: Detect Languages ✅
+- Story 3.3: Detect Frameworks ✅
+- Story 3.4: Detect Dependencies ✅
+- Story 3.5: Service Assembly ✅
+- Story 3.6: Compute Documentation Hashes ⏳ (blocked by Epic 4)
+
+All 5 extractable stories implemented on branch `epic-03-metadata-extraction`. Build + vet + all tests pass. Story 3.6 blocked until Epic 4 (documentation discovery) provides the input interface.
+
+**Epic 2 — Discovery** (2026-07-23)
 - Story 2.1: Configure Project Roots ✅
 - Story 2.2: Recursive Project Discovery ✅
 - Story 2.3: Support Nested Folders ✅
 - Story 2.4: Detect Common Project Types ✅
 - Story 2.5: Ignore Generated Directories ✅
 
-The discovery system is now fully functional with intelligent directory scanning and filtering capabilities.
+The discovery system is now fully functional with intelligent directory scanning and filtering capabilities. Merged to main as commit 82c6fe8.
 
 ---
 

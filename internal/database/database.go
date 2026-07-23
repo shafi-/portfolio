@@ -220,6 +220,22 @@ func (d *Database) GetProjectCount() (int, error) {
 	return count, nil
 }
 
+// GetProject returns a project by ID
+func (d *Database) GetProject(id string) (*models.Project, error) {
+	var p models.Project
+	err := d.db.QueryRow(
+		"SELECT id, name, root_path, repository_type, discovered_at, updated_at FROM projects WHERE id = ?",
+		id,
+	).Scan(&p.ID, &p.Name, &p.RootPath, &p.RepositoryType, &p.DiscoveredAt, &p.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+	return &p, nil
+}
+
 // GetLastDiscoveryTime returns the last discovery timestamp
 func (d *Database) GetLastDiscoveryTime() (time.Time, error) {
 	var lastScan time.Time

@@ -1,58 +1,64 @@
 {
-  "phase": "4.4",
-  "feature": "Epic 2 - Discovery",
-  "branch": "main",
-  "archivePath": ".pipeline/archive/epic-02-discovery/",
+  "phase": "4",
+  "feature": "Epic 3 - Metadata Extraction",
+  "branch": "epic-03-metadata-extraction",
+  "archivePath": ".pipeline/archive/epic-03-metadata-extraction/",
   "archivedAt": "2026-07-23T19:52:00Z",
   "artifactPaths": {
-    "context-pack": ".pipeline/archive/epic-02-discovery/05-artifacts/context-pack.md",
-    "requirements": ".pipeline/archive/epic-02-discovery/01-requirements-phase/requirements.md",
-    "architecture": ".pipeline/archive/epic-02-discovery/02-architecture-phase/architecture.md",
-    "story-2.5-completion": ".pipeline/archive/epic-02-discovery/03-implementation-phase/story-2.5-completion.md",
-    "epic-2-completion": ".pipeline/archive/epic-02-discovery/04-validation-phase/epic-2-completion.md"
+    "context-pack": ".pipeline/archive/epic-03-metadata-extraction/05-artifacts/context-pack.md",
+    "requirements": ".pipeline/archive/epic-03-metadata-extraction/01-requirements-phase/requirements.md",
+    "architecture": ".pipeline/archive/epic-03-metadata-extraction/02-architecture-phase/architecture.md",
+    "architecture-review": ".pipeline/archive/epic-03-metadata-extraction/02-architecture-phase/architecture-review.md"
   },
   "retryCount": 0,
-  "status": "completed",
+  "status": "in_progress",
   "timestamp": "2026-07-23T20:30:00Z",
-  "mergedAt": "2026-07-23T20:25:00Z",
-  "mergedTo": "main",
-  "mergeCommit": "82c6fe8",
   "metadata": {
     "approach": "story-by-story-implementation",
-    "totalStories": 5,
-    "currentStory": "2.5-ignore-generated-directories",
-    "completedStories": [
-      "2.1-configure-project-roots",
-      "2.2-recursive-project-discovery",
-      "2.3-support-nested-folders",
-      "2.4-detect-common-project-types",
-      "2.5-ignore-generated-directories"
+    "totalStories": 6,
+    "blockedStories": [
+      "3.6-compute-documentation-hashes"
     ],
+    "currentStory": "3.6-compute-documentation-hashes",
     "stories": [
-      "2.1-configure-project-roots",
-      "2.2-recursive-project-discovery",
-      "2.3-support-nested-folders",
-      "2.4-detect-common-project-types",
-      "2.5-ignore-generated-directories"
+      "3.1-extract-git-metadata",
+      "3.2-detect-languages",
+      "3.3-detect-frameworks",
+      "3.4-detect-dependencies",
+      "3.5-service-assembly",
+      "3.6-compute-documentation-hashes"
+    ],
+    "completedStories": [
+      "3.1-extract-git-metadata",
+      "3.2-detect-languages",
+      "3.3-detect-frameworks",
+      "3.4-detect-dependencies",
+      "3.5-service-assembly"
     ],
     "agentsInProgress": [],
     "agentsCompleted": [
       "git-operator-phase-0a",
-      "story-2.1-developer",
-      "story-2.1-reviewer",
-      "story-2.1-git-operator",
-      "story-2.2-developer",
-      "story-2.2-reviewer",
-      "story-2.2-git-operator",
-      "story-2.3-developer",
-      "story-2.3-reviewer",
-      "story-2.3-git-operator",
-      "story-2.4-developer",
-      "story-2.4-reviewer",
-      "story-2.4-git-operator",
-      "story-2.5-analysis",
-      "story-2.5-git-operator",
-      "git-operator-merge-gate"
+      "repo-scout-phase-0b",
+      "requirement-collector-phase-1",
+      "requirements-reviewer-phase-1",
+      "architect-phase-2",
+      "architecture-reviewer-phase-2",
+      "story-3.1-developer",
+      "story-3.1-reviewer",
+      "story-3.1-git-operator",
+      "story-3.2-developer",
+      "story-3.2-reviewer",
+      "story-3.2-git-operator",
+      "story-3.3-developer",
+      "story-3.3-reviewer",
+      "story-3.3-git-operator",
+      "story-3.4-developer",
+      "story-3.4-reviewer",
+      "story-3.4-git-operator",
+      "story-3.5-developer",
+      "story-3.5-reviewer",
+      "story-3.5-git-operator",
+      "build-validator-phase-4"
     ]
   }
 }

@@ -16,6 +16,8 @@ type Metadata struct {
 	GitHead           string `json:"git_head"`
 	DefaultBranch     string `json:"default_branch"`
 	LastCommitAt      string `json:"last_commit_at"`
+	LastModifiedAt    string `json:"last_modified_at"`
+	CommitCount       int    `json:"commit_count"`
 	LanguageSummary   string `json:"language_summary"`
 	FrameworkSummary  string `json:"framework_summary"`
 	DependencySummary string `json:"dependency_summary"`
@@ -78,6 +80,13 @@ type Relationship struct {
 	Type          string  `json:"type"`
 	Description   string  `json:"description"`
 	Confidence    float64 `json:"confidence"`
+}
+
+// Dependency represents a project dependency
+type Dependency struct {
+	ProjectID string `json:"project_id"`
+	Name      string `json:"name"`
+	Manager   string `json:"manager"`
 }
 
 // Configuration represents system configuration
