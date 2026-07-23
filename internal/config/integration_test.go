@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nerddevsltd/portfolio/pkg/models"
+	"project-dash/pkg/models"
 )
 
 // Integration test to verify Story 1.2 acceptance criteria

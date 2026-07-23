@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nerddevsltd/portfolio/internal/logging"
+	"project-dash/internal/logging"
 )
 
 func TestNewDatabase(t *testing.T) {

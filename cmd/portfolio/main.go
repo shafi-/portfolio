@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nerddevsltd/portfolio/internal/cli"
-	"github.com/nerddevsltd/portfolio/internal/logging"
-	"github.com/nerddevsltd/portfolio/pkg/models"
+	"project-dash/internal/cli"
+	"project-dash/internal/logging"
+	"project-dash/pkg/models"
 )
 
 func main() {

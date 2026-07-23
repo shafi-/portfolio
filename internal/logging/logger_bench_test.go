@@ -3,7 +3,7 @@ package logging
 import (
 	"testing"
 
-	"github.com/nerddevsltd/portfolio/pkg/models"
+	"project-dash/pkg/models"
 )
 
 func BenchmarkLogger(b *testing.B) {

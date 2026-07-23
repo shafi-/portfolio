@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nerddevsltd/portfolio/pkg/models"
+	"project-dash/pkg/models"
 )
 
 func TestLoggerCreation(t *testing.T) {

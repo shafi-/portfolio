@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nerddevsltd/portfolio/pkg/models"
+	"project-dash/pkg/models"
 )
 
 // Manager handles configuration loading, validation, and defaults

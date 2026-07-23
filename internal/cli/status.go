@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/nerddevsltd/portfolio/internal/config"
-	"github.com/nerddevsltd/portfolio/internal/database"
-	"github.com/nerddevsltd/portfolio/internal/logging"
-	"github.com/nerddevsltd/portfolio/pkg/models"
+	"project-dash/internal/config"
+	"project-dash/internal/database"
+	"project-dash/internal/logging"
+	"project-dash/pkg/models"
 )
 
 // statusCmd represents the status command

@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"github.com/nerddevsltd/portfolio/internal/logging"
-	"github.com/nerddevsltd/portfolio/pkg/models"
+	"project-dash/internal/logging"
+	"project-dash/pkg/models"
 )
 
 var (

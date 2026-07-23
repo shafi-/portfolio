@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/nerddevsltd/portfolio/pkg/models"
+	"project-dash/pkg/models"
 )
 
 // Logger provides structured logging capabilities

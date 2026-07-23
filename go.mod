@@ -1,4 +1,4 @@
-module github.com/nerddevsltd/portfolio
+module project-dash
 
 go 1.23.0
 
