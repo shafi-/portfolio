@@ -3,7 +3,10 @@
   "feature": "Epic 3 - Metadata Extraction",
   "branch": "epic-03-metadata-extraction",
   "archivePath": ".pipeline/archive/epic-03-metadata-extraction/",
-  "archivedAt": "2026-07-23T19:52:00Z",
+  "archivedAt": "2026-07-23T20:35:00Z",
+  "mergedAt": "2026-07-23T20:35:00Z",
+  "mergedTo": "main",
+  "mergeCommit": "b4d7cfd",
   "artifactPaths": {
     "context-pack": ".pipeline/archive/epic-03-metadata-extraction/05-artifacts/context-pack.md",
     "requirements": ".pipeline/archive/epic-03-metadata-extraction/01-requirements-phase/requirements.md",
@@ -11,7 +14,7 @@
     "architecture-review": ".pipeline/archive/epic-03-metadata-extraction/02-architecture-phase/architecture-review.md"
   },
   "retryCount": 0,
-  "status": "in_progress",
+  "status": "completed",
   "timestamp": "2026-07-23T20:30:00Z",
   "metadata": {
     "approach": "story-by-story-implementation",
