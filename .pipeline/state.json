@@ -19,7 +19,7 @@
     "approach": "story-by-story-implementation",
     "totalStories": 5,
     "blockedStories": [],
-    "currentStory": "4.2-index-docs",
+    "currentStory": "4.5-full-text-search",
     "stories": [
       "4.1-index-readme",
       "4.2-index-docs",
@@ -27,7 +27,12 @@
       "4.4-index-changelog",
       "4.5-full-text-search"
     ],
-    "completedStories": [],
+    "completedStories": [
+      "4.1-index-readme",
+      "4.2-index-docs",
+      "4.3-index-adrs",
+      "4.4-index-changelog"
+    ],
     "agentsInProgress": [],
     "agentsCompleted": [
       "git-operator-phase-0a",

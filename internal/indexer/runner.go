@@ -79,8 +79,10 @@ func (r *IndexRunner) Run(ctx context.Context, projectID, rootPath string) (*Ind
 
 	var allDocs []DocFile
 
-	readmeDocs := r.discoverer.FindREADME(rootPath)
-	allDocs = append(allDocs, readmeDocs...)
+	allDocs = append(allDocs, r.discoverer.FindREADME(rootPath)...)
+	allDocs = append(allDocs, r.discoverer.FindDocs(rootPath)...)
+	allDocs = append(allDocs, r.discoverer.FindADRs(rootPath)...)
+	allDocs = append(allDocs, r.discoverer.FindCHANGELOG(rootPath)...)
 
 	if len(allDocs) == 0 {
 		r.logger.Debug("no documentation files found", zap.String("project", projectID))
