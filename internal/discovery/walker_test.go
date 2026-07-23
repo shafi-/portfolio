@@ -5,8 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"project-dash/internal/fs"
+	"project-dash/internal/logging"
 	"testing"
 )
+
+// getTestLogger returns a logger for testing
+func getTestLogger() *logging.Logger {
+	logger, err := logging.NewLogger("INFO", "console")
+	if err != nil {
+		panic(err)
+	}
+	return logger
+}
 
 func TestWalker_Walk_RegularRepo(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -19,7 +29,8 @@ func TestWalker_Walk_RegularRepo(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	foundRepo := false
@@ -65,7 +76,8 @@ func TestWalker_Walk_IgnorePatterns(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{"node_modules"}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{"node_modules"}, 0, logger)
 
 	ctx := context.Background()
 	foundRepos := []string{}
@@ -109,7 +121,8 @@ func TestWalker_Walk_MaxDepth(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 2) // max depth 2
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 2, logger) // max depth 2
 
 	ctx := context.Background()
 	foundRepos := []string{}
@@ -157,7 +170,8 @@ func TestWalker_Walk_PermissionError(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	foundRepo := false
@@ -204,7 +218,8 @@ func TestWalker_Walk_ContextCancellation(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	// Create a context that gets cancelled immediately
 	ctx, cancel := context.WithCancel(context.Background())
@@ -233,7 +248,8 @@ func TestWalker_Walk_MultipleRepos(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	foundRepos := []string{}
@@ -274,7 +290,8 @@ func TestWalker_Walk_EmptyRoot(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	enterDir := false
@@ -299,7 +316,8 @@ func TestWalker_Walk_EmptyRoot(t *testing.T) {
 func TestWalker_ResetInodeTracking(t *testing.T) {
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	// This tests the reset functionality
 	walker.ResetInodeTracking()
@@ -329,7 +347,8 @@ func TestWalker_Walk_NestedRepo(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	foundRepos := []string{}
@@ -391,7 +410,8 @@ func TestWalker_Walk_MonorepoStructure(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	foundRepos := []string{}
@@ -443,7 +463,8 @@ func TestWalker_Walk_DeepNesting(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0) // No depth limit
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger) // No depth limit
 
 	ctx := context.Background()
 	foundRepos := []string{}
@@ -507,7 +528,8 @@ func TestWalker_Walk_MixedStructure(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	foundRepos := []string{}
@@ -567,7 +589,8 @@ func TestWalker_Walk_SiblingRepos(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	foundRepos := []string{}
@@ -638,7 +661,8 @@ func TestWalker_Walk_ComplexMonorepo(t *testing.T) {
 
 	filesystem := fs.NewOSFilesystem()
 	detector := NewDetector(filesystem)
-	walker := NewWalker(filesystem, detector, []string{}, 0)
+	logger := getTestLogger()
+	walker := NewWalker(filesystem, detector, []string{}, 0, logger)
 
 	ctx := context.Background()
 	foundRepos := []string{}

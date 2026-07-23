@@ -20,7 +20,7 @@ type Discoverer struct {
 	config      ConfigProvider
 	store       ProjectStore
 	logger      *logging.Logger
-	mutex       sync.Mutex
+	mutex       sync.RWMutex
 	running     bool
 	maxDepth    int
 	ignorePaths []string
@@ -136,7 +136,7 @@ func (d *Discoverer) discoverInRoot(ctx context.Context, root string) (RootStat,
 
 	// Create detector and walker for this root
 	detector := NewDetector(d.osFS)
-	walker := NewWalker(d.osFS, detector, d.ignorePaths, d.maxDepth)
+	walker := NewWalker(d.osFS, detector, d.ignorePaths, d.maxDepth, d.logger)
 
 	// Walk the directory tree
 	err := walker.Walk(ctx, root, func(path string, event WalkEvent, err error) error {
@@ -237,7 +237,7 @@ func (d *Discoverer) createProject(path string) *Project {
 
 // IsRunning returns true if a discovery operation is currently running
 func (d *Discoverer) IsRunning() bool {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 	return d.running
 }

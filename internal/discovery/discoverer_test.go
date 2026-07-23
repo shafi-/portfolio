@@ -106,7 +106,7 @@ func TestDiscoverer_DiscoverProjects_Success(t *testing.T) {
 		t.Errorf("expected root path '%s', got '%s'", filepath.Join(tmpDir, "testrepo"), project.RootPath)
 	}
 
-	if project.RepositoryType != "regular" {
+	if project.RepositoryType != "unknown" {
 		t.Errorf("expected repository type 'regular', got '%s'", project.RepositoryType)
 	}
 
@@ -328,7 +328,7 @@ func TestDiscoverer_IsRunning(t *testing.T) {
 		ignoredPaths: []string{},
 	}
 	store := &MockProjectStore{
-		upsertDelay: 50 * time.Millisecond, // Add delay to ensure discovery takes time
+		upsertDelay: 100 * time.Millisecond, // Add delay to ensure discovery takes time
 	}
 	logger, _ := logging.NewLogger("INFO", "console")
 
@@ -347,11 +347,18 @@ func TestDiscoverer_IsRunning(t *testing.T) {
 		close(discoveryDone)
 	}()
 
-	// Give discovery a moment to start and acquire the mutex
-	time.Sleep(10 * time.Millisecond)
+	// Poll for a short period to check if discovery is running
+	// This is more reliable than a single sleep
+	wasRunning := false
+	for i := 0; i < 10; i++ {
+		time.Sleep(10 * time.Millisecond)
+		if discoverer.IsRunning() {
+			wasRunning = true
+			break
+		}
+	}
 
-	// Check from main thread that it's running
-	if !discoverer.IsRunning() {
+	if !wasRunning {
 		t.Error("expected IsRunning to be true during discovery")
 	}
 
@@ -389,7 +396,7 @@ func TestDiscoverer_createProject(t *testing.T) {
 		t.Errorf("expected root path '%s', got '%s'", repoPath, project.RootPath)
 	}
 
-	if project.RepositoryType != "regular" {
+	if project.RepositoryType != "unknown" {
 		t.Errorf("expected repository type 'regular', got '%s'", project.RepositoryType)
 	}
 

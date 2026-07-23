@@ -5,19 +5,113 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"project-dash/internal/fs"
+	"project-dash/internal/logging"
+	"project-dash/pkg/models"
 )
+
+// IgnoreMatcher defines the interface for pattern-based ignore matching
+type IgnoreMatcher interface {
+	// ShouldIgnore returns true if the given path should be ignored
+	ShouldIgnore(path string, isDir bool) bool
+	// Match returns true if the given name matches any ignore pattern
+	Match(name string) bool
+}
+
+// DefaultIgnoreMatcher implements pattern-based ignore matching
+type DefaultIgnoreMatcher struct {
+	patterns []string
+	logger   *logging.Logger
+}
+
+// NewDefaultIgnoreMatcher creates a new ignore matcher with default patterns
+func NewDefaultIgnoreMatcher(customPatterns []string, logger *logging.Logger) *DefaultIgnoreMatcher {
+	// Start with default patterns
+	patterns := []string{
+		"node_modules",
+		"vendor",
+		".venv",
+		"target",
+		"build",
+		"dist",
+	}
+
+	// Add custom patterns from config
+	patterns = append(patterns, customPatterns...)
+
+	return &DefaultIgnoreMatcher{
+		patterns: patterns,
+		logger:   logger,
+	}
+}
+
+// ShouldIgnore returns true if the given path should be ignored
+func (m *DefaultIgnoreMatcher) ShouldIgnore(path string, isDir bool) bool {
+	// Extract the directory/file name from the path
+	name := filepath.Base(path)
+
+	// Check each pattern
+	for _, pattern := range m.patterns {
+		if m.matchPattern(name, pattern) {
+			m.logger.Debug("Ignoring directory",
+				models.Field{Key: "path", Value: path},
+				models.Field{Key: "pattern", Value: pattern},
+			)
+			return true
+		}
+	}
+
+	return false
+}
+
+// Match returns true if the given name matches any ignore pattern
+func (m *DefaultIgnoreMatcher) Match(name string) bool {
+	for _, pattern := range m.patterns {
+		if m.matchPattern(name, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchPattern performs pattern matching with support for wildcards
+func (m *DefaultIgnoreMatcher) matchPattern(name string, pattern string) bool {
+	// Direct match
+	if name == pattern {
+		return true
+	}
+
+	// Simple wildcard support: pattern*
+	if strings.HasSuffix(pattern, "*") {
+		prefix := strings.TrimSuffix(pattern, "*")
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+
+	// Simple wildcard support: *pattern
+	if strings.HasPrefix(pattern, "*") {
+		suffix := strings.TrimPrefix(pattern, "*")
+		if strings.HasSuffix(name, suffix) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // Walker performs breadth-first search directory walking
 type Walker struct {
-	fs          WalkerFS
-	detector    *Detector
-	ignorePaths map[string]bool
-	seenInodes  map[uint64]string
-	inodeMutex  sync.Mutex
-	maxDepth    int
+	fs            WalkerFS
+	detector      *Detector
+	ignoreMatcher IgnoreMatcher
+	seenInodes    map[uint64]string
+	inodeMutex    sync.Mutex
+	maxDepth      int
+	logger        *logging.Logger
 }
 
 // WalkerFS interface for walker operations
@@ -27,21 +121,20 @@ type WalkerFS interface {
 }
 
 // NewWalker creates a new BFS walker
-func NewWalker(filesystem fs.Filesystem, detector *Detector, ignorePaths []string, maxDepth int) *Walker {
-	ignoreMap := make(map[string]bool)
-	for _, path := range ignorePaths {
-		ignoreMap[path] = true
-	}
+func NewWalker(filesystem fs.Filesystem, detector *Detector, ignorePaths []string, maxDepth int, logger *logging.Logger) *Walker {
+	// Create ignore matcher with default patterns and custom patterns from config
+	ignoreMatcher := NewDefaultIgnoreMatcher(ignorePaths, logger)
 
 	// Create adapter for the filesystem interface
 	walkerFS := &walkerFSAdapter{fs: filesystem}
 
 	return &Walker{
-		fs:          walkerFS,
-		detector:    detector,
-		ignorePaths: ignoreMap,
-		seenInodes:  make(map[uint64]string),
-		maxDepth:    maxDepth,
+		fs:            walkerFS,
+		detector:      detector,
+		ignoreMatcher: ignoreMatcher,
+		seenInodes:    make(map[uint64]string),
+		maxDepth:      maxDepth,
+		logger:        logger,
 	}
 }
 
@@ -127,7 +220,7 @@ func (w *Walker) Walk(ctx context.Context, root string, callback WalkCallback) e
 			entryPath := filepath.Join(current.path, entry.Name())
 
 			// Skip if ignored
-			if w.ignorePaths[entry.Name()] {
+			if w.ignoreMatcher.Match(entry.Name()) {
 				callback(entryPath, EventSkipped, nil)
 				continue
 			}
