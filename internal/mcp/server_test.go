@@ -335,13 +335,13 @@ func TestHandleStoreAnalysis(t *testing.T) {
 		req := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]interface{}{
-					"project_id":         project.ID,
-					"analyzer":           "test-analyzer",
-					"summary":            "Test summary",
-					"purpose":            "Test purpose",
-					"architecture":       "Test architecture",
-					"analyzed_at":        time.Now().UTC().Format(time.RFC3339),
-					"analyzed_git_head":  "abc123",
+					"project_id":        project.ID,
+					"analyzer":          "test-analyzer",
+					"summary":           "Test summary",
+					"purpose":           "Test purpose",
+					"architecture":      "Test architecture",
+					"analyzed_at":       time.Now().UTC().Format(time.RFC3339),
+					"analyzed_git_head": "abc123",
 				},
 			},
 		}

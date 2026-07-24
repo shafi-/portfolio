@@ -340,7 +340,7 @@ func (s *Server) handleStoreAnalysis(ctx context.Context, req mcp.CallToolReques
 	if err != nil {
 		return mcp.NewToolResultErrorFromErr("failed to create validator", err), nil
 	}
-	
+
 	// Convert args to AnalysisInput for validation
 	analysisInput := analysis.AnalysisInput{
 		Summary:         getStringArg(args, "summary"),
@@ -352,7 +352,7 @@ func (s *Server) handleStoreAnalysis(ctx context.Context, req mcp.CallToolReques
 		AnalyzedGitHead: gitHead,
 		AnalyzedAt:      now,
 	}
-	
+
 	if err := validator.Validate(analysisInput); err != nil {
 		return mcp.NewToolResultErrorFromErr("analysis validation failed", err), nil
 	}
