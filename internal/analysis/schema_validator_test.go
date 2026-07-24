@@ -48,11 +48,11 @@ func TestSchemaValidator_MissingRequiredField(t *testing.T) {
 	require.NoError(t, err)
 
 	input := AnalysisInput{
-		Purpose:            "Valid purpose",
-		Architecture:       "Valid architecture",
-		AnalyzedAt:         time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
-		AnalyzedGitHead:    "abc123def456",
-		Analyzer:           "test-analyzer",
+		Purpose:         "Valid purpose",
+		Architecture:    "Valid architecture",
+		AnalyzedAt:      time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
+		AnalyzedGitHead: "abc123def456",
+		Analyzer:        "test-analyzer",
 	}
 
 	err = validator.Validate(input)
@@ -67,12 +67,12 @@ func TestSchemaValidator_InvalidTimestampFormat(t *testing.T) {
 	require.NoError(t, err)
 
 	input := AnalysisInput{
-		Summary:            "Valid summary",
-		Purpose:            "Valid purpose",
-		Architecture:       "Valid architecture",
-		AnalyzedAt:         time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
-		AnalyzedGitHead:    "abc123def456",
-		Analyzer:           "test-analyzer",
+		Summary:         "Valid summary",
+		Purpose:         "Valid purpose",
+		Architecture:    "Valid architecture",
+		AnalyzedAt:      time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
+		AnalyzedGitHead: "abc123def456",
+		Analyzer:        "test-analyzer",
 	}
 
 	err = validator.Validate(input)
@@ -84,12 +84,12 @@ func TestSchemaValidator_ArrayFieldValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	input := AnalysisInput{
-		Summary:            "Valid summary",
-		Purpose:            "Valid purpose",
-		Architecture:       "Valid architecture",
-		AnalyzedAt:         time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
-		AnalyzedGitHead:    "abc123def456",
-		Analyzer:           "test-analyzer",
+		Summary:         "Valid summary",
+		Purpose:         "Valid purpose",
+		Architecture:    "Valid architecture",
+		AnalyzedAt:      time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
+		AnalyzedGitHead: "abc123def456",
+		Analyzer:        "test-analyzer",
 	}
 
 	err = validator.Validate(input)

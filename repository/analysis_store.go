@@ -433,6 +433,34 @@ func (s *SQLiteAnalysisStore) ListAllAnalyses(ctx context.Context) ([]analysis.A
 	return analyses, nil
 }
 
+// ListProjectsNeedingAnalysis lists all projects that need analysis
+func (s *SQLiteAnalysisStore) ListProjectsNeedingAnalysis(ctx context.Context) ([]analysis.NeedsAnalysisResult, error) {
+	rows, err := s.db.QueryContext(ctx, queryListProjectsNeedingAnalysis)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query projects needing analysis: %w", err)
+	}
+	defer rows.Close()
+
+	var results []analysis.NeedsAnalysisResult
+	for rows.Next() {
+		var result analysis.NeedsAnalysisResult
+		if err := rows.Scan(
+			&result.ProjectID,
+			&result.Name,
+			&result.Reason,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan project needing analysis: %w", err)
+		}
+		results = append(results, result)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating projects needing analysis: %w", err)
+	}
+
+	return results, nil
+}
+
 // CreateRelationship creates a new relationship
 func (s *SQLiteAnalysisStore) CreateRelationship(ctx context.Context, rel *analysis.Relationship) error {
 	_, err := s.db.ExecContext(ctx, queryCreateRelationship,

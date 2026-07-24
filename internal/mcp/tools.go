@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"project-dash/internal/analysis"
 	"project-dash/internal/discovery"
 	"project-dash/internal/store"
 	"project-dash/pkg/models"
@@ -103,6 +104,22 @@ func (s *Server) relationshipTools() []serverTool {
 				mcp.WithString("project_id", mcp.Required(), mcp.Description("Project ID")),
 			),
 			Handler: s.handleListRelationships,
+		},
+		{
+			Tool: mcp.NewTool("storeRelationship",
+				mcp.WithString("source_project", mcp.Required(), mcp.Description("Source project ID")),
+				mcp.WithString("target_project", mcp.Required(), mcp.Description("Target project ID")),
+				mcp.WithString("type", mcp.Required(), mcp.Description("Relationship type")),
+				mcp.WithString("description", mcp.Description("Relationship description")),
+				mcp.WithNumber("confidence", mcp.Description("Confidence score (0-1)")),
+			),
+			Handler: s.handleStoreRelationship,
+		},
+		{
+			Tool: mcp.NewTool("deleteRelationship",
+				mcp.WithString("relationship_id", mcp.Required(), mcp.Description("Relationship ID")),
+			),
+			Handler: s.handleDeleteRelationship,
 		},
 	}
 }
@@ -317,6 +334,29 @@ func (s *Server) handleStoreAnalysis(ctx context.Context, req mcp.CallToolReques
 	}
 
 	now := time.Now().UTC()
+
+	// Validate analysis schema using JSON schema
+	validator, err := analysis.NewSchemaValidator()
+	if err != nil {
+		return mcp.NewToolResultErrorFromErr("failed to create validator", err), nil
+	}
+	
+	// Convert args to AnalysisInput for validation
+	analysisInput := analysis.AnalysisInput{
+		Summary:         getStringArg(args, "summary"),
+		Purpose:         getStringArg(args, "purpose"),
+		Architecture:    getStringArg(args, "architecture"),
+		Maturity:        getStringArg(args, "maturity"),
+		Notes:           getStringArg(args, "notes"),
+		Analyzer:        analyzer,
+		AnalyzedGitHead: gitHead,
+		AnalyzedAt:      now,
+	}
+	
+	if err := validator.Validate(analysisInput); err != nil {
+		return mcp.NewToolResultErrorFromErr("analysis validation failed", err), nil
+	}
+
 	analysis := &models.Analysis{
 		ID:              uuid.New().String(),
 		ProjectID:       projectID,
@@ -465,4 +505,82 @@ func (r *rootsConfigProvider) GetIgnoredPaths() []string {
 		"target",
 		"bin",
 	}
+}
+
+func (s *Server) handleStoreRelationship(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	sourceID := getStringArg(args, "source_project")
+	targetID := getStringArg(args, "target_project")
+	relType := getStringArg(args, "type")
+	description := getStringArg(args, "description")
+
+	if sourceID == "" || targetID == "" || relType == "" {
+		return mcp.NewToolResultError("source_project, target_project, and type are required"), nil
+	}
+
+	// Validate relationship type
+	allowedTypes := []string{"Similar", "Evolution", "Shared Feature", "Shared Technology", "Reuses Component"}
+	typeValid := false
+	for _, t := range allowedTypes {
+		if relType == t {
+			typeValid = true
+			break
+		}
+	}
+	if !typeValid {
+		return mcp.NewToolResultError("invalid relationship type"), nil
+	}
+
+	var confidence *float64
+	if confNum, ok := args["confidence"].(float64); ok {
+		conf := float64(confNum)
+		if conf < 0 || conf > 1 {
+			return mcp.NewToolResultError("confidence must be between 0 and 1"), nil
+		}
+		confidence = &conf
+	}
+
+	rel := &models.Relationship{
+		ID:            uuid.New().String(),
+		SourceProject: sourceID,
+		TargetProject: targetID,
+		Type:          relType,
+		Description:   description,
+		Confidence:    confidence,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+	}
+
+	if err := s.relationships.CreateRelationship(rel); err != nil {
+		return mcp.NewToolResultErrorFromErr("failed to store relationship", err), nil
+	}
+
+	result := map[string]interface{}{
+		"id":             rel.ID,
+		"source_project": rel.SourceProject,
+		"target_project": rel.TargetProject,
+		"type":           rel.Type,
+		"created_at":     rel.CreatedAt,
+	}
+	return mcp.NewToolResultJSON(result)
+}
+
+func (s *Server) handleDeleteRelationship(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	relID := getStringArg(args, "relationship_id")
+	if relID == "" {
+		return mcp.NewToolResultError("relationship_id is required"), nil
+	}
+
+	if err := s.relationships.DeleteRelationship(relID); err != nil {
+		return mcp.NewToolResultErrorFromErr("failed to delete relationship", err), nil
+	}
+
+	result := map[string]interface{}{
+		"deleted": true,
+		"id":      relID,
+	}
+	return mcp.NewToolResultJSON(result)
 }

@@ -12,10 +12,10 @@ import (
 )
 
 type MockAnalysisStore struct {
-	projects map[uuid.UUID]bool
-	analyses map[string]*Analysis
-	features map[string][]Feature
-	gitHeads map[uuid.UUID]*string
+	projects      map[uuid.UUID]bool
+	analyses      map[string]*Analysis
+	features      map[string][]Feature
+	gitHeads      map[uuid.UUID]*string
 	relationships map[string]*Relationship
 }
 
@@ -138,6 +138,11 @@ func (m *MockAnalysisStore) FindExistingRelationship(ctx context.Context, source
 	return nil, nil
 }
 
+func (m *MockAnalysisStore) ListProjectsNeedingAnalysis(ctx context.Context) ([]NeedsAnalysisResult, error) {
+	// Simple mock implementation - returns empty list for now
+	return []NeedsAnalysisResult{}, nil
+}
+
 func TestAnalysisService_StoreAnalysis_Success(t *testing.T) {
 	mockStore := NewMockAnalysisStore()
 	testProjectID := uuid.New()
@@ -147,12 +152,12 @@ func TestAnalysisService_StoreAnalysis_Success(t *testing.T) {
 	service := NewAnalysisService(mockStore, logger)
 
 	input := AnalysisInput{
-		Summary:            "Test summary",
-		Purpose:            "Test purpose",
-		Architecture:       "Test architecture",
-		AnalyzedAt:         time.Now().UTC(),
-		AnalyzedGitHead:    "abc123",
-		Analyzer:           "test-analyzer",
+		Summary:         "Test summary",
+		Purpose:         "Test purpose",
+		Architecture:    "Test architecture",
+		AnalyzedAt:      time.Now().UTC(),
+		AnalyzedGitHead: "abc123",
+		Analyzer:        "test-analyzer",
 		Features: []FeatureInput{
 			{
 				Name:       "Authentication",
@@ -178,13 +183,13 @@ func TestAnalysisService_StoreAnalysis_UpdateExisting(t *testing.T) {
 
 	// Create existing analysis
 	existingAnalysis := &Analysis{
-		ID:            uuid.New().String(),
-		ProjectID:     testProjectID.String(),
-		Analyzer:      "test-analyzer",
-		Summary:       "Old summary",
-		AnalyzedAt:    time.Now().UTC(),
-		CreatedAt:     time.Now().UTC(),
-		UpdatedAt:     time.Now().UTC(),
+		ID:         uuid.New().String(),
+		ProjectID:  testProjectID.String(),
+		Analyzer:   "test-analyzer",
+		Summary:    "Old summary",
+		AnalyzedAt: time.Now().UTC(),
+		CreatedAt:  time.Now().UTC(),
+		UpdatedAt:  time.Now().UTC(),
 	}
 	mockStore.analyses[existingAnalysis.ID] = existingAnalysis
 	mockStore.features[existingAnalysis.ID] = []Feature{
@@ -199,12 +204,12 @@ func TestAnalysisService_StoreAnalysis_UpdateExisting(t *testing.T) {
 	service := NewAnalysisService(mockStore, logger)
 
 	input := AnalysisInput{
-		Summary:            "New summary",
-		Purpose:            "Test purpose",
-		Architecture:       "Test architecture",
-		AnalyzedAt:         time.Now().UTC(),
-		AnalyzedGitHead:    "abc123",
-		Analyzer:           "test-analyzer",
+		Summary:         "New summary",
+		Purpose:         "Test purpose",
+		Architecture:    "Test architecture",
+		AnalyzedAt:      time.Now().UTC(),
+		AnalyzedGitHead: "abc123",
+		Analyzer:        "test-analyzer",
 		Features: []FeatureInput{
 			{
 				Name:       "New Feature",
@@ -229,12 +234,12 @@ func TestAnalysisService_StoreAnalysis_InvalidProject(t *testing.T) {
 	service := NewAnalysisService(mockStore, logger)
 
 	input := AnalysisInput{
-		Summary:            "Test summary",
-		Purpose:            "Test purpose",
-		Architecture:       "Test architecture",
-		AnalyzedAt:         time.Now().UTC(),
-		AnalyzedGitHead:    "abc123",
-		Analyzer:           "test-analyzer",
+		Summary:         "Test summary",
+		Purpose:         "Test purpose",
+		Architecture:    "Test architecture",
+		AnalyzedAt:      time.Now().UTC(),
+		AnalyzedGitHead: "abc123",
+		Analyzer:        "test-analyzer",
 	}
 
 	_, err := service.StoreAnalysis(context.Background(), testProjectID, input)
@@ -252,11 +257,11 @@ func TestAnalysisService_StoreAnalysis_ValidationError(t *testing.T) {
 
 	// Missing required field
 	input := AnalysisInput{
-		Purpose:            "Test purpose",
-		Architecture:       "Test architecture",
-		AnalyzedAt:         time.Now().UTC(),
-		AnalyzedGitHead:    "abc123",
-		Analyzer:           "test-analyzer",
+		Purpose:         "Test purpose",
+		Architecture:    "Test architecture",
+		AnalyzedAt:      time.Now().UTC(),
+		AnalyzedGitHead: "abc123",
+		Analyzer:        "test-analyzer",
 	}
 
 	_, err := service.StoreAnalysis(context.Background(), testProjectID, input)
@@ -270,13 +275,13 @@ func TestAnalysisService_GetAnalysis_Exists(t *testing.T) {
 
 	// Create existing analysis
 	existingAnalysis := &Analysis{
-		ID:            uuid.New().String(),
-		ProjectID:     testProjectID.String(),
-		Analyzer:      "test-analyzer",
-		Summary:       "Test summary",
-		AnalyzedAt:    time.Now().UTC(),
-		CreatedAt:     time.Now().UTC(),
-		UpdatedAt:     time.Now().UTC(),
+		ID:         uuid.New().String(),
+		ProjectID:  testProjectID.String(),
+		Analyzer:   "test-analyzer",
+		Summary:    "Test summary",
+		AnalyzedAt: time.Now().UTC(),
+		CreatedAt:  time.Now().UTC(),
+		UpdatedAt:  time.Now().UTC(),
 	}
 	mockStore.analyses[existingAnalysis.ID] = existingAnalysis
 
@@ -309,13 +314,13 @@ func TestAnalysisService_GetAnalysisByAnalyzer_Exists(t *testing.T) {
 
 	// Create existing analysis
 	existingAnalysis := &Analysis{
-		ID:            uuid.New().String(),
-		ProjectID:     testProjectID.String(),
-		Analyzer:      "test-analyzer",
-		Summary:       "Test summary",
-		AnalyzedAt:    time.Now().UTC(),
-		CreatedAt:     time.Now().UTC(),
-		UpdatedAt:     time.Now().UTC(),
+		ID:         uuid.New().String(),
+		ProjectID:  testProjectID.String(),
+		Analyzer:   "test-analyzer",
+		Summary:    "Test summary",
+		AnalyzedAt: time.Now().UTC(),
+		CreatedAt:  time.Now().UTC(),
+		UpdatedAt:  time.Now().UTC(),
 	}
 	mockStore.analyses[existingAnalysis.ID] = existingAnalysis
 

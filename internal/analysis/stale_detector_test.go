@@ -103,3 +103,13 @@ func TestAnalysisService_ListProjectsNeedingAnalysis_Empty(t *testing.T) {
 	// Note: This test requires a real database to properly test the SQL query
 	t.Skip("Requires integration test with real database")
 }
+
+func TestStaleDetector_ListNeedingAnalysis_Success(t *testing.T) {
+	mockStore := NewMockAnalysisStore()
+	detector := NewStaleDetector(mockStore)
+
+	results, err := detector.ListNeedingAnalysis(context.Background())
+	require.NoError(t, err)
+	assert.NotNil(t, results)
+	assert.Equal(t, 0, len(results)) // Mock returns empty list
+}

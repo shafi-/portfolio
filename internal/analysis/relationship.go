@@ -25,11 +25,11 @@ func NewRelationshipService(store AnalysisStore, logger *zap.Logger) *Relationsh
 
 // allowedRelationshipTypes defines the valid relationship types
 var allowedRelationshipTypes = map[string]bool{
-	"Similar":             true,
-	"Evolution":           true,
-	"Shared Feature":      true,
-	"Shared Technology":   true,
-	"Reuses Component":    true,
+	"Similar":           true,
+	"Evolution":         true,
+	"Shared Feature":    true,
+	"Shared Technology": true,
+	"Reuses Component":  true,
 }
 
 // ValidateRelationshipType validates a relationship type

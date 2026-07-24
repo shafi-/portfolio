@@ -25,6 +25,7 @@ type AnalysisStore interface {
 	// Stale detection
 	GetGitHeadForProject(ctx context.Context, projectID uuid.UUID) (*string, error)
 	ListAllAnalyses(ctx context.Context) ([]Analysis, error)
+	ListProjectsNeedingAnalysis(ctx context.Context) ([]NeedsAnalysisResult, error)
 
 	// Relationships
 	CreateRelationship(ctx context.Context, rel *Relationship) error

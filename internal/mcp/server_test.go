@@ -335,10 +335,13 @@ func TestHandleStoreAnalysis(t *testing.T) {
 		req := mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Arguments: map[string]interface{}{
-					"project_id": project.ID,
-					"analyzer":   "test-analyzer",
-					"summary":    "Test summary",
-					"purpose":    "Test purpose",
+					"project_id":         project.ID,
+					"analyzer":           "test-analyzer",
+					"summary":            "Test summary",
+					"purpose":            "Test purpose",
+					"architecture":       "Test architecture",
+					"analyzed_at":        time.Now().UTC().Format(time.RFC3339),
+					"analyzed_git_head":  "abc123",
 				},
 			},
 		}
@@ -353,7 +356,7 @@ func TestHandleStoreAnalysis(t *testing.T) {
 		}
 
 		if result.IsError {
-			t.Fatal("storeAnalysis should not error for valid data")
+			t.Fatalf("storeAnalysis should not error for valid data, got error result")
 		}
 	})
 

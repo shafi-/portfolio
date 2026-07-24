@@ -27,17 +27,17 @@ type Analysis struct {
 
 // AnalysisInput represents input for storing an analysis
 type AnalysisInput struct {
-	Summary            string        `json:"summary" validate:"required"`
-	Purpose            string        `json:"purpose" validate:"required"`
-	Architecture       string        `json:"architecture" validate:"required"`
-	Maturity           string        `json:"maturity"`
-	Strengths          []string      `json:"strengths"`
-	Weaknesses         []string      `json:"weaknesses"`
-	ReusableComponents []string      `json:"reusable_components"`
-	Notes              string        `json:"notes"`
-	AnalyzedAt         time.Time     `json:"analyzed_at" validate:"required"`
-	AnalyzedGitHead    string        `json:"analyzed_git_head" validate:"required"`
-	Analyzer           string        `json:"analyzer" validate:"required"`
+	Summary            string         `json:"summary" validate:"required"`
+	Purpose            string         `json:"purpose" validate:"required"`
+	Architecture       string         `json:"architecture" validate:"required"`
+	Maturity           string         `json:"maturity"`
+	Strengths          []string       `json:"strengths"`
+	Weaknesses         []string       `json:"weaknesses"`
+	ReusableComponents []string       `json:"reusable_components"`
+	Notes              string         `json:"notes"`
+	AnalyzedAt         time.Time      `json:"analyzed_at" validate:"required"`
+	AnalyzedGitHead    string         `json:"analyzed_git_head" validate:"required"`
+	Analyzer           string         `json:"analyzer" validate:"required"`
 	Features           []FeatureInput `json:"features"`
 }
 
@@ -53,9 +53,9 @@ type Feature struct {
 
 // FeatureInput represents input for storing a feature
 type FeatureInput struct {
-	Name        string    `json:"name" validate:"required"`
-	Description string    `json:"description"`
-	Confidence  *float64  `json:"confidence"`
+	Name        string   `json:"name" validate:"required"`
+	Description string   `json:"description"`
+	Confidence  *float64 `json:"confidence"`
 }
 
 // Relationship represents a connection between two projects

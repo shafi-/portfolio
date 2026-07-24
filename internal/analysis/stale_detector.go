@@ -38,7 +38,5 @@ func (d *StaleDetector) IsOutdated(ctx context.Context, analysis *Analysis) (boo
 
 // ListNeedingAnalysis lists all projects that need analysis
 func (d *StaleDetector) ListNeedingAnalysis(ctx context.Context) ([]NeedsAnalysisResult, error) {
-	// This method should be implemented by the store layer
-	// For now, we'll return an empty list
-	return []NeedsAnalysisResult{}, nil
+	return d.store.ListProjectsNeedingAnalysis(ctx)
 }
