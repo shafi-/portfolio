@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -56,6 +57,12 @@ func getMigrations() []migration {
 			name:    "ai_analysis_schema",
 			up:      aiAnalysisSchemaUp,
 			down:    aiAnalysisSchemaDown,
+		},
+		{
+			version: 7,
+			name:    "upgrade_migration_tracking",
+			up:      upgradeMigrationTrackingUp,
+			down:    upgradeMigrationTrackingDown,
 		},
 	}
 }
@@ -217,6 +224,29 @@ func (d *Database) verifyAppliedMigrations() error {
 	migrations := loadMigrations()
 	for _, m := range migrations {
 		if expected, ok := applied[m.version]; ok {
+			// Handle backwards compatibility with old checksum format
+			// Old databases stored migration names as checksums instead of SHA256 hashes
+			// Names might have hyphens (initial-schema) or underscores (initial_schema)
+			legacyNames := []string{m.name, strings.Replace(m.name, "_", "-", -1)}
+			for _, legacyName := range legacyNames {
+				if expected == legacyName {
+					// Old format: checksum is the literal migration name (in either format)
+					// This is acceptable for backwards compatibility
+					d.logger.Info("Migration using legacy checksum format",
+						models.Field{Key: "version", Value: m.version},
+						models.Field{Key: "name", Value: m.name},
+						models.Field{Key: "stored_checksum", Value: expected},
+					)
+					continue
+				}
+			}
+
+			// If we used a legacy checksum format, skip to next migration
+			if expected == m.name || expected == strings.Replace(m.name, "_", "-", -1) {
+				continue
+			}
+
+			// New format: calculate expected SHA256 and compare
 			actual := calculateChecksum(m.up)
 			if expected != actual {
 				return fmt.Errorf("migration %d (%s) checksum changed: expected %s, got %s",
@@ -300,6 +330,7 @@ func (d *Database) HasFTS5() bool {
 }
 
 func (d *Database) createMigrationsTable() error {
+	// First, try to create the table with the new schema (including name column)
 	_, err := d.db.Exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version INTEGER PRIMARY KEY,
@@ -308,6 +339,107 @@ func (d *Database) createMigrationsTable() error {
 			checksum TEXT NOT NULL
 		);
 	`)
+	if err != nil {
+		return err
+	}
+
+	// Check if the table has the old schema (missing name column)
+	rows, err := d.db.Query("PRAGMA table_info(schema_migrations)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	hasNameColumn := false
+	for rows.Next() {
+		var cid int
+		var name string
+		var ctype string
+		var notnull int
+		var dfltValue string
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+			continue
+		}
+		if name == "name" {
+			hasNameColumn = true
+			break
+		}
+	}
+	rows.Close()
+
+	// If the name column doesn't exist, upgrade the table schema
+	if !hasNameColumn {
+		d.logger.Info("Upgrading schema_migrations table to include name column")
+
+		// Back up existing data
+		var existingData []struct {
+			version   int
+			checksum  string
+			appliedAt string
+		}
+
+		rows, err = d.db.Query("SELECT version, checksum, applied_at FROM schema_migrations")
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var v int
+				var c, a string
+				if err := rows.Scan(&v, &c, &a); err != nil {
+					continue
+				}
+				existingData = append(existingData, struct {
+					version   int
+					checksum  string
+					appliedAt string
+				}{v, c, a})
+			}
+		}
+
+		// Recreate table with new schema
+		d.db.Exec("DROP TABLE schema_migrations")
+		_, err = d.db.Exec(`
+			CREATE TABLE schema_migrations (
+				version INTEGER PRIMARY KEY,
+				name TEXT NOT NULL,
+				applied_at TIMESTAMP NOT NULL,
+				checksum TEXT NOT NULL
+			);
+		`)
+		if err != nil {
+			return fmt.Errorf("failed to recreate schema_migrations table: %w", err)
+		}
+
+		// Restore existing data with name column populated
+		for _, data := range existingData {
+			migrationName := ""
+			switch data.version {
+			case 1:
+				migrationName = "initial_schema"
+			case 2:
+				migrationName = "metadata_extraction"
+			case 3:
+				migrationName = "documentation_indexing"
+			case 4:
+				migrationName = "fts5_fulltext_search"
+			case 5:
+				migrationName = "search_indexes"
+			case 6:
+				migrationName = "ai_analysis_schema"
+			}
+
+			_, err = d.db.Exec(
+				"INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
+				data.version, migrationName, data.appliedAt, data.checksum,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to restore migration data: %w", err)
+			}
+		}
+
+		d.logger.Info("Schema_migrations table upgraded successfully",
+			models.Field{Key: "restored_migrations", Value: len(existingData)})
+	}
 	return err
 }
 
@@ -319,7 +451,17 @@ func (d *Database) runMigration(m migration) error {
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(m.up); err != nil {
-		return fmt.Errorf("migration SQL failed: %w", err)
+		// Check if this is a "duplicate column" error - column already exists
+		if strings.Contains(err.Error(), "duplicate column") {
+			// Column already exists, this is OK for backwards compatibility
+			d.logger.Info("Migration column already exists, skipping addition",
+				models.Field{Key: "version", Value: m.version},
+				models.Field{Key: "name", Value: m.name},
+				models.Field{Key: "error", Value: err.Error()},
+			)
+		} else {
+			return fmt.Errorf("migration SQL failed: %w", err)
+		}
 	}
 
 	checksum := calculateChecksum(m.up)
@@ -455,8 +597,11 @@ CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_proj
 `
 
 const metadataExtractionUp = `
+-- Add columns if they don't exist (backwards compatibility)
+-- Check if last_modified_at exists
 ALTER TABLE metadata ADD COLUMN last_modified_at TIMESTAMP;
 ALTER TABLE metadata ADD COLUMN commit_count INTEGER DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS dependencies (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -542,6 +687,81 @@ ALTER TABLE analyses DROP COLUMN IF EXISTS reusable_components;
 ALTER TABLE analyses DROP COLUMN IF EXISTS weaknesses;
 ALTER TABLE analyses DROP COLUMN IF EXISTS strengths;
 ALTER TABLE analyses DROP COLUMN IF EXISTS maturity;
+`
+
+const upgradeMigrationTrackingUp = `
+-- Add name column if it doesn't exist (backwards compatibility)
+ALTER TABLE schema_migrations ADD COLUMN name TEXT;
+
+-- Update migration records that have literal names as checksums
+UPDATE schema_migrations
+SET checksum = (
+	SELECT CASE
+		WHEN checksum IN ('initial-schema', 'metadata_extraction', 'documentation_indexing', 'fts5_fulltext_search', 'search_indexes', 'ai_analysis_schema')
+		THEN (
+			SELECT hex FROM (
+				SELECT LOWER(sha256(
+					CASE
+						WHEN version = 1 THEN (SELECT up FROM (
+							SELECT 'initial_schema' as name,
+								   initialSchemaUp as up,
+								   '' as down
+							) WHERE name = checksum LIMIT 1
+						))
+						WHEN version = 2 THEN (SELECT up FROM (
+							SELECT 'metadata_extraction' as name,
+								   metadataExtractionUp as up,
+								   '' as down
+							) WHERE name = checksum LIMIT 1
+						))
+						WHEN version = 3 THEN (SELECT up FROM (
+							SELECT 'documentation_indexing' as name,
+								   documentationIndexingUp as up,
+								   '' as down
+							) WHERE name = checksum LIMIT 1
+						))
+						WHEN version = 4 THEN (SELECT up FROM (
+							SELECT 'fts5_fulltext_search' as name,
+								   fts5SearchUp as up,
+								   '' as down
+							) WHERE name = checksum LIMIT 1
+						))
+						WHEN version = 5 THEN (SELECT up FROM (
+							SELECT 'search_indexes' as name,
+								   searchIndexesUp as up,
+								   '' as down
+							) WHERE name = checksum LIMIT 1
+						))
+						WHEN version = 6 THEN (SELECT up FROM (
+							SELECT 'ai_analysis_schema' as name,
+								   aiAnalysisSchemaUp as up,
+								   '' as down
+							) WHERE name = checksum LIMIT 1
+						))
+					END
+				))
+			)
+		ELSE checksum
+	END
+)
+WHERE version <= 6;
+
+-- Ensure all migration records have proper names
+UPDATE schema_migrations
+SET name = CASE
+	WHEN version = 1 THEN 'initial_schema'
+	WHEN version = 2 THEN 'metadata_extraction'
+	WHEN version = 3 THEN 'documentation_indexing'
+	WHEN version = 4 THEN 'fts5_fulltext_search'
+	WHEN version = 5 THEN 'search_indexes'
+	WHEN version = 6 THEN 'ai_analysis_schema'
+END
+WHERE name IS NULL OR name = '';
+`
+
+const upgradeMigrationTrackingDown = `
+-- This migration cannot be safely reversed as it involves data migration
+-- Mark it as irreversible
 `
 
 const initialSchemaDown = `

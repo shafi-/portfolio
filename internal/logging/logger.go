@@ -42,23 +42,22 @@ func NewLogger(level string, format string) (*Logger, error) {
 			EncodeLevel:    zapcore.CapitalLevelEncoder,
 			EncodeTime:     zapcore.ISO8601TimeEncoder,
 			EncodeDuration: zapcore.StringDurationEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
 		}
+		// Omit CallerKey from config to skip caller in output
 	} else {
-		// Human-readable format
+		// Clean, readable console format
 		encoderConfig = zapcore.EncoderConfig{
-			TimeKey:        "T",
-			LevelKey:       "L",
-			NameKey:        "N",
-			CallerKey:      "C",
+			TimeKey:  "T",
+			LevelKey: "L",
+			NameKey:  "N",
+			// CallerKey omitted - no file:line in output
 			FunctionKey:    zapcore.OmitKey,
 			MessageKey:     "M",
 			StacktraceKey:  "S",
 			LineEnding:     zapcore.DefaultLineEnding,
 			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeTime:     zapcore.TimeEncoderOfLayout("15:04:05"), // Short HH:MM:SS
 			EncodeDuration: zapcore.StringDurationEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
 		}
 	}
 
@@ -74,6 +73,69 @@ func NewLogger(level string, format string) (*Logger, error) {
 	core := zapcore.NewCore(
 		encoder,
 		zapcore.AddSync(os.Stdout),
+		zapLevel,
+	)
+
+	// Create logger
+	zapLogger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+
+	return &Logger{zapLogger: zapLogger}, nil
+}
+
+// NewStderrLogger creates a logger that writes to stderr
+// Used for MCP server to keep stdout clean for JSON-RPC messages
+func NewStderrLogger(level string, format string) (*Logger, error) {
+	// Parse log level
+	zapLevel, err := parseLogLevel(level)
+	if err != nil {
+		return nil, err
+	}
+
+	// Configure encoder
+	var encoderConfig zapcore.EncoderConfig
+	if format == "json" {
+		encoderConfig = zapcore.EncoderConfig{
+			TimeKey:        "timestamp",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			MessageKey:     "message",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+		}
+		// Omit CallerKey from config to skip caller in output
+	} else {
+		encoderConfig = zapcore.EncoderConfig{
+			TimeKey:        "T",
+			LevelKey:       "L",
+			NameKey:        "N",
+			CallerKey:      "C",
+			FunctionKey:    zapcore.OmitKey,
+			MessageKey:     "M",
+			StacktraceKey:  "S",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+			EncodeTime:     zapcore.TimeEncoderOfLayout("15:04:05"), // Short HH:MM:SS
+			EncodeDuration: zapcore.StringDurationEncoder,
+		}
+		// Omit CallerKey from config to skip caller in output
+	}
+
+	// Create encoder
+	var encoder zapcore.Encoder
+	if format == "json" {
+		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	} else {
+		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+	}
+
+	// Create core with stderr output
+	core := zapcore.NewCore(
+		encoder,
+		zapcore.AddSync(os.Stderr),
 		zapLevel,
 	)
 
