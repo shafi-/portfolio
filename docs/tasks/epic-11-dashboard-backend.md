@@ -1,7 +1,7 @@
 # Epic 11 — Dashboard Backend
 
 **Milestone:** 3 — Dashboard
-**Status:** todo
+**Status:** completed
 
 ## Overview
 
@@ -11,7 +11,7 @@ Implement dashboard backend serving layer — static asset serving for the front
 
 ## Story 11.1: Asset Serving
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** Epic 6
 
@@ -28,7 +28,7 @@ As the Portfolio Engine, I want to serve static assets so that the dashboard can
 
 ## Story 11.2: Endpoint Review
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** Epic 6
 
@@ -53,9 +53,9 @@ As the dashboard, I want reviewed and enhanced API endpoints so that the fronten
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 11.1 Asset Serving | todo | S | Epic 6 |
-| 11.2 Endpoint Review | todo | S | Epic 6 |
+| 11.1 Asset Serving | completed | S | Epic 6 |
+| 11.2 Endpoint Review | completed | S | Epic 6 |
 
 **Total Size:** 2S = ~4 days
 
-**Can Start:** Story 11.1 (after Epic 6 complete)
+**Can Start:** ✅ Complete (merged to main as commit 0f281b4)
