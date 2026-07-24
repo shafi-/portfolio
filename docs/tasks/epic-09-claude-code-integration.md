@@ -1,7 +1,7 @@
 # Epic 9 — Claude Code Integration
 
 **Milestone:** 2 — Agent Integration
-**Status:** Completed
+**Status:** Completed (with fixes merged)
 
 ## Overview
 
