@@ -303,10 +303,10 @@ func TestIsValidUUID(t *testing.T) {
 
 func TestIsAnalysisOutdated(t *testing.T) {
 	tests := []struct {
-		name            string
-		analysis        *Analysis
-		currentGitHead  string
-		expectOutdated  bool
+		name           string
+		analysis       *Analysis
+		currentGitHead string
+		expectOutdated bool
 	}{
 		{
 			name:           "analysis is nil",

@@ -107,9 +107,9 @@ func TestRelationshipStore_ListRelationships(t *testing.T) {
 	}
 
 	for _, project := range []*models.Project{project1, project2, project3} {
-	if err := store.projects.UpsertProject(project); err != nil {
-		t.Fatalf("failed to create project: %v", err)
-	}
+		if err := store.projects.UpsertProject(project); err != nil {
+			t.Fatalf("failed to create project: %v", err)
+		}
 	}
 
 	relationships := []*models.Relationship{
@@ -262,9 +262,9 @@ func TestRelationshipStore_DeleteAllForProject(t *testing.T) {
 	}
 
 	for _, project := range []*models.Project{project1, project2, project3} {
-	if err := store.projects.UpsertProject(project); err != nil {
-		t.Fatalf("failed to create project: %v", err)
-	}
+		if err := store.projects.UpsertProject(project); err != nil {
+			t.Fatalf("failed to create project: %v", err)
+		}
 	}
 
 	relationships := []*models.Relationship{
