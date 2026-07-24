@@ -12,31 +12,59 @@ import (
 
 	"project-dash/internal/config"
 	"project-dash/internal/database"
+	"project-dash/internal/integration"
+	"project-dash/internal/integration/claude"
 	"project-dash/internal/logging"
 	"project-dash/pkg/models"
 )
 
-// doctorCmd represents the doctor command
 var doctorCmd = &cobra.Command{
-	Use:   "doctor",
-	Short: "Run system diagnostics and health checks",
-	Long: `Perform comprehensive system diagnostics to identify and resolve issues.
+	Use:   "doctor [target]",
+	Short: "Run diagnostics and health checks",
+	Long: `Perform diagnostics to identify and resolve issues.
 
-Diagnostic checks include:
+Without arguments, runs system diagnostics:
 - Configuration file accessibility and validity
 - Database file accessibility and integrity
 - Project roots accessibility
 - File permissions
 - Disk space availability
-- Go environment and dependencies`,
-	Run: runDoctor,
+- Go environment and dependencies
+
+With a target, runs integration-specific diagnostics:
+  claude     Claude Code integration health`,
+	Args: cobra.MaximumNArgs(1),
+	Run:  runDoctor,
+}
+
+var doctorClaudeCmd = &cobra.Command{
+	Use:   "claude",
+	Short: "Check Claude Code integration health",
+	Long: `Check the health of the Claude Code integration.
+
+This validates the integration status, MCP server connectivity,
+configuration files, and skills installation.`,
+	Example: `  portfolio doctor claude`,
+	Args:    cobra.NoArgs,
+	Run:     runDoctorClaude,
 }
 
 func init() {
 	rootCmd.AddCommand(doctorCmd)
+	doctorCmd.AddCommand(doctorClaudeCmd)
 }
 
 func runDoctor(cmd *cobra.Command, args []string) {
+	if len(args) > 0 {
+		if args[0] == "claude" {
+			runDoctorClaude(cmd, []string{})
+			return
+		}
+		fmt.Printf("Error: Unknown doctor target '%s'\n", args[0])
+		fmt.Println("Supported targets: claude")
+		os.Exit(1)
+	}
+
 	logger := logging.GetGlobalLogger()
 
 	fmt.Println("Portfolio Engine Diagnostics")
@@ -45,39 +73,32 @@ func runDoctor(cmd *cobra.Command, args []string) {
 
 	allPassed := true
 
-	// Check 1: Configuration
 	if !checkConfigFile(logger) {
 		allPassed = false
 	}
 
-	// Check 2: Database
 	if !checkDatabase(logger) {
 		allPassed = false
 	}
 
-	// Check 3: Project Roots
 	if !checkProjectRoots(logger) {
 		allPassed = false
 	}
 
-	// Check 4: File Permissions
 	if !checkFilePermissions(logger) {
 		allPassed = false
 	}
 
-	// Check 5: Disk Space
 	if !checkDiskSpace(logger) {
 		allPassed = false
 	}
 
-	// Check 6: Go Environment
 	if !checkGoEnvironment(logger) {
 		allPassed = false
 	}
 
 	fmt.Println()
 
-	// Exit with appropriate code
 	if allPassed {
 		fmt.Println("✓ All checks passed")
 		os.Exit(0)
@@ -92,21 +113,18 @@ func checkConfigFile(logger *logging.Logger) bool {
 
 	configPath := models.GetConfigPath()
 
-	// Check file existence
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		fmt.Printf("  ✗ Config file not found: %s\n", configPath)
 		fmt.Printf("    Action: Run 'portfolio init' to create configuration\n")
 		return false
 	}
 
-	// Check file readability
 	if _, err := os.ReadFile(configPath); err != nil {
 		fmt.Printf("  ✗ Config file not readable: %s\n", configPath)
 		fmt.Printf("    Action: Check file permissions\n")
 		return false
 	}
 
-	// Check TOML validity
 	loader := config.NewLoader(configPath)
 	cfg, err := loader.Load()
 	if err != nil {
@@ -115,7 +133,6 @@ func checkConfigFile(logger *logging.Logger) bool {
 		return false
 	}
 
-	// Validate configuration
 	if err := config.Validate(cfg); err != nil {
 		fmt.Printf("  ✗ Config validation failed: %s\n", configPath)
 		fmt.Printf("    Error: %v\n", err)
@@ -132,7 +149,6 @@ func checkConfigFile(logger *logging.Logger) bool {
 func checkDatabase(logger *logging.Logger) bool {
 	fmt.Println("\nDatabase Check:")
 
-	// Load configuration to get database path
 	loader := config.NewLoader("")
 	cfg, err := loader.Load()
 	if err != nil {
@@ -142,14 +158,12 @@ func checkDatabase(logger *logging.Logger) bool {
 
 	dbPath := cfg.General.DatabasePath
 
-	// Check file existence
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Printf("  ✗ Database file not found: %s\n", dbPath)
 		fmt.Printf("    Action: Run 'portfolio init' to create database\n")
 		return false
 	}
 
-	// Check file accessibility
 	db, err := database.NewDatabase(dbPath, logger)
 	if err != nil {
 		fmt.Printf("  ✗ Database not accessible: %s\n", dbPath)
@@ -158,14 +172,12 @@ func checkDatabase(logger *logging.Logger) bool {
 	}
 	defer db.Close()
 
-	// Check schema version
 	version, err := db.GetSchemaVersion()
 	if err != nil {
 		fmt.Printf("  ✗ Cannot determine schema version\n")
 		return false
 	}
 
-	// Check table count
 	tableCount, err := db.GetTableCount()
 	if err != nil {
 		fmt.Printf("  ✗ Cannot validate schema\n")
@@ -218,7 +230,6 @@ func checkFilePermissions(logger *logging.Logger) bool {
 
 	configPath := models.GetConfigPath()
 
-	// Check config file permissions
 	info, err := os.Stat(configPath)
 	if err != nil {
 		fmt.Printf("  ✗ Cannot check config file permissions\n")
@@ -253,13 +264,12 @@ func checkDiskSpace(logger *logging.Logger) bool {
 		path = homeDir
 	}
 
-	// Get disk usage (Unix-specific)
 	if runtime.GOOS != "windows" {
 		cmd := exec.Command("df", "-h", path)
 		output, err := cmd.Output()
 		if err != nil {
 			fmt.Printf("  ⚠ Cannot check disk space\n")
-			return true // Non-critical
+			return true
 		}
 
 		lines := strings.Split(string(output), "\n")
@@ -280,7 +290,6 @@ func checkDiskSpace(logger *logging.Logger) bool {
 func checkGoEnvironment(logger *logging.Logger) bool {
 	fmt.Println("\nSystem Check:")
 
-	// Check Go version
 	cmd := exec.Command("go", "version")
 	output, err := cmd.Output()
 	if err != nil {
@@ -291,7 +300,6 @@ func checkGoEnvironment(logger *logging.Logger) bool {
 	goVersion := strings.TrimSpace(string(output))
 	fmt.Printf("  ✓ Go version: %s\n", goVersion)
 
-	// Check dependencies
 	cmd = exec.Command("go", "list", "-m", "all")
 	output, err = cmd.Output()
 	if err != nil {
@@ -306,10 +314,8 @@ func checkGoEnvironment(logger *logging.Logger) bool {
 }
 
 func validateProjectRoot(root string) error {
-	// Clean the path
 	root = filepath.Clean(root)
 
-	// Check if path exists
 	info, err := os.Stat(root)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("path does not exist")
@@ -317,15 +323,92 @@ func validateProjectRoot(root string) error {
 		return fmt.Errorf("cannot access path")
 	}
 
-	// Check if it's a directory
 	if !info.IsDir() {
 		return fmt.Errorf("not a directory")
 	}
 
-	// Check if readable
 	if _, err := os.ReadDir(root); err != nil {
 		return fmt.Errorf("not readable")
 	}
 
 	return nil
+}
+
+func runDoctorClaude(cmd *cobra.Command, args []string) {
+	logger := logging.GetGlobalLogger()
+	ctx := cmd.Context()
+
+	loader := config.NewLoader(cfgFile)
+	cfg, err := loader.Load()
+	if err != nil {
+		logger.Error("failed to load config", models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	db, err := database.NewDatabase(cfg.General.DatabasePath, logger)
+	if err != nil {
+		logger.Error("failed to create database", models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: failed to create database: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := db.Connect(); err != nil {
+		logger.Error("failed to connect to database", models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: failed to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	if err := db.Initialize(); err != nil {
+		logger.Error("failed to initialize database", models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: failed to initialize database: %v\n", err)
+		os.Exit(1)
+	}
+
+	binaryPath := os.Args[0]
+	if absPath, err := os.Executable(); err == nil {
+		binaryPath = absPath
+	}
+
+	mcpClient := integration.NewStdioMCPClient(binaryPath, []string{"mcp"})
+	store := integration.NewDatabaseStore(db.DB(), logger.Zap())
+
+	manager := integration.NewManager(store, mcpClient, logger.Zap(), version)
+
+	claudeIntegration, err := claude.New(store, mcpClient, logger.Zap())
+	if err != nil {
+		logger.Error("failed to create Claude integration", models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: failed to create Claude integration: %v\n", err)
+		os.Exit(1)
+	}
+	manager.RegisterIntegration(claudeIntegration)
+
+	result, err := manager.Doctor(ctx, "claude", false)
+	if err != nil {
+		logger.Error("doctor check failed", models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: doctor check failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	if result.Passed {
+		fmt.Println("✓ All Claude Code integration checks passed")
+		return
+	}
+
+	fmt.Println("✗ Claude Code integration health check failed")
+	fmt.Println()
+
+	for _, check := range result.Checks {
+		if check.Passed {
+			fmt.Printf("  ✓ %s: %s\n", check.Name, check.Message)
+		} else {
+			fmt.Printf("  ✗ %s: %s\n", check.Name, check.Message)
+			if check.Remediation != "" {
+				fmt.Printf("    → %s\n", check.Remediation)
+			}
+		}
+	}
+
+	os.Exit(1)
 }
