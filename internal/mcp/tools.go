@@ -316,7 +316,7 @@ func (s *Server) handleStoreAnalysis(ctx context.Context, req mcp.CallToolReques
 		}
 	}
 
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := time.Now().UTC()
 	analysis := &models.Analysis{
 		ID:              uuid.New().String(),
 		ProjectID:       projectID,
@@ -327,7 +327,7 @@ func (s *Server) handleStoreAnalysis(ctx context.Context, req mcp.CallToolReques
 		Purpose:         getStringArg(args, "purpose"),
 		Architecture:    getStringArg(args, "architecture"),
 		Notes:           getStringArg(args, "notes"),
-		RawJSON:         getStringArg(args, "raw_json"),
+		RawJSON:         []byte(getStringArg(args, "raw_json")),
 	}
 
 	if err := s.analyses.CreateAnalysis(analysis); err != nil {

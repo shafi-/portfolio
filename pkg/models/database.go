@@ -36,29 +36,6 @@ type Document struct {
 	IndexedAt   string `json:"indexed_at"`
 }
 
-// Analysis represents AI analysis results
-type Analysis struct {
-	ID              string `json:"id"`
-	ProjectID       string `json:"project_id"`
-	Analyzer        string `json:"analyzer"`
-	AnalyzedGitHead string `json:"analyzed_git_head"`
-	AnalyzedAt      string `json:"analyzed_at"`
-	Summary         string `json:"summary"`
-	Purpose         string `json:"purpose"`
-	Architecture    string `json:"architecture"`
-	Notes           string `json:"notes"`
-	RawJSON         string `json:"raw_json"`
-}
-
-// Feature represents extracted features
-type Feature struct {
-	ID          string  `json:"id"`
-	AnalysisID  string  `json:"analysis_id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Confidence  float64 `json:"confidence"`
-}
-
 // Technology represents technology reference
 type Technology struct {
 	ID       string `json:"id"`
@@ -70,16 +47,6 @@ type Technology struct {
 type ProjectTechnology struct {
 	ProjectID    string `json:"project_id"`
 	TechnologyID string `json:"technology_id"`
-}
-
-// Relationship represents inter-project relationships
-type Relationship struct {
-	ID            string  `json:"id"`
-	SourceProject string  `json:"source_project"`
-	TargetProject string  `json:"target_project"`
-	Type          string  `json:"type"`
-	Description   string  `json:"description"`
-	Confidence    float64 `json:"confidence"`
 }
 
 // Dependency represents a project dependency

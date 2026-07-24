@@ -31,12 +31,16 @@ func (s *Server) handleListRelationships(w http.ResponseWriter, r *http.Request)
 
 	var resp []relationshipResponse
 	for _, rel := range rels {
+		confidence := 0.0
+		if rel.Confidence != nil {
+			confidence = *rel.Confidence
+		}
 		resp = append(resp, relationshipResponse{
 			SourceProject: rel.SourceProject,
 			TargetProject: rel.TargetProject,
 			Type:          rel.Type,
 			Description:   rel.Description,
-			Confidence:    rel.Confidence,
+			Confidence:    confidence,
 		})
 	}
 	if resp == nil {
