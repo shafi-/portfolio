@@ -7,6 +7,44 @@ Version: 0.1
 > contracts for the Portfolio platform.
 
 ==================================================================
+0. CONFIGURATION FILE FORMAT
+==================================================================
+
+Portfolio stores configuration in ~/.portfolio/config.toml (TOML format).
+
+Structure:
+
+```toml
+[general]
+database_path = "/path/to/portfolio.db"
+
+[discovery]
+project_roots = ["/path/to/projects", "/another/path"]
+ignored_paths = ["node_modules", ".git", "vendor", "build", "dist", "target", "bin"]
+
+[logging]
+level = "INFO"  # DEBUG, INFO, WARN, ERROR
+
+[dashboard]
+enabled = false
+port = 8080
+```
+
+Field Naming Convention:
+- All TOML field names use snake_case (e.g., `database_path`, `project_roots`, `ignored_paths`)
+- This differs from Go struct field names which use camelCase
+- TOML parsers map snake_case to camelCase automatically
+
+Required Fields:
+- general.database_path: Path to SQLite database file
+- discovery.project_roots: Array of project root directories (at least one required)
+
+Optional Fields:
+- discovery.ignored_paths: Directories to skip during discovery (defaults shown above)
+- logging.level: Log level (default: INFO)
+- dashboard.*: Dashboard configuration (not yet implemented)
+
+==================================================================
 1. DATABASE SCHEMA
 ==================================================================
 
