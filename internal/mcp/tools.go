@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -178,7 +180,12 @@ func (s *Server) handleListProjects(ctx context.Context, req mcp.CallToolRequest
 		return mcp.NewToolResultErrorFromErr("failed to list projects", err), nil
 	}
 
-	return mcp.NewToolResultJSON(projects)
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("Found %d projects:\n\n", len(projects)))
+	for _, p := range projects {
+		output.WriteString(fmt.Sprintf("- %s (%s): %s [%s]\n", p.Name, p.ID, p.RootPath, p.RepositoryType))
+	}
+	return mcp.NewToolResultText(output.String()), nil
 }
 
 func (s *Server) handleGetProject(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -451,7 +458,16 @@ func (s *Server) handleListRelationships(ctx context.Context, req mcp.CallToolRe
 		return mcp.NewToolResultErrorFromErr("failed to list relationships", err), nil
 	}
 
-	return mcp.NewToolResultJSON(relationships)
+	// Ensure empty slice is serialized as [], not null
+	if relationships == nil {
+		relationships = []*models.Relationship{}
+	}
+
+	result := map[string]interface{}{
+		"relationships": relationships,
+		"count":         len(relationships),
+	}
+	return mcp.NewToolResultJSON(result)
 }
 
 func (s *Server) handleStoreRelationship(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
