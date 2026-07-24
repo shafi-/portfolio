@@ -125,6 +125,14 @@ func checkDatabaseStatus(logger *logging.Logger) (string, int, time.Time) {
 	// Try to connect to database
 	db, err := database.NewDatabase(dbPath, logger)
 	if err != nil {
+		logger.Error("Failed to create database object",
+			models.Field{Key: "error", Value: err},
+		)
+		return "✗ Inaccessible", -1, time.Time{}
+	}
+
+	// Actually connect to the database
+	if err := db.Connect(); err != nil {
 		logger.Error("Failed to connect to database",
 			models.Field{Key: "error", Value: err},
 		)

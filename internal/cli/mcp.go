@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -29,7 +30,15 @@ func init() {
 }
 
 func runMCP(cmd *cobra.Command, args []string) {
-	logger := logging.GetGlobalLogger()
+	// Use stderr logger for MCP to keep stdout clean for JSON-RPC messages
+	logger, err := logging.NewStderrLogger("INFO", "console")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create logger: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Set global logger to stderr logger for any components that use GetGlobalLogger
+	logging.SetGlobalLogger(logger)
 
 	loader := config.NewLoader(cfgFile)
 	cfg, err := loader.Load()

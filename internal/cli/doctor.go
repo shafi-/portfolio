@@ -170,6 +170,12 @@ func checkDatabase(logger *logging.Logger) bool {
 		fmt.Printf("    Error: %v\n", err)
 		return false
 	}
+
+	if err := db.Connect(); err != nil {
+		fmt.Printf("  ✗ Database not accessible: %s\n", dbPath)
+		fmt.Printf("    Error: %v\n", err)
+		return false
+	}
 	defer db.Close()
 
 	version, err := db.GetSchemaVersion()

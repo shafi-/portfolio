@@ -114,6 +114,11 @@ func runInit(cmd *cobra.Command, args []string) {
 	}
 	defer db.Close()
 
+	if err := db.Connect(); err != nil {
+		handleInitError(err, "Failed to connect to database")
+		return
+	}
+
 	if err := db.Initialize(); err != nil {
 		handleInitError(err, "Failed to initialize database schema")
 		return

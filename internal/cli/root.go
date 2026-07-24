@@ -6,9 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-
-	"project-dash/internal/logging"
-	"project-dash/pkg/models"
 )
 
 var (
@@ -54,14 +51,11 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	// Get global logger
-	logger := logging.GetGlobalLogger()
+	// Skip logging here - will be handled by individual commands
+	// This prevents logs from going to stdout in MCP mode
 
 	if cfgFile != "" {
-		// Use config file from the flag
-		logger.Info("Using config file from flag",
-			models.Field{Key: "config", Value: cfgFile},
-		)
+		// Config file from flag
 	} else {
 		// Find home directory.
 		home, err := os.UserHomeDir()
@@ -71,9 +65,7 @@ func initConfig() {
 		cfgFile = fmt.Sprintf("%s/.portfolio/config.toml", home)
 	}
 
-	if verbose {
-		logger.Info("Verbose mode enabled")
-	}
+	// Note: Verbose logging is handled by individual commands
 }
 
 // GetRootCommand returns the root command for testing

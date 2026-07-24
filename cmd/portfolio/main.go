@@ -17,7 +17,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger, err := logging.NewLogger(logConfig.Level, logConfig.Format)
+	// Check if running in MCP mode - use stderr to keep stdout clean for JSON-RPC
+	isMCPMode := len(os.Args) > 1 && os.Args[1] == "mcp"
+
+	var logger *logging.Logger
+	var err error
+	if isMCPMode {
+		logger, err = logging.NewStderrLogger(logConfig.Level, logConfig.Format)
+	} else {
+		logger, err = logging.NewLogger(logConfig.Level, logConfig.Format)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
 		os.Exit(1)
