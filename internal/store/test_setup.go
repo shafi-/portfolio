@@ -163,7 +163,7 @@ func migrateTestDB(t *testing.T, db *sql.DB) {
 	if err != nil {
 		t.Fatalf("failed to create schema: %v", err)
 	}
-	
+
 	// Run AI analysis schema migration
 	_, err = db.Exec(`
 		ALTER TABLE analyses ADD COLUMN maturity TEXT;
@@ -174,7 +174,7 @@ func migrateTestDB(t *testing.T, db *sql.DB) {
 	if err != nil {
 		// Ignore errors for ALTER TABLE - columns might already exist
 	}
-	
+
 	// Create unique index for analyses
 	_, err = db.Exec(`
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_analyses_project_analyzer ON analyses(project_id, analyzer);

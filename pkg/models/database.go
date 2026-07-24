@@ -38,20 +38,20 @@ type Document struct {
 
 // Analysis represents AI analysis results
 type Analysis struct {
-	ID                 string  `json:"id"`
-	ProjectID          string  `json:"project_id"`
-	Analyzer           string  `json:"analyzer"`
-	AnalyzedGitHead    string  `json:"analyzed_git_head"`
-	AnalyzedAt         string  `json:"analyzed_at"`
-	Summary            string  `json:"summary"`
-	Purpose            string  `json:"purpose"`
-	Architecture       string  `json:"architecture"`
-	Maturity           string  `json:"maturity"`
-	Strengths          string  `json:"strengths"`
-	Weaknesses         string  `json:"weaknesses"`
-	ReusableComponents string  `json:"reusable_components"`
-	Notes              string  `json:"notes"`
-	RawJSON            string  `json:"raw_json"`
+	ID                 string `json:"id"`
+	ProjectID          string `json:"project_id"`
+	Analyzer           string `json:"analyzer"`
+	AnalyzedGitHead    string `json:"analyzed_git_head"`
+	AnalyzedAt         string `json:"analyzed_at"`
+	Summary            string `json:"summary"`
+	Purpose            string `json:"purpose"`
+	Architecture       string `json:"architecture"`
+	Maturity           string `json:"maturity"`
+	Strengths          string `json:"strengths"`
+	Weaknesses         string `json:"weaknesses"`
+	ReusableComponents string `json:"reusable_components"`
+	Notes              string `json:"notes"`
+	RawJSON            string `json:"raw_json"`
 }
 
 // Feature represents extracted features

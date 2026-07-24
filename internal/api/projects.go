@@ -9,15 +9,15 @@ import (
 )
 
 type projectResponse struct {
-	ID             string              `json:"id"`
-	Name           string              `json:"name"`
-	RootPath       string              `json:"root_path"`
-	RepositoryType string              `json:"repository_type"`
-	DiscoveredAt   string              `json:"discovered_at"`
-	UpdatedAt      string              `json:"updated_at"`
-	Metadata       *models.Metadata     `json:"metadata,omitempty"`
-	Documents      []*models.Document   `json:"documents,omitempty"`
-	Analyses       []*models.Analysis   `json:"analyses,omitempty"`
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	RootPath       string             `json:"root_path"`
+	RepositoryType string             `json:"repository_type"`
+	DiscoveredAt   string             `json:"discovered_at"`
+	UpdatedAt      string             `json:"updated_at"`
+	Metadata       *models.Metadata   `json:"metadata,omitempty"`
+	Documents      []*models.Document `json:"documents,omitempty"`
+	Analyses       []*models.Analysis `json:"analyses,omitempty"`
 }
 
 func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
