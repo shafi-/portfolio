@@ -1,61 +1,54 @@
 {
-  "phase": "5",
-  "feature": "Epic 9 - Claude Code Integration",
+  "phase": "4b",
+  "feature": "Epic 11 - Dashboard Backend",
   "branch": "main",
-  "archivePath": ".pipeline/archive/epic-09-claude-code-integration/",
+  "archivePath": "",
   "artifactPaths": {
-    "context-pack": ".pipeline/artifacts/epic-09-context-pack.md",
-    "requirements": ".pipeline/artifacts/epic-09-requirements.md",
-    "requirements-review": ".pipeline/artifacts/epic-09-requirements-review.md",
-    "architecture": ".pipeline/artifacts/epic-09-architecture.md",
-    "architecture-review": ".pipeline/artifacts/epic-09-architecture-review.md",
-    "test-cases": ".pipeline/artifacts/epic-09-test-cases.md",
-    "implementation-guideline": ".pipeline/artifacts/epic-09-implementation-guideline.md"
+    "context-pack": ".pipeline/artifacts/epic-11-context-pack.md",
+    "requirements": ".pipeline/artifacts/epic-11-requirements.md",
+    "requirements-review": ".pipeline/artifacts/epic-11-requirements-review.md",
+    "architecture": ".pipeline/artifacts/epic-11-architecture.md",
+    "architecture-review": ".pipeline/artifacts/epic-11-architecture-review.md",
+    "test-cases": ".pipeline/artifacts/epic-11-test-cases.md",
+    "implementation-guideline": ".pipeline/artifacts/epic-11-implementation-guideline.md",
+    "implementation": ".pipeline/artifacts/epic-11-implementation.md",
+    "implementation-review": ".pipeline/artifacts/epic-11-review-implementation.md"
   },
   "retryCount": 0,
-  "status": "completed",
-  "timestamp": "2026-07-24T01:45:00Z",
+  "status": "in_progress",
+  "timestamp": "2026-07-24T11:06:00Z",
   "metadata": {
     "approach": "epic-pipeline",
-    "totalStories": 5,
+    "totalStories": 2,
     "blockedStories": [],
     "currentStory": "",
     "stories": [
-      "9.1-install-mcp",
-      "9.2-install-skill",
-      "9.3-verify-integration",
-      "9.4-upgrade-integration",
-      "9.5-uninstall-integration"
+      "11.1-asset-serving",
+      "11.2-endpoint-review"
     ],
-    "completedStories": [
-      "9.1-install-mcp",
-      "9.2-install-skill",
-      "9.3-verify-integration",
-      "9.4-upgrade-integration",
-      "9.5-uninstall-integration"
-    ],
+    "completedStories": [],
     "agentsInProgress": [],
     "agentsCompleted": [
       "repo-scout-phase-0b",
       "requirement-collector-phase-1",
       "requirements-reviewer-phase-1.2",
+      "test-case-writer-phase-1.3",
       "architect-phase-2",
       "architecture-reviewer-phase-2.1a",
+      "implementation-guideline-author-phase-2.1c",
       "developer-phase-3",
       "implementation-reviewer-phase-3.1",
-      "build-validator-phase-4"
+      "build-validator-phase-4a"
     ],
-    "phasesCompleted": ["0b", "1", "2", "3", "4"],
-    "buildStatus": "passed",
-    "implementationReviewStatus": "approved",
-    "criticalIssues": 4,
-    "criticalIssuesFixed": 4,
+    "phasesCompleted": ["0b", "1", "1.2", "1.3", "2", "2.1a", "2.1c", "3", "3.1", "4a"],
+    "buildStatus": "pass",
+    "implementationReviewStatus": "",
+    "criticalIssues": 0,
+    "criticalIssuesFixed": 0,
     "commitHash": "",
     "pushed": false,
     "remoteBranch": "",
     "prNumber": 0,
     "prUrl": ""
   }
-}
-}
 }
