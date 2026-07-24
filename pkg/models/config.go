@@ -10,6 +10,7 @@ type Config struct {
 	General   GeneralConfig   `toml:"general"`
 	Discovery DiscoveryConfig `toml:"discovery"`
 	Logging   LoggingConfig   `toml:"logging"`
+	Dashboard DashboardConfig `toml:"dashboard"`
 }
 
 // GeneralConfig contains system-wide configuration
@@ -26,6 +27,14 @@ type DiscoveryConfig struct {
 // LoggingConfig contains logging settings
 type LoggingConfig struct {
 	Level string `toml:"level"`
+}
+
+// DashboardConfig contains dashboard server settings
+type DashboardConfig struct {
+	Host           string   `toml:"host"`
+	Port           int      `toml:"port"`
+	AssetPath      string   `toml:"asset_path"`
+	AllowedOrigins []string `toml:"allowed_origins"`
 }
 
 // GetDefaultConfig returns default configuration
@@ -49,6 +58,12 @@ func GetDefaultConfig() *Config {
 		},
 		Logging: LoggingConfig{
 			Level: "INFO",
+		},
+		Dashboard: DashboardConfig{
+			Host:           "localhost",
+			Port:           8090,
+			AssetPath:      "",
+			AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000"},
 		},
 	}
 }
