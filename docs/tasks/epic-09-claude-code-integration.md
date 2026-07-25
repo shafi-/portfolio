@@ -1,7 +1,7 @@
 # Epic 9 — Claude Code Integration
 
 **Milestone:** 2 — Agent Integration
-**Status:** Completed (with fixes merged)
+**Status:** Completed
 
 ## Overview
 
@@ -11,7 +11,7 @@ Implement Claude Code integration including MCP server installation, Portfolio s
 
 ## Story 9.1: Install MCP
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 8.2
 
@@ -28,7 +28,7 @@ As a Claude Code user, I want to install the Portfolio MCP server so that my AI 
 
 ## Story 9.2: Install Portfolio Skill
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 9.1
 
@@ -45,7 +45,7 @@ As a Claude Code user, I want a Portfolio skill so that my AI agent knows how to
 
 ## Story 9.3: Verify Integration
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** 9.2
 
@@ -62,7 +62,7 @@ As a user, I want to verify the integration so that I know it's working correctl
 
 ## Story 9.4: Update Integration
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 8.4
 
@@ -81,7 +81,7 @@ As a user, I want to update the integration so that it stays compatible with new
 
 ## Story 9.5: Uninstall Integration
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** 9.4
 
@@ -101,12 +101,12 @@ As a user, I want to remove the Claude Code integration so that my Portfolio set
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 9.1 Install MCP | todo | M | 8.2 |
-| 9.2 Install Portfolio Skill | todo | M | 9.1 |
-| 9.3 Verify Integration | todo | S | 9.2 |
-| 9.4 Update Integration | todo | M | 8.4 |
-| 9.5 Uninstall Integration | todo | S | 9.4 |
+| 9.1 Install MCP | completed | M | 8.2 |
+| 9.2 Install Portfolio Skill | completed | M | 9.1 |
+| 9.3 Verify Integration | completed | S | 9.2 |
+| 9.4 Update Integration | completed | M | 8.4 |
+| 9.5 Uninstall Integration | completed | S | 9.4 |
 
 **Total Size:** 3M + 2S = ~12 days
 
-**Can Start:** Story 9.1 (after 8.2 complete)
+**Completed:** All stories completed using official Claude Code CLI methods (`claude mcp add/remove/get`)

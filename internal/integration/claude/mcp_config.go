@@ -1,12 +1,14 @@
 package claude
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"os/exec"
+	"strings"
 )
 
+// Legacy config structures kept for reference only - not used in implementation
 type MCPConfig struct {
 	MCPServers map[string]MCPServerConfig `json:"mcpServers,omitempty"`
 }
@@ -17,107 +19,65 @@ type MCPServerConfig struct {
 	Transport string   `json:"transport,omitempty"`
 }
 
+// ensureMCPConfig registers the Portfolio MCP server using the official Claude Code CLI
 func (c *ClaudeCodeIntegration) ensureMCPConfig() error {
-	config, err := c.readMCPConfig()
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("read MCP config: %w", err)
-	}
+	// Use official Claude Code CLI command: claude mcp add portfolio /path/to/portfolio mcp
+	args := []string{"mcp", "add", "portfolio", c.config.BinaryPath, "mcp"}
 
-	if config == nil {
-		config = &MCPConfig{}
-	}
-
-	if config.MCPServers == nil {
-		config.MCPServers = make(map[string]MCPServerConfig)
-	}
-
-	config.MCPServers["portfolio"] = MCPServerConfig{
-		Command:   c.config.BinaryPath,
-		Args:      []string{"mcp"},
-		Transport: "stdio",
-	}
-
-	if err := c.writeMCPConfig(config); err != nil {
-		return fmt.Errorf("write MCP config: %w", err)
+	cmd := exec.Command("claude", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("claude mcp add failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return nil
 }
 
+// removeMCPConfig unregisters the Portfolio MCP server using the official Claude Code CLI
 func (c *ClaudeCodeIntegration) removeMCPConfig() error {
-	config, err := c.readMCPConfig()
+	// Use official Claude Code CLI command: claude mcp remove portfolio
+	args := []string{"mcp", "remove", "portfolio"}
+
+	cmd := exec.Command("claude", args...)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		if os.IsNotExist(err) {
+		// Don't fail if MCP server is already removed
+		if strings.Contains(string(output), "not found") || strings.Contains(string(output), "does not exist") {
 			return nil
 		}
-		return fmt.Errorf("read MCP config: %w", err)
-	}
-
-	if config.MCPServers != nil {
-		delete(config.MCPServers, "portfolio")
-	}
-
-	if err := c.writeMCPConfig(config); err != nil {
-		return fmt.Errorf("write MCP config: %w", err)
+		return fmt.Errorf("claude mcp remove failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return nil
 }
 
-func (c *ClaudeCodeIntegration) readMCPConfig() (*MCPConfig, error) {
-	data, err := os.ReadFile(c.config.ConfigPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var config MCPConfig
-	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("parse MCP config: %w", err)
-	}
-
-	return &config, nil
-}
-
-func (c *ClaudeCodeIntegration) writeMCPConfig(config *MCPConfig) error {
-	dir := filepath.Dir(c.config.ConfigPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-
-	data, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal MCP config: %w", err)
-	}
-
-	if err := os.WriteFile(c.config.ConfigPath, data, 0644); err != nil {
-		return fmt.Errorf("write MCP config file: %w", err)
-	}
-
-	return nil
-}
-
+// isMCPRegistered checks if the Portfolio MCP server is registered using the official Claude Code CLI
 func (c *ClaudeCodeIntegration) isMCPRegistered() bool {
-	config, err := c.readMCPConfig()
-	if err != nil {
+	// Use official Claude Code CLI command: claude mcp get portfolio
+	args := []string{"mcp", "get", "portfolio"}
+
+	cmd := exec.Command("claude", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		// MCP server not found or other error
 		return false
 	}
 
-	if config.MCPServers == nil {
-		return false
+	// Check if output contains portfolio binary path
+	output := stdout.String()
+	if strings.Contains(output, c.config.BinaryPath) {
+		return true
 	}
 
-	server, exists := config.MCPServers["portfolio"]
-	if !exists {
-		return false
+	// Try to parse JSON output to verify registration
+	var result map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err == nil {
+		// Successfully parsed - server is registered
+		return true
 	}
 
-	if server.Command != c.config.BinaryPath {
-		return false
-	}
-
-	if server.Transport != "stdio" {
-		return false
-	}
-
-	return true
+	return false
 }

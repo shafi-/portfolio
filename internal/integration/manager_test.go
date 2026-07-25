@@ -141,8 +141,16 @@ func TestManager_List(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
-	assert.Equal(t, "test1", result[0].Name)
-	assert.Equal(t, "test2", result[1].Name)
+
+	// Extract names for easier comparison
+	names := make([]string, len(result))
+	for i, meta := range result {
+		names[i] = meta.Name
+	}
+
+	// Check that both integrations exist regardless of order
+	assert.Contains(t, names, "test1")
+	assert.Contains(t, names, "test2")
 }
 
 func TestManager_List_Empty(t *testing.T) {

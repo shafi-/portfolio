@@ -250,7 +250,7 @@ Never edit repositories.
 Prefer existing knowledge before re-analysis.
 
 ==================================================================
-5. DASHBOARD SPECIFICATION
+7. DASHBOARD SPECIFICATION
 ==================================================================
 
 Read-only.
@@ -282,7 +282,7 @@ Never invokes AI.
 Never modifies knowledge.
 
 ==================================================================
-6. SYNCHRONIZATION WITH KNOWLEDGEMODEL
+8. SYNCHRONIZATION WITH KNOWLEDGEMODEL
 ==================================================================
 
 KnowledgeModel.md defines concepts.
@@ -303,7 +303,76 @@ Relationship -> relationships
 Every API and MCP tool exchanges these canonical entities.
 
 ==================================================================
-7. IMPLEMENTATION ORDER
+6. AGENT INTEGRATION FRAMEWORK
+==================================================================
+
+Integration Interface
+
+Every agent integration implements the Integration interface:
+
+```go
+type Integration interface {
+    Name() string
+    AgentType() string
+    Install(ctx, opts) (*InstallResult, error)
+    Validate(ctx) (*ValidationResult, error)
+    Upgrade(ctx, opts) (*UpgradeResult, error)
+    Remove(ctx) error
+}
+```
+
+Integration Responsibilities
+
+- Register MCP server with agent using official CLI commands only
+- Install agent-specific skills/prompts
+- Validate installation (MCP reachable, tools available, configs present)
+- Upgrade integration (re-register MCP, update skills)
+- Remove integration (unregister MCP, remove skills, clean metadata)
+
+Official Methods Requirement
+
+Per ADR-016, all integrations MUST use official tool methods for MCP server registration:
+
+| Tool | Official Method | Status |
+|------|---------------|--------|
+| Claude Code | `claude mcp add/remove/get` | ✅ Required |
+| OpenCode | `opencode mcp add --url` (remote only) | ⚠️ Partial |
+| Cline | No CLI method | ❌ Manual setup only |
+
+Direct config file manipulation is FORBIDDEN in production code.
+
+For tools without official CLI support:
+- Document manual setup in docs/integration-guideline.md
+- Provide transparent unsafe-*.sh scripts with explicit warnings
+- Never embed unofficial config editing in integration code
+
+CLI Commands
+
+- `portfolio install <integration>` — Install integration
+- `portfolio validate <integration>` — Validate installation  
+- `portfolio upgrade <integration>` — Upgrade to new version
+- `portfolio uninstall <integration>` — Remove integration
+
+Integration Storage
+
+- Integration metadata stored in database (not on filesystem)
+- Tracks: name, version, agent_type, status, installed_at, last_validated_at
+- Manager handles backup/rollback; integration handles agent-specific operations
+
+Validation Checks
+
+Standard checks every integration must provide:
+
+1. Agent installed (binary in PATH)
+2. Integration metadata exists
+3. Config file accessible
+4. MCP server entry registered (via official CLI)
+5. MCP server reachable (health check)
+6. Tools available (test calls)
+7. Skill file present (if applicable)
+
+==================================================================
+9. IMPLEMENTATION ORDER
 ==================================================================
 
 1. Database
