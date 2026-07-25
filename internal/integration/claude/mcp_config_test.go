@@ -79,8 +79,19 @@ func TestClaudeCommandConstruction(t *testing.T) {
 			t.Errorf("expected command 'claude', got '%s'", cmd.Args[0])
 		}
 
-		if len(cmd.Args) != len(expectedArgs) {
-			t.Errorf("expected %d args, got %d", len(expectedArgs), len(cmd.Args))
+		// exec.Command adds the command name as Args[0], so we expect len(expectedArgs) + 1
+		expectedTotalArgs := len(expectedArgs) + 1
+		if len(cmd.Args) != expectedTotalArgs {
+			t.Errorf("expected %d args, got %d", expectedTotalArgs, len(cmd.Args))
+		}
+
+		// Verify key parts of the command are present
+		cmdStr := strings.Join(cmd.Args, " ")
+		if !strings.Contains(cmdStr, "mcp add portfolio") {
+			t.Error("expected command to contain 'mcp add portfolio'")
+		}
+		if !strings.Contains(cmdStr, binaryPath) {
+			t.Error("expected command to contain binary path")
 		}
 	})
 
