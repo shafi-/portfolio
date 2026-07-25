@@ -1,7 +1,7 @@
 # Epic 8 — Integration Framework
 
 **Milestone:** 2 — Agent Integration
-**Status:** todo
+**Status:** Completed
 
 ## Overview
 
@@ -11,7 +11,7 @@ Implement integration abstraction, installation framework, validation, upgrade m
 
 ## Story 8.1: Integration Abstraction
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** Epic 7
 
@@ -31,7 +31,7 @@ As the Portfolio Engine, I want an integration abstraction so that different AI 
 
 ## Story 8.2: Installation Framework
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 8.1
 
@@ -48,7 +48,7 @@ As an integration, I want to register with Portfolio so that agents can discover
 
 ## Story 8.3: Validation
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** 8.2
 
@@ -66,7 +66,7 @@ As an integration, I want to validate its installation so that errors are detect
 
 ## Story 8.4: Upgrade Mechanism
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 8.3
 
@@ -86,7 +86,7 @@ As an integration, I want to upgrade itself so that it stays compatible with eng
 
 ## Story 8.5: Removal/Uninstall
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** 8.4
 
@@ -106,12 +106,12 @@ As a user, I want to remove an integration so that unused agent integrations don
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 8.1 Integration Abstraction | todo | M | Epic 7 |
-| 8.2 Installation Framework | todo | M | 8.1 |
-| 8.3 Validation | todo | S | 8.2 |
-| 8.4 Upgrade Mechanism | todo | M | 8.3 |
-| 8.5 Removal/Uninstall | todo | S | 8.4 |
+| 8.1 Integration Abstraction | completed | M | Epic 7 |
+| 8.2 Installation Framework | completed | M | 8.1 |
+| 8.3 Validation | completed | S | 8.2 |
+| 8.4 Upgrade Mechanism | completed | M | 8.3 |
+| 8.5 Removal/Uninstall | completed | S | 8.4 |
 
 **Total Size:** 3M + 2S = ~12 days
 
-**Can Start:** Story 8.1 (after Epic 7 complete)
+**Completed:** All stories completed
