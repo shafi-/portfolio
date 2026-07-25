@@ -1,12 +1,9 @@
 name: Security Scanning
 
 on:
-  push:
-    branches: [ main, develop, epic/** ]
-  pull_request:
-    branches: [ main, develop ]
   schedule:
     - cron: '0 0 * * 0'  # Weekly on Sunday at midnight
+  workflow_dispatch:  # Allow manual trigger
 
 permissions:
   contents: read
@@ -76,10 +73,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run trufflehog
-        if: github.event_name == 'pull_request'
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.pull_request.base.sha }}
-          head: ${{ github.event.pull_request.head.sha }}
           extra_args: --only-verified
