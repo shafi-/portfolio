@@ -93,8 +93,8 @@ func TestDatabaseInitialization(t *testing.T) {
 		t.Errorf("Failed to get schema version: %v", err)
 	}
 
-	if version < 3 {
-		t.Errorf("Expected schema version >= 3, got %d", version)
+	if version < 2 {
+		t.Errorf("Expected schema version >= 2 (consolidated schema fully applied), got %d", version)
 	}
 
 	// Check table count
@@ -169,7 +169,7 @@ func TestSchemaValidation(t *testing.T) {
 	}
 }
 
-func TestMigrationMetadataExtras(t *testing.T) {
+func TestMigrationConsolidatedSchema(t *testing.T) {
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	logger, _ := logging.NewLogger("INFO", "console")
@@ -187,8 +187,8 @@ func TestMigrationMetadataExtras(t *testing.T) {
 		t.Fatalf("Migrations failed: %v", err)
 	}
 
-	// Re-running must be idempotent: runMigration tolerates "duplicate column"
-	// errors from the ALTER TABLE statements.
+	// Re-running Migrate must be a no-op: the version check in Migrate() skips
+	// migrations already recorded, and the consolidated schema uses IF NOT EXISTS.
 	if err := db.Migrate(); err != nil {
 		t.Fatalf("Re-running migrations failed (not idempotent): %v", err)
 	}
@@ -197,8 +197,8 @@ func TestMigrationMetadataExtras(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSchemaVersion: %v", err)
 	}
-	if version != 8 {
-		t.Errorf("schema version: got %d, want 8", version)
+	if version != 2 {
+		t.Errorf("schema version: got %d, want 2 (consolidated initial_schema + fts5_fulltext_search)", version)
 	}
 
 	metaCols := tableColumns(t, db, "metadata")

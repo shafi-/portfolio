@@ -29,7 +29,8 @@ func (cargoParser) Parse(content []byte) ([]models.Dependency, error) {
 			parts := strings.SplitN(line, "=", 2)
 			name := strings.TrimSpace(parts[0])
 			if name != "" {
-				deps = append(deps, models.Dependency{Name: name, Manager: "cargo"})
+				ver, kind := parseVersionSpec(extractTableVersion(parts[1]))
+				deps = append(deps, models.Dependency{Name: name, Manager: "cargo", Version: ver, VersionType: kind})
 			}
 		}
 	}

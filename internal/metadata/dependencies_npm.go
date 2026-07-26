@@ -25,11 +25,13 @@ func (npmParser) Parse(content []byte) ([]models.Dependency, error) {
 	}
 
 	var deps []models.Dependency
-	for name := range pkg.Dependencies {
-		deps = append(deps, models.Dependency{Name: name, Manager: "npm", Scope: "prod"})
+	for name, spec := range pkg.Dependencies {
+		ver, kind := parseVersionSpec(spec)
+		deps = append(deps, models.Dependency{Name: name, Manager: "npm", Scope: "prod", Version: ver, VersionType: kind})
 	}
-	for name := range pkg.DevDependencies {
-		deps = append(deps, models.Dependency{Name: name, Manager: "npm", Scope: "dev"})
+	for name, spec := range pkg.DevDependencies {
+		ver, kind := parseVersionSpec(spec)
+		deps = append(deps, models.Dependency{Name: name, Manager: "npm", Scope: "dev", Version: ver, VersionType: kind})
 	}
 	return deps, nil
 }

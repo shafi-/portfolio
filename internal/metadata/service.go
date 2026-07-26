@@ -161,41 +161,72 @@ func (s *Service) DetectFrameworks(projectID string) error {
 }
 
 // Extract runs all deterministic extractors against rootPath and returns an
-// assembled Metadata (without ProjectID) plus the parsed dependencies. It does
-// not touch the database — callers own persistence. This is the single source
-// of truth for extraction; individual extractor errors are tolerated (best
-// effort), mirroring the prior behavior of ExtractAll.
-func (s *Service) Extract(rootPath string) (*models.Metadata, []models.Dependency, error) {
+// assembled Metadata plus the parsed dependencies. It does not touch the
+// database — callers own persistence. This is the single source of truth for
+// extraction.
+//
+// When existing is non-nil the result is overlaid onto a copy of it: each
+// section is overwritten only when its extractor succeeds this run, so a
+// transient failure (a temporarily missing .git, or `git` absent from PATH)
+// preserves previously stored facts instead of zeroing them on the next upsert
+// ("Store Facts, Compute Indicators"). Pass nil for a fresh extraction.
+//
+// The returned dependency slice is non-nil (possibly empty) when dependency
+// extraction succeeded, signalling callers to replace — and thereby clear
+// stale — stored rows; it is nil only when extraction failed, in which case
+// callers should leave existing rows untouched.
+func (s *Service) Extract(rootPath string, existing *models.Metadata) (*models.Metadata, []models.Dependency, error) {
 	if _, err := os.Stat(rootPath); err != nil {
 		return nil, nil, err
 	}
 
-	gitResult, _ := ExtractGitMetadata(rootPath)
-	langSummary, _ := DetectLanguages(rootPath, s.walker, s.langMap)
-	fwSummary, _ := DetectFrameworks(rootPath, s.walker, s.fwMarkers)
-	deps, depSummary, _ := DetectDependencies(rootPath, s.walker, s.depParsers)
+	if existing == nil {
+		existing = &models.Metadata{}
+	}
+	// Shallow copy is safe: Metadata holds only value types (strings/ints/bools).
+	m := *existing
 
-	m := &models.Metadata{}
-	applyGitMetadata(m, gitResult)
-	if langSummary != nil {
+	var deps []models.Dependency
+	depsOK := false
+
+	if gitResult, err := ExtractGitMetadata(rootPath); err == nil {
+		applyGitMetadata(&m, gitResult)
+	}
+	if langSummary, err := DetectLanguages(rootPath, s.walker, s.langMap); err == nil && langSummary != nil {
 		m.LanguageSummary = *langSummary
 	}
-	if fwSummary != nil {
+	if fwSummary, err := DetectFrameworks(rootPath, s.walker, s.fwMarkers); err == nil && fwSummary != nil {
 		m.FrameworkSummary = *fwSummary
 	}
-	if depSummary != nil {
-		m.DependencySummary = *depSummary
+	if d, depSummary, err := DetectDependencies(rootPath, s.walker, s.depParsers); err == nil {
+		deps = d
+		depsOK = true
+		if depSummary != nil {
+			m.DependencySummary = *depSummary
+		} else {
+			m.DependencySummary = "" // succeeded with no deps: clear a stale summary
+		}
+	}
+	if depsOK {
+		// Capabilities derive from dependencies; recompute only when deps ran.
+		m.CapabilitiesSummary = ""
+		if caps, err := DetectCapabilities(deps, nil); err == nil && caps != nil {
+			m.CapabilitiesSummary = *caps
+		}
+	}
+	if score, indicators, err := DetectMaturity(rootPath, nil); err == nil {
+		m.MaturityScore = score
+		m.MaturityIndicators = indicators
 	}
 
-	if caps, _ := DetectCapabilities(deps, nil); caps != nil {
-		m.CapabilitiesSummary = *caps
+	// Normalise a successful zero-dependency result to a non-nil empty slice so
+	// callers can distinguish "succeeded, no deps" (clear stale rows) from
+	// "failed this run" (nil — preserve existing rows).
+	if depsOK && deps == nil {
+		deps = []models.Dependency{}
 	}
 
-	score, indicators, _ := DetectMaturity(rootPath, nil)
-	m.MaturityScore = score
-	m.MaturityIndicators = indicators
-
-	return m, deps, nil
+	return &m, deps, nil
 }
 
 func (s *Service) ExtractAll(projectID string) (*models.Metadata, error) {
@@ -213,7 +244,7 @@ func (s *Service) ExtractAll(projectID string) (*models.Metadata, error) {
 		return nil, nil
 	}
 
-	m, deps, err := s.Extract(rootPath)
+	m, deps, err := s.Extract(rootPath, nil)
 	if err != nil {
 		s.logger.Warn("metadata extraction failed", zap.String("project", projectID), zap.Error(err))
 		return nil, nil

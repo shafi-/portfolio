@@ -26,7 +26,16 @@ func (bundlerParser) Parse(content []byte) ([]models.Dependency, error) {
 			}
 			name := line[start+1 : start+1+end]
 			if name != "" {
-				deps = append(deps, models.Dependency{Name: name, Manager: "bundler"})
+				var ver, kind string
+				// A second quoted token after the name is the version spec:
+				// gem "rails", "7.0.0" or gem "rails", "~> 7.0".
+				rest := line[start+1+end+1:]
+				if vStart := strings.IndexAny(rest, "'\""); vStart != -1 {
+					if vEnd := strings.IndexAny(rest[vStart+1:], "'\""); vEnd != -1 {
+						ver, kind = parseVersionSpec(rest[vStart+1 : vStart+1+vEnd])
+					}
+				}
+				deps = append(deps, models.Dependency{Name: name, Manager: "bundler", Version: ver, VersionType: kind})
 			}
 		}
 	}

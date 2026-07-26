@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -20,6 +19,18 @@ type migration struct {
 	down    string
 }
 
+// getMigrations returns the embedded migrations.
+//
+// The schema is consolidated into a single initial migration that creates every
+// table, column, and index in its final form. The project is pre-release, so
+// there is no need to preserve the historical incremental ALTER steps (and the
+// partial-apply fragility they introduced — a single failing ALTER left the rest
+// of a multi-statement migration un-run yet "recorded"). CREATE TABLE / CREATE
+// INDEX IF NOT EXISTS make the migration idempotent on a fresh database.
+//
+// FTS5 is kept as a separate migration so Migrate() can skip it on SQLite builds
+// compiled without FTS5 support. A new schema change is now a direct edit to
+// initialSchemaUp (bump nothing) rather than a new versioned migration.
 func getMigrations() []migration {
 	return []migration{
 		{
@@ -30,45 +41,9 @@ func getMigrations() []migration {
 		},
 		{
 			version: 2,
-			name:    "metadata_extraction",
-			up:      metadataExtractionUp,
-			down:    metadataExtractionDown,
-		},
-		{
-			version: 3,
-			name:    "documentation_indexing",
-			up:      documentationIndexingUp,
-			down:    documentationIndexingDown,
-		},
-		{
-			version: 4,
 			name:    "fts5_fulltext_search",
 			up:      fts5SearchUp,
 			down:    fts5SearchDown,
-		},
-		{
-			version: 5,
-			name:    "search_indexes",
-			up:      searchIndexesUp,
-			down:    searchIndexesDown,
-		},
-		{
-			version: 6,
-			name:    "ai_analysis_schema",
-			up:      aiAnalysisSchemaUp,
-			down:    aiAnalysisSchemaDown,
-		},
-		{
-			version: 7,
-			name:    "upgrade_migration_tracking",
-			up:      upgradeMigrationTrackingUp,
-			down:    upgradeMigrationTrackingDown,
-		},
-		{
-			version: 8,
-			name:    "metadata_extras",
-			up:      metadataExtrasUp,
-			down:    metadataExtrasDown,
 		},
 	}
 }
@@ -185,7 +160,10 @@ func (d *Database) Migrate() error {
 			)
 
 			if err := d.runMigration(m); err != nil {
-				if m.version == 4 && !d.HasFTS5() {
+				// FTS5 is the only optional migration: SQLite may be built
+				// without it. Detect by name rather than a version literal so
+				// the consolidation above can renumber freely.
+				if m.name == "fts5_fulltext_search" && !d.HasFTS5() {
 					d.logger.Warn("FTS5 not available in SQLite build—skipping full-text search migration",
 						models.Field{Key: "hint", Value: "build with -tags fts5 to enable"},
 					)
@@ -208,8 +186,10 @@ func (d *Database) Migrate() error {
 }
 
 func (d *Database) verifyAppliedMigrations() error {
-	rows, err := d.db.Query("SELECT version, checksum FROM schema_migrations ORDER BY version")
+	rows, err := d.db.Query("SELECT version, checksum FROM schema_migrations")
 	if err != nil {
+		// schema_migrations is created immediately before this runs, so an error
+		// here means there is nothing applied yet to verify.
 		return nil
 	}
 	defer rows.Close()
@@ -227,36 +207,14 @@ func (d *Database) verifyAppliedMigrations() error {
 		return err
 	}
 
-	migrations := loadMigrations()
-	for _, m := range migrations {
-		if expected, ok := applied[m.version]; ok {
-			// Handle backwards compatibility with old checksum format
-			// Old databases stored migration names as checksums instead of SHA256 hashes
-			// Names might have hyphens (initial-schema) or underscores (initial_schema)
-			legacyNames := []string{m.name, strings.Replace(m.name, "_", "-", -1)}
-			for _, legacyName := range legacyNames {
-				if expected == legacyName {
-					// Old format: checksum is the literal migration name (in either format)
-					// This is acceptable for backwards compatibility
-					d.logger.Info("Migration using legacy checksum format",
-						models.Field{Key: "version", Value: m.version},
-						models.Field{Key: "name", Value: m.name},
-						models.Field{Key: "stored_checksum", Value: expected},
-					)
-					continue
-				}
-			}
-
-			// If we used a legacy checksum format, skip to next migration
-			if expected == m.name || expected == strings.Replace(m.name, "_", "-", -1) {
-				continue
-			}
-
-			// New format: calculate expected SHA256 and compare
-			actual := calculateChecksum(m.up)
-			if expected != actual {
+	for _, m := range loadMigrations() {
+		if stored, ok := applied[m.version]; ok {
+			// The FTS5 migration is recorded with the same checksum whether it
+			// ran or was skipped, so this check holds in both cases.
+			expected := calculateChecksum(m.up)
+			if stored != expected {
 				return fmt.Errorf("migration %d (%s) checksum changed: expected %s, got %s",
-					m.version, m.name, expected, actual)
+					m.version, m.name, stored, expected)
 			}
 		}
 	}
@@ -336,7 +294,6 @@ func (d *Database) HasFTS5() bool {
 }
 
 func (d *Database) createMigrationsTable() error {
-	// First, try to create the table with the new schema (including name column)
 	_, err := d.db.Exec(`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			version INTEGER PRIMARY KEY,
@@ -345,107 +302,6 @@ func (d *Database) createMigrationsTable() error {
 			checksum TEXT NOT NULL
 		);
 	`)
-	if err != nil {
-		return err
-	}
-
-	// Check if the table has the old schema (missing name column)
-	rows, err := d.db.Query("PRAGMA table_info(schema_migrations)")
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	hasNameColumn := false
-	for rows.Next() {
-		var cid int
-		var name string
-		var ctype string
-		var notnull int
-		var dfltValue string
-		var pk int
-		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
-			continue
-		}
-		if name == "name" {
-			hasNameColumn = true
-			break
-		}
-	}
-	rows.Close()
-
-	// If the name column doesn't exist, upgrade the table schema
-	if !hasNameColumn {
-		d.logger.Info("Upgrading schema_migrations table to include name column")
-
-		// Back up existing data
-		var existingData []struct {
-			version   int
-			checksum  string
-			appliedAt string
-		}
-
-		rows, err = d.db.Query("SELECT version, checksum, applied_at FROM schema_migrations")
-		if err == nil {
-			defer rows.Close()
-			for rows.Next() {
-				var v int
-				var c, a string
-				if err := rows.Scan(&v, &c, &a); err != nil {
-					continue
-				}
-				existingData = append(existingData, struct {
-					version   int
-					checksum  string
-					appliedAt string
-				}{v, c, a})
-			}
-		}
-
-		// Recreate table with new schema
-		d.db.Exec("DROP TABLE schema_migrations")
-		_, err = d.db.Exec(`
-			CREATE TABLE schema_migrations (
-				version INTEGER PRIMARY KEY,
-				name TEXT NOT NULL,
-				applied_at TIMESTAMP NOT NULL,
-				checksum TEXT NOT NULL
-			);
-		`)
-		if err != nil {
-			return fmt.Errorf("failed to recreate schema_migrations table: %w", err)
-		}
-
-		// Restore existing data with name column populated
-		for _, data := range existingData {
-			migrationName := ""
-			switch data.version {
-			case 1:
-				migrationName = "initial_schema"
-			case 2:
-				migrationName = "metadata_extraction"
-			case 3:
-				migrationName = "documentation_indexing"
-			case 4:
-				migrationName = "fts5_fulltext_search"
-			case 5:
-				migrationName = "search_indexes"
-			case 6:
-				migrationName = "ai_analysis_schema"
-			}
-
-			_, err = d.db.Exec(
-				"INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
-				data.version, migrationName, data.appliedAt, data.checksum,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to restore migration data: %w", err)
-			}
-		}
-
-		d.logger.Info("Schema_migrations table upgraded successfully",
-			models.Field{Key: "restored_migrations", Value: len(existingData)})
-	}
 	return err
 }
 
@@ -457,17 +313,7 @@ func (d *Database) runMigration(m migration) error {
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(m.up); err != nil {
-		// Check if this is a "duplicate column" error - column already exists
-		if strings.Contains(err.Error(), "duplicate column") {
-			// Column already exists, this is OK for backwards compatibility
-			d.logger.Info("Migration column already exists, skipping addition",
-				models.Field{Key: "version", Value: m.version},
-				models.Field{Key: "name", Value: m.name},
-				models.Field{Key: "error", Value: err.Error()},
-			)
-		} else {
-			return fmt.Errorf("migration SQL failed: %w", err)
-		}
+		return fmt.Errorf("migration SQL failed: %w", err)
 	}
 
 	checksum := calculateChecksum(m.up)
@@ -494,7 +340,10 @@ func calculateChecksum(sql string) string {
 	return fmt.Sprintf("%x", h)
 }
 
-// initial schema migration SQL
+// initialSchemaUp is the consolidated schema. It creates every table, column,
+// and index in its final form. All statements are IF NOT EXISTS, so re-running
+// Migrate() on an already-current database is a no-op via the version check in
+// Migrate() — and even a direct re-run of this migration is harmless.
 const initialSchemaUp = `
 -- Projects table
 CREATE TABLE IF NOT EXISTS projects (
@@ -506,17 +355,30 @@ CREATE TABLE IF NOT EXISTS projects (
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Metadata table
+-- Metadata table. Includes all deterministic importance signals from ADR-017
+-- (git investment, maturity, capabilities) as first-class columns rather than
+-- later ALTER additions.
 CREATE TABLE IF NOT EXISTS metadata (
 	project_id TEXT PRIMARY KEY,
 	git_head TEXT,
 	default_branch TEXT,
 	last_commit_at TIMESTAMP,
+	last_modified_at TIMESTAMP,
+	commit_count INTEGER DEFAULT 0,
 	language_summary TEXT,
 	framework_summary TEXT,
 	dependency_summary TEXT,
 	documentation_hash TEXT,
 	last_scan_at TIMESTAMP,
+	first_commit_at TIMESTAMP,
+	commit_velocity_90d INTEGER DEFAULT 0,
+	contributor_count INTEGER DEFAULT 0,
+	tag_count INTEGER DEFAULT 0,
+	remote_url TEXT,
+	is_published INTEGER DEFAULT 0,
+	maturity_score INTEGER DEFAULT 0,
+	maturity_indicators TEXT,
+	capabilities_summary TEXT,
 	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
@@ -533,7 +395,8 @@ CREATE TABLE IF NOT EXISTS documents (
 	UNIQUE(project_id, path)
 );
 
--- Analyses table
+-- Analyses table. Includes the AI-analysis extra columns (maturity, strengths,
+-- weaknesses, reusable_components) as first-class columns.
 CREATE TABLE IF NOT EXISTS analyses (
 	id TEXT PRIMARY KEY,
 	project_id TEXT NOT NULL,
@@ -545,6 +408,10 @@ CREATE TABLE IF NOT EXISTS analyses (
 	architecture TEXT,
 	notes TEXT,
 	raw_json TEXT,
+	maturity TEXT,
+	strengths TEXT,
+	weaknesses TEXT,
+	reusable_components TEXT,
 	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
@@ -593,77 +460,69 @@ CREATE TABLE IF NOT EXISTS configuration (
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_projects_root_path ON projects(root_path);
-CREATE INDEX IF NOT EXISTS idx_documents_project_id ON documents(project_id);
-CREATE INDEX IF NOT EXISTS idx_analyses_project_id ON analyses(project_id);
-CREATE INDEX IF NOT EXISTS idx_features_analysis_id ON features(analysis_id);
-CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_project);
-CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_project);
-`
-
-const metadataExtractionUp = `
--- Add columns if they don't exist (backwards compatibility)
--- Check if last_modified_at exists
-ALTER TABLE metadata ADD COLUMN last_modified_at TIMESTAMP;
-ALTER TABLE metadata ADD COLUMN commit_count INTEGER DEFAULT 0;
-
+-- Dependencies table. The prod/dev scope column (ADR-017 maturity signal) is a
+-- first-class column defaulting to "prod". version + version_type record the
+-- declared version spec as a literal fact (value + constraint kind); whether it
+-- is "outdated" is an agent-computed indicator, not stored. The UNIQUE
+-- constraint is (project_id, name, manager) without scope, so a package declared
+-- in both dependencies and devDependencies collapses to one row;
+-- DetectDependencies sorts prod before dev so the surviving row is deterministic.
 CREATE TABLE IF NOT EXISTS dependencies (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
 	name TEXT NOT NULL,
 	manager TEXT NOT NULL,
+	scope TEXT NOT NULL DEFAULT 'prod',
+	version TEXT NOT NULL DEFAULT '',
+	version_type TEXT NOT NULL DEFAULT '',
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	UNIQUE(project_id, name, manager)
 );
+
+-- Indexes for query performance
+CREATE INDEX IF NOT EXISTS idx_projects_root_path ON projects(root_path);
+CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name);
+CREATE INDEX IF NOT EXISTS idx_documents_project_id ON documents(project_id);
+CREATE INDEX IF NOT EXISTS idx_documents_project_kind ON documents(project_id, kind);
+CREATE INDEX IF NOT EXISTS idx_documents_path ON documents(project_id, path);
+CREATE INDEX IF NOT EXISTS idx_documents_kind ON documents(kind);
+CREATE INDEX IF NOT EXISTS idx_analyses_project_id ON analyses(project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_analyses_project_analyzer ON analyses(project_id, analyzer);
+CREATE INDEX IF NOT EXISTS idx_features_analysis_id ON features(analysis_id);
+CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_project);
+CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_project);
+CREATE INDEX IF NOT EXISTS idx_metadata_language ON metadata(language_summary);
+CREATE INDEX IF NOT EXISTS idx_metadata_framework ON metadata(framework_summary);
 CREATE INDEX IF NOT EXISTS idx_dependencies_project_id ON dependencies(project_id);
 CREATE INDEX IF NOT EXISTS idx_dependencies_name ON dependencies(name);
 `
 
-const metadataExtractionDown = `
+const initialSchemaDown = `
 DROP INDEX IF EXISTS idx_dependencies_name;
 DROP INDEX IF EXISTS idx_dependencies_project_id;
-DROP TABLE IF EXISTS dependencies;
-`
-
-const metadataExtrasUp = `
--- Deterministic importance signals on metadata (idempotent; runMigration tolerates duplicate-column).
-ALTER TABLE metadata ADD COLUMN first_commit_at TIMESTAMP;
-ALTER TABLE metadata ADD COLUMN commit_velocity_90d INTEGER DEFAULT 0;
-ALTER TABLE metadata ADD COLUMN contributor_count INTEGER DEFAULT 0;
-ALTER TABLE metadata ADD COLUMN tag_count INTEGER DEFAULT 0;
-ALTER TABLE metadata ADD COLUMN remote_url TEXT;
-ALTER TABLE metadata ADD COLUMN is_published INTEGER DEFAULT 0;
-ALTER TABLE metadata ADD COLUMN maturity_score INTEGER DEFAULT 0;
-ALTER TABLE metadata ADD COLUMN maturity_indicators TEXT;
-ALTER TABLE metadata ADD COLUMN capabilities_summary TEXT;
-
--- Dependency prod/dev scope (maturity signal). Defaults to "prod".
-ALTER TABLE dependencies ADD COLUMN scope TEXT NOT NULL DEFAULT 'prod';
-`
-
-const metadataExtrasDown = `
-ALTER TABLE metadata DROP COLUMN capabilities_summary;
-ALTER TABLE metadata DROP COLUMN maturity_indicators;
-ALTER TABLE metadata DROP COLUMN maturity_score;
-ALTER TABLE metadata DROP COLUMN is_published;
-ALTER TABLE metadata DROP COLUMN remote_url;
-ALTER TABLE metadata DROP COLUMN tag_count;
-ALTER TABLE metadata DROP COLUMN contributor_count;
-ALTER TABLE metadata DROP COLUMN commit_velocity_90d;
-ALTER TABLE metadata DROP COLUMN first_commit_at;
-
-ALTER TABLE dependencies DROP COLUMN scope;
-`
-
-const documentationIndexingUp = `
-CREATE INDEX IF NOT EXISTS idx_documents_project_kind ON documents(project_id, kind);
-CREATE INDEX IF NOT EXISTS idx_documents_path ON documents(project_id, path);
-`
-
-const documentationIndexingDown = `
+DROP INDEX IF EXISTS idx_metadata_framework;
+DROP INDEX IF EXISTS idx_metadata_language;
+DROP INDEX IF EXISTS idx_relationships_target;
+DROP INDEX IF EXISTS idx_relationships_source;
+DROP INDEX IF EXISTS idx_features_analysis_id;
+DROP INDEX IF EXISTS idx_analyses_project_analyzer;
+DROP INDEX IF EXISTS idx_analyses_project_id;
+DROP INDEX IF EXISTS idx_documents_kind;
 DROP INDEX IF EXISTS idx_documents_path;
 DROP INDEX IF EXISTS idx_documents_project_kind;
+DROP INDEX IF EXISTS idx_documents_project_id;
+DROP INDEX IF EXISTS idx_projects_name;
+DROP INDEX IF EXISTS idx_projects_root_path;
+DROP TABLE IF EXISTS dependencies;
+DROP TABLE IF EXISTS configuration;
+DROP TABLE IF EXISTS relationships;
+DROP TABLE IF EXISTS project_technologies;
+DROP TABLE IF EXISTS technologies;
+DROP TABLE IF EXISTS features;
+DROP TABLE IF EXISTS analyses;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS metadata;
+DROP TABLE IF EXISTS projects;
 `
 
 const fts5SearchUp = `
@@ -693,127 +552,4 @@ DROP TRIGGER IF EXISTS documents_au;
 DROP TRIGGER IF EXISTS documents_ad;
 DROP TRIGGER IF EXISTS documents_ai;
 DROP TABLE IF EXISTS documents_fts;
-`
-
-const searchIndexesUp = `
-CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name);
-CREATE INDEX IF NOT EXISTS idx_metadata_language ON metadata(language_summary);
-CREATE INDEX IF NOT EXISTS idx_metadata_framework ON metadata(framework_summary);
-CREATE INDEX IF NOT EXISTS idx_documents_kind ON documents(kind);
-`
-
-const searchIndexesDown = `
-DROP INDEX IF EXISTS idx_documents_kind;
-DROP INDEX IF EXISTS idx_metadata_framework;
-DROP INDEX IF EXISTS idx_metadata_language;
-DROP INDEX IF EXISTS idx_projects_name;
-`
-
-const aiAnalysisSchemaUp = `
-ALTER TABLE analyses ADD COLUMN maturity TEXT;
-ALTER TABLE analyses ADD COLUMN strengths TEXT;
-ALTER TABLE analyses ADD COLUMN weaknesses TEXT;
-ALTER TABLE analyses ADD COLUMN reusable_components TEXT;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_analyses_project_analyzer ON analyses(project_id, analyzer);
-`
-
-const aiAnalysisSchemaDown = `
-DROP INDEX IF EXISTS idx_analyses_project_analyzer;
-ALTER TABLE analyses DROP COLUMN IF EXISTS reusable_components;
-ALTER TABLE analyses DROP COLUMN IF EXISTS weaknesses;
-ALTER TABLE analyses DROP COLUMN IF EXISTS strengths;
-ALTER TABLE analyses DROP COLUMN IF EXISTS maturity;
-`
-
-const upgradeMigrationTrackingUp = `
--- Add name column if it doesn't exist (backwards compatibility)
-ALTER TABLE schema_migrations ADD COLUMN name TEXT;
-
--- Update migration records that have literal names as checksums
-UPDATE schema_migrations
-SET checksum = (
-	SELECT CASE
-		WHEN checksum IN ('initial-schema', 'metadata_extraction', 'documentation_indexing', 'fts5_fulltext_search', 'search_indexes', 'ai_analysis_schema')
-		THEN (
-			SELECT hex FROM (
-				SELECT LOWER(sha256(
-					CASE
-						WHEN version = 1 THEN (SELECT up FROM (
-							SELECT 'initial_schema' as name,
-								   initialSchemaUp as up,
-								   '' as down
-							) WHERE name = checksum LIMIT 1
-						))
-						WHEN version = 2 THEN (SELECT up FROM (
-							SELECT 'metadata_extraction' as name,
-								   metadataExtractionUp as up,
-								   '' as down
-							) WHERE name = checksum LIMIT 1
-						))
-						WHEN version = 3 THEN (SELECT up FROM (
-							SELECT 'documentation_indexing' as name,
-								   documentationIndexingUp as up,
-								   '' as down
-							) WHERE name = checksum LIMIT 1
-						))
-						WHEN version = 4 THEN (SELECT up FROM (
-							SELECT 'fts5_fulltext_search' as name,
-								   fts5SearchUp as up,
-								   '' as down
-							) WHERE name = checksum LIMIT 1
-						))
-						WHEN version = 5 THEN (SELECT up FROM (
-							SELECT 'search_indexes' as name,
-								   searchIndexesUp as up,
-								   '' as down
-							) WHERE name = checksum LIMIT 1
-						))
-						WHEN version = 6 THEN (SELECT up FROM (
-							SELECT 'ai_analysis_schema' as name,
-								   aiAnalysisSchemaUp as up,
-								   '' as down
-							) WHERE name = checksum LIMIT 1
-						))
-					END
-				))
-			)
-		ELSE checksum
-	END
-)
-WHERE version <= 6;
-
--- Ensure all migration records have proper names
-UPDATE schema_migrations
-SET name = CASE
-	WHEN version = 1 THEN 'initial_schema'
-	WHEN version = 2 THEN 'metadata_extraction'
-	WHEN version = 3 THEN 'documentation_indexing'
-	WHEN version = 4 THEN 'fts5_fulltext_search'
-	WHEN version = 5 THEN 'search_indexes'
-	WHEN version = 6 THEN 'ai_analysis_schema'
-END
-WHERE name IS NULL OR name = '';
-`
-
-const upgradeMigrationTrackingDown = `
--- This migration cannot be safely reversed as it involves data migration
--- Mark it as irreversible
-`
-
-const initialSchemaDown = `
-DROP INDEX IF EXISTS idx_relationships_target;
-DROP INDEX IF EXISTS idx_relationships_source;
-DROP INDEX IF EXISTS idx_features_analysis_id;
-DROP INDEX IF EXISTS idx_analyses_project_id;
-DROP INDEX IF EXISTS idx_documents_project_id;
-DROP INDEX IF EXISTS idx_projects_root_path;
-DROP TABLE IF EXISTS configuration;
-DROP TABLE IF EXISTS relationships;
-DROP TABLE IF EXISTS project_technologies;
-DROP TABLE IF EXISTS technologies;
-DROP TABLE IF EXISTS features;
-DROP TABLE IF EXISTS analyses;
-DROP TABLE IF EXISTS documents;
-DROP TABLE IF EXISTS metadata;
-DROP TABLE IF EXISTS projects;
 `

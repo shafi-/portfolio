@@ -22,11 +22,11 @@ func (pipRequirementsParser) Parse(content []byte) ([]models.Dependency, error) 
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "-") {
 			continue
 		}
-		parts := strings.Split(line, "==")
-		name := strings.TrimSpace(parts[0])
-		name = strings.Split(name, "[")[0]
+		name, spec := splitNameSpec(line)
+		name = strings.TrimSpace(strings.Split(name, "[")[0])
 		if name != "" {
-			deps = append(deps, models.Dependency{Name: name, Manager: "pip"})
+			ver, kind := parseVersionSpec(spec)
+			deps = append(deps, models.Dependency{Name: name, Manager: "pip", Version: ver, VersionType: kind})
 		}
 	}
 
@@ -58,7 +58,8 @@ func (pipPyprojectParser) Parse(content []byte) ([]models.Dependency, error) {
 			name := strings.TrimSpace(parts[0])
 			name = strings.Trim(name, "\"")
 			if name != "" && name != "python" {
-				deps = append(deps, models.Dependency{Name: name, Manager: "pip"})
+				ver, kind := parseVersionSpec(extractTableVersion(parts[1]))
+				deps = append(deps, models.Dependency{Name: name, Manager: "pip", Version: ver, VersionType: kind})
 			}
 		}
 	}

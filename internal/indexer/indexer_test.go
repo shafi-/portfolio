@@ -77,6 +77,8 @@ func initSchema(t *testing.T, db *sql.DB, projectID, rootPath string) {
 		name TEXT NOT NULL,
 		manager TEXT NOT NULL,
 		scope TEXT NOT NULL DEFAULT 'prod',
+		version TEXT NOT NULL DEFAULT '',
+		version_type TEXT NOT NULL DEFAULT '',
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(project_id, name, manager)
 	);

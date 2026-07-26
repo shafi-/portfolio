@@ -155,6 +155,9 @@ func migrateTestDB(t *testing.T, db *sql.DB) {
 			project_id TEXT NOT NULL,
 			name TEXT NOT NULL,
 			manager TEXT NOT NULL,
+			scope TEXT NOT NULL DEFAULT 'prod',
+			version TEXT NOT NULL DEFAULT '',
+			version_type TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(project_id, name, manager),
 			FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -186,7 +189,6 @@ func migrateTestDB(t *testing.T, db *sql.DB) {
 		ALTER TABLE metadata ADD COLUMN maturity_score INTEGER DEFAULT 0;
 		ALTER TABLE metadata ADD COLUMN maturity_indicators TEXT;
 		ALTER TABLE metadata ADD COLUMN capabilities_summary TEXT;
-		ALTER TABLE dependencies ADD COLUMN scope TEXT NOT NULL DEFAULT 'prod';
 	`)
 	if err != nil {
 		// Ignore errors for ALTER TABLE - columns might already exist

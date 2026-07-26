@@ -55,7 +55,7 @@ Represents a discovered software project.
 - languages
 - frameworks
 - package managers
-- dependencies (each with `scope`: `prod` or `dev`)
+- dependencies (each with `scope`: `prod` or `dev`, plus the declared `version` and `version_type` — the constraint kind: `^`/`~`/`~>`/`>=`/`==`/`exact`/`range`/`any`; stored as a literal fact, "outdated" is an agent-computed indicator)
 - **capabilities_summary** — capability categories derived from dependency names
   (database, auth, payments, queue, orm, search, container, orchestration,
   caching, monitoring)

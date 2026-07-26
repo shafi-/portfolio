@@ -127,8 +127,8 @@ func TestDependencyStore_ScopeRoundTrip(t *testing.T) {
 	upsertTestProject(t, s, "p3")
 
 	deps := []models.Dependency{
-		{ProjectID: "p3", Name: "react", Manager: "npm"}, // scope empty -> prod
-		{ProjectID: "p3", Name: "jest", Manager: "npm", Scope: "dev"},
+		{ProjectID: "p3", Name: "react", Manager: "npm", Version: "4.0.0", VersionType: "^"}, // scope empty -> prod
+		{ProjectID: "p3", Name: "jest", Manager: "npm", Scope: "dev", Version: "29.0.0", VersionType: "^"},
 	}
 	if err := s.dependencies.ReplaceDependencies("p3", deps); err != nil {
 		t.Fatalf("replace dependencies: %v", err)
@@ -143,13 +143,26 @@ func TestDependencyStore_ScopeRoundTrip(t *testing.T) {
 	}
 
 	scopes := make(map[string]string, len(got))
+	versions := make(map[string]string, len(got))
+	types := make(map[string]string, len(got))
 	for _, d := range got {
 		scopes[d.Name] = d.Scope
+		versions[d.Name] = d.Version
+		types[d.Name] = d.VersionType
 	}
 	if scopes["react"] != "prod" {
 		t.Errorf("react scope: got %q, want prod", scopes["react"])
 	}
 	if scopes["jest"] != "dev" {
 		t.Errorf("jest scope: got %q, want dev", scopes["jest"])
+	}
+	if versions["react"] != "4.0.0" {
+		t.Errorf("react version: got %q, want 4.0.0", versions["react"])
+	}
+	if types["react"] != "^" {
+		t.Errorf("react version_type: got %q, want ^", types["react"])
+	}
+	if versions["jest"] != "29.0.0" || types["jest"] != "^" {
+		t.Errorf("jest version/type: got %q / %q, want 29.0.0 / ^", versions["jest"], types["jest"])
 	}
 }

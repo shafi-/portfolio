@@ -139,6 +139,8 @@ dependencies
 - name
 - manager (npm, go_mod, pip, cargo, bundler, maven, gradle)
 - scope (TEXT, "prod" default | "dev")  -- devDependencies are captured with scope="dev"
+- version (TEXT, NOT NULL default "")  -- declared version value, operator stripped (e.g. "4.0.0", "v1.2.3")
+- version_type (TEXT, NOT NULL default "")  -- constraint kind: ^/~/~>/>=/<=/==/!=/=/>/< | exact | range | any
 - created_at
 - UNIQUE(project_id, name, manager)
 

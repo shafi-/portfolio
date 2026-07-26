@@ -29,8 +29,8 @@ func (s *DependencyStore) InsertDependenciesTx(tx *sql.Tx, deps []models.Depende
 func (s *DependencyStore) insert(q Querier, deps []models.Dependency) error {
 	for _, d := range deps {
 		_, err := q.ExecContext(context.Background(),
-			"INSERT OR IGNORE INTO dependencies (project_id, name, manager, scope) VALUES (?, ?, ?, ?)",
-			d.ProjectID, d.Name, d.Manager, depScope(d.Scope),
+			"INSERT OR IGNORE INTO dependencies (project_id, name, manager, scope, version, version_type) VALUES (?, ?, ?, ?, ?, ?)",
+			d.ProjectID, d.Name, d.Manager, depScope(d.Scope), d.Version, d.VersionType,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert dependency %s/%s: %w", d.Name, d.Manager, err)
@@ -64,16 +64,17 @@ func (s *DependencyStore) replaceTx(tx *sql.Tx, projectID string, deps []models.
 	// INSERT OR IGNORE: the table's UNIQUE constraint is (project_id, name,
 	// manager) and does not include scope, so a package declared in both
 	// dependencies and devDependencies would otherwise collide and roll back
-	// the whole batch. Mirrors insert(). The first row wins; the rare
-	// duplicate-name case keeps a single row instead of failing.
-	stmt, err := tx.Prepare("INSERT OR IGNORE INTO dependencies (project_id, name, manager, scope) VALUES (?, ?, ?, ?)")
+	// the whole batch. Mirrors insert(). The first row wins; the caller
+	// (DetectDependencies) sorts prod before dev, so the surviving row is
+	// deterministic and the rare duplicate-name case keeps a single prod row.
+	stmt, err := tx.Prepare("INSERT OR IGNORE INTO dependencies (project_id, name, manager, scope, version, version_type) VALUES (?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, d := range deps {
-		if _, err := stmt.Exec(projectID, d.Name, d.Manager, depScope(d.Scope)); err != nil {
+		if _, err := stmt.Exec(projectID, d.Name, d.Manager, depScope(d.Scope), d.Version, d.VersionType); err != nil {
 			return fmt.Errorf("failed to insert dependency %s/%s: %w", d.Name, d.Manager, err)
 		}
 	}
@@ -81,7 +82,7 @@ func (s *DependencyStore) replaceTx(tx *sql.Tx, projectID string, deps []models.
 }
 
 func (s *DependencyStore) ListDependencies(projectID string) ([]models.Dependency, error) {
-	rows, err := s.db.Query("SELECT project_id, name, manager, scope FROM dependencies WHERE project_id = ? ORDER BY name", projectID)
+	rows, err := s.db.Query("SELECT project_id, name, manager, scope, version, version_type FROM dependencies WHERE project_id = ? ORDER BY name", projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list dependencies: %w", err)
 	}
@@ -90,7 +91,7 @@ func (s *DependencyStore) ListDependencies(projectID string) ([]models.Dependenc
 	var deps []models.Dependency
 	for rows.Next() {
 		var d models.Dependency
-		if err := rows.Scan(&d.ProjectID, &d.Name, &d.Manager, &d.Scope); err != nil {
+		if err := rows.Scan(&d.ProjectID, &d.Name, &d.Manager, &d.Scope, &d.Version, &d.VersionType); err != nil {
 			return nil, fmt.Errorf("failed to scan dependency row: %w", err)
 		}
 		deps = append(deps, d)

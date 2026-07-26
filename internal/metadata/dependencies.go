@@ -27,6 +27,9 @@ func DetectDependencies(root string, walker *FileWalker, parsers []ManifestParse
 		parsers = DefaultManifestParsers()
 	}
 
+	// Build a filename → parser index. If two parsers share a Filename() (only
+	// possible when a caller appends a custom one alongside the defaults), the
+	// later entry wins — an intentional override mechanism.
 	byFilename := make(map[string]ManifestParser, len(parsers))
 	for _, p := range parsers {
 		byFilename[p.Filename()] = p
@@ -77,7 +80,13 @@ func DetectDependencies(root string, walker *FileWalker, parsers []ManifestParse
 		if depList[i].Manager != depList[j].Manager {
 			return depList[i].Manager < depList[j].Manager
 		}
-		return depList[i].Name < depList[j].Name
+		if depList[i].Name != depList[j].Name {
+			return depList[i].Name < depList[j].Name
+		}
+		// Tiebreak identical (manager, name) by scope so the row that wins the
+		// downstream INSERT OR IGNORE (UNIQUE on project_id, name, manager — no
+		// scope) is deterministic across scans: prod before dev.
+		return scopeRank(depList[i].Scope) < scopeRank(depList[j].Scope)
 	})
 
 	var names []string
@@ -90,4 +99,20 @@ func DetectDependencies(root string, walker *FileWalker, parsers []ManifestParse
 	summary := strings.Join(names, ", ")
 
 	return depList, &summary, nil
+}
+
+// scopeRank orders dependency scopes so "prod" sorts before "dev" (and any other
+// value). This makes the surviving row deterministic when a package is declared
+// in both dependencies and devDependencies: the dependencies table's UNIQUE
+// constraint is (project_id, name, manager) without scope, so INSERT OR IGNORE
+// keeps whichever row is inserted first — the prod row, because it sorts first.
+func scopeRank(scope string) int {
+	switch scope {
+	case "prod", "":
+		return 0
+	case "dev":
+		return 1
+	default:
+		return 2
+	}
 }

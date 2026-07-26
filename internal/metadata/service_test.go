@@ -169,7 +169,7 @@ func TestService_Extract(t *testing.T) {
 
 	// store/depStore/projects are nil: Extract never consults them.
 	svc := metadata.NewService(nil, nil, nil, zap.NewNop())
-	m, deps, err := svc.Extract(dir)
+	m, deps, err := svc.Extract(dir, nil)
 	if err != nil {
 		t.Fatalf("Extract failed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestService_Extract(t *testing.T) {
 
 func TestService_Extract_NonexistentRoot(t *testing.T) {
 	svc := metadata.NewService(nil, nil, nil, zap.NewNop())
-	m, _, err := svc.Extract("/this/path/does/not/exist/12345")
+	m, _, err := svc.Extract("/this/path/does/not/exist/12345", nil)
 	if err == nil {
 		t.Fatal("expected error for nonexistent root, got nil")
 	}

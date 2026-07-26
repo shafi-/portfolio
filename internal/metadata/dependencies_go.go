@@ -31,20 +31,29 @@ func (goModParser) Parse(content []byte) ([]models.Dependency, error) {
 			}
 			fields := strings.Fields(line)
 			if len(fields) >= 1 && fields[0] != "" && !strings.HasPrefix(fields[0], "//") {
-				deps = append(deps, models.Dependency{Name: fields[0], Manager: "go_mod"})
+				ver, kind := "", "exact"
+				if len(fields) >= 2 {
+					ver, kind = parseVersionSpec(fields[1])
+				}
+				deps = append(deps, models.Dependency{Name: fields[0], Manager: "go_mod", Version: ver, VersionType: kind})
 			}
 			continue
 		}
 		if strings.HasPrefix(line, "require ") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {
-				deps = append(deps, models.Dependency{Name: fields[1], Manager: "go_mod"})
+				ver, kind := "", "exact"
+				if len(fields) >= 3 {
+					ver, kind = parseVersionSpec(fields[2])
+				}
+				deps = append(deps, models.Dependency{Name: fields[1], Manager: "go_mod", Version: ver, VersionType: kind})
 			}
 			continue
 		}
 		fields := strings.Fields(line)
 		if len(fields) >= 2 && !strings.HasPrefix(fields[0], "//") {
-			deps = append(deps, models.Dependency{Name: fields[0], Manager: "go_mod"})
+			ver, kind := parseVersionSpec(fields[1])
+			deps = append(deps, models.Dependency{Name: fields[0], Manager: "go_mod", Version: ver, VersionType: kind})
 		}
 	}
 

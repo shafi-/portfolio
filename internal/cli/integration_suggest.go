@@ -92,7 +92,10 @@ func formatAgentSuggestion(verb, target string, a unsupportedAgent, binaryPath s
 		fmt.Fprintf(&b, "    %s\n\n", a.script)
 	}
 	fmt.Fprintf(&b, "Or configure %s manually by adding this to %s:\n\n", a.display, a.configFile)
-	for _, line := range strings.Split(fmt.Sprintf(a.snippet, binaryPath), "\n") {
+	// Replace the single %s placeholder directly rather than via fmt.Sprintf, so
+	// a binary path (or future snippet) containing '%' isn't misinterpreted.
+	rendered := strings.Replace(a.snippet, "%s", binaryPath, 1)
+	for _, line := range strings.Split(rendered, "\n") {
 		fmt.Fprintf(&b, "    %s\n", line)
 	}
 	b.WriteString("\nSee docs/integration-guideline.md for full details.\n")

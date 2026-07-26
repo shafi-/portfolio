@@ -42,7 +42,23 @@ func (mavenParser) Parse(content []byte) ([]models.Dependency, error) {
 		text = text[artStart+artEnd:]
 
 		if groupID != "" && artifactID != "" {
-			deps = append(deps, models.Dependency{Name: groupID + ":" + artifactID, Manager: "maven"})
+			var ver, kind string
+			// The version sits in the same <dependency> block, after
+			// </artifactId> and before </dependency>.
+			search := text
+			if blockEnd := strings.Index(text, "</dependency>"); blockEnd != -1 {
+				search = text[:blockEnd]
+			}
+			if vStart := strings.Index(search, "<version>"); vStart != -1 {
+				vStart += len("<version>")
+				if vEnd := strings.Index(search[vStart:], "</version>"); vEnd != -1 {
+					ver, kind = parseVersionSpec(search[vStart : vStart+vEnd])
+				}
+			}
+			deps = append(deps, models.Dependency{
+				Name: groupID + ":" + artifactID, Manager: "maven",
+				Version: ver, VersionType: kind,
+			})
 		}
 	}
 
@@ -70,7 +86,13 @@ func (gradleParser) Parse(content []byte) ([]models.Dependency, error) {
 			}
 			dep := line[start+1 : start+1+end]
 			if dep != "" {
-				deps = append(deps, models.Dependency{Name: dep, Manager: "gradle"})
+				var ver, kind string
+				// Gradle coordinate form group:name:version — the final ':'
+				// segment is the version (also covers name:version).
+				if segs := strings.Split(dep, ":"); len(segs) > 1 {
+					ver, kind = parseVersionSpec(segs[len(segs)-1])
+				}
+				deps = append(deps, models.Dependency{Name: dep, Manager: "gradle", Version: ver, VersionType: kind})
 			}
 		}
 	}

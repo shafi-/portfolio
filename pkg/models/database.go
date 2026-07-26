@@ -98,10 +98,12 @@ type Relationship struct {
 
 // Dependency represents a project dependency
 type Dependency struct {
-	ProjectID string `json:"project_id"`
-	Name      string `json:"name"`
-	Manager   string `json:"manager"`
-	Scope     string `json:"scope"` // "prod" (default) or "dev"
+	ProjectID   string `json:"project_id"`
+	Name        string `json:"name"`
+	Manager     string `json:"manager"`
+	Scope       string `json:"scope"`        // "prod" (default) or "dev"
+	Version     string `json:"version"`      // declared version value (operator stripped)
+	VersionType string `json:"version_type"` // constraint kind: ^/~/~>/>=/==/exact/range/any, "" if unknown
 }
 
 // Configuration represents system configuration

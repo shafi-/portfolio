@@ -319,7 +319,8 @@ injectable (the parser set is a parameter, defaulting to
 
 - Adding an ecosystem is local and low-risk (one file + one registry line).
 - Parsers are focused, individually unit-testable, and easy to enrich.
-- The dispatcher shrank from ~90 lines of branching to a generic loop.
+- The hard-coded switch over manifest filenames was replaced by a generic
+  map-dispatch loop; adding an ecosystem no longer touches the dispatcher.
 - Consistency with the rest of the metadata package's registry pattern.
 
 **Negative:**
@@ -334,4 +335,46 @@ injectable (the parser set is a parameter, defaulting to
 No domain model, schema, store, or interface (MCP/REST/CLI) changed: the
 `manager` values, dedupe key (`name|manager|scope`), prod/dev scope, sort order,
 and summary are identical to before.
+
+## ADR-019: Store Declared Dependency Version as a Literal Fact
+
+**Status:** Accepted
+
+### Context
+
+`dependencies` rows stored only `name`, `manager`, and `scope`; every parser
+discarded the declared version (npm even had it in hand and dropped it). Users
+want to identify projects on a given version and to judge whether a dependency is
+"outdated." The design question was what to store: the raw declared spec (e.g.
+`^4.0.0`, `~> 7.0`), a normalized bare version, or a split of the two.
+
+### Decision
+
+Store the declared version as **two** columns on `dependencies`:
+
+- `version` — the value with its operator stripped (`4.0.0`, `v1.2.3`, `2.28.0`).
+- `version_type` — the literal constraint kind: the leading operator verbatim
+  (`^`, `~`, `~>`, `>=`, `<=`, `==`, `!=`, `=`, `>`, `<`), or `exact` for a bare
+  pin, `range` for a compound spec (`>=1.0,<2.0`), `any` for `*`/`latest`/x-ranges,
+  or `""` when unknown.
+
+The decomposition is **literal, not semantic.** Cargo's implicit caret
+(`serde = "1.0"`) is recorded as `exact` because the manifest pins it literally;
+interpreting it as a caret is the AI agent's job. A single shared helper,
+`parseVersionSpec(raw)` in `internal/metadata/version.go`, centralizes the
+operator/kind logic; each ecosystem parser extracts its raw spec string and feeds
+it in. The dedupe identity is unchanged (`name|manager|scope`, prod wins the
+`INSERT OR IGNORE`), so the version rides along on the surviving production row.
+
+### Consequences
+
+Both the value and the constraint kind are independently queryable ("who pins
+exactly 4.0.0", "who uses caret ranges"). "Is this outdated?" remains a
+**semantic indicator** — it needs a registry/latest-version lookup plus semver
+comparison — and so stays agent-side, consistent with "Engine Knows, Agent
+Thinks" and "Store Facts, Compute Indicators." The `dependencies` table gains two
+NOT NULL DEFAULT '' columns. Compound ranges and x-ranges have no single value,
+so `version` holds the whole declared string under kind `range`/`any`. Reading
+lockfiles (`package-lock.json`, `Cargo.lock`, `go.sum`) for *resolved* versions is
+deliberately out of scope; the declared spec is the fact stored here.
 
