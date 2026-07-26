@@ -84,4 +84,14 @@ func (s *Server) registerTools() {
 	for _, t := range codeTools {
 		s.mcp.AddTool(t.Tool, t.Handler)
 	}
+
+	featureTools := s.featureTools()
+	for _, t := range featureTools {
+		s.mcp.AddTool(t.Tool, t.Handler)
+	}
+
+	technologyTools := s.technologyTools()
+	for _, t := range technologyTools {
+		s.mcp.AddTool(t.Tool, t.Handler)
+	}
 }
