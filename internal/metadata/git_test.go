@@ -96,3 +96,71 @@ func TestExtractGitMetadata_DetachedHead(t *testing.T) {
 		t.Log("default_branch may be nil when no remote is configured")
 	}
 }
+
+func TestExtractGitMetadata_NewSignals(t *testing.T) {
+	dir := t.TempDir()
+	createGitRepo(t, dir)
+
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+	mustRun(t, dir, "git", "add", ".")
+	mustRun(t, dir, "git", "commit", "-m", "first")
+
+	// Second commit attributed to a different author -> 2 unique contributors.
+	os.WriteFile(filepath.Join(dir, "other.go"), []byte("package main"), 0644)
+	mustRun(t, dir, "git", "add", ".")
+	mustRun(t, dir, "git", "commit", "--author", "Other <other@test.com>", "-m", "second")
+
+	mustRun(t, dir, "git", "tag", "v1.0.0")
+	mustRun(t, dir, "git", "remote", "add", "origin", "https://github.com/foo/bar.git")
+
+	result, err := metadata.ExtractGitMetadata(dir)
+	if err != nil {
+		t.Fatalf("ExtractGitMetadata failed: %v", err)
+	}
+
+	if result.CommitCount != 2 {
+		t.Errorf("expected commit_count=2, got %d", result.CommitCount)
+	}
+	if result.FirstCommitAt == nil {
+		t.Error("expected first_commit_at to be set")
+	}
+	if result.CommitVelocity90d != 2 {
+		t.Errorf("expected commit_velocity_90d=2, got %d", result.CommitVelocity90d)
+	}
+	if result.ContributorCount != 2 {
+		t.Errorf("expected contributor_count=2, got %d", result.ContributorCount)
+	}
+	if result.TagCount != 1 {
+		t.Errorf("expected tag_count=1, got %d", result.TagCount)
+	}
+	if result.RemoteURL == nil || *result.RemoteURL == "" {
+		t.Error("expected remote_url to be set")
+	} else if *result.RemoteURL != "https://github.com/foo/bar.git" {
+		t.Errorf("unexpected remote_url: %s", *result.RemoteURL)
+	}
+	if !result.IsPublished {
+		t.Error("expected is_published=true for a github remote")
+	}
+}
+
+func TestExtractGitMetadata_LocalRemoteNotPublished(t *testing.T) {
+	dir := t.TempDir()
+	createGitRepo(t, dir)
+
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+	mustRun(t, dir, "git", "add", ".")
+	mustRun(t, dir, "git", "commit", "-m", "first")
+	mustRun(t, dir, "git", "remote", "add", "origin", "/local/path/to/repo.git")
+
+	result, err := metadata.ExtractGitMetadata(dir)
+	if err != nil {
+		t.Fatalf("ExtractGitMetadata failed: %v", err)
+	}
+
+	if result.RemoteURL == nil {
+		t.Error("expected remote_url to be set")
+	}
+	if result.IsPublished {
+		t.Error("expected is_published=false for a local remote")
+	}
+}

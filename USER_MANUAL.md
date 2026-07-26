@@ -108,9 +108,6 @@ portfolio init --roots ~/Projects ~/src
 # Discover all projects in configured roots
 portfolio discover
 
-# See what would be discovered without making changes
-portfolio discover --dry-run
-
 # Discover with verbose output
 portfolio discover --verbose
 ```
@@ -224,14 +221,8 @@ Discover projects in configured root directories:
 # Standard discovery
 portfolio discover
 
-# Dry run (show what would be discovered)
-portfolio discover --dry-run
-
 # Verbose mode
 portfolio discover --verbose
-
-# Force rediscovery of all projects
-portfolio discover --force
 ```
 
 **What it does:**
@@ -698,9 +689,6 @@ portfolio config set cache.size 1000
 ### Batch Operations
 
 ```bash
-# Rediscover all projects
-portfolio discover --all
-
 # Recalculate all metadata
 portfolio metadata refresh --all
 

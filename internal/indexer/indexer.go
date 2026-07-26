@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"go.uber.org/zap"
+	"project-dash/internal/metadata"
 	"project-dash/internal/store"
 	"project-dash/pkg/models"
 )
@@ -22,9 +23,13 @@ type Indexer struct {
 func NewIndexer(db *sql.DB, logger *zap.Logger) *Indexer {
 	docStore := store.NewDocumentStore(db, logger)
 	metaStore := store.NewMetadataStore(db, logger)
+	depStore := store.NewDependencyStore(db, logger)
+	// Extract is pure (root-only) and never consults the project provider, so a
+	// nil provider is safe for indexer use.
+	metaExtractor := metadata.NewService(metaStore, depStore, nil, logger)
 
 	return &Indexer{
-		runner: NewIndexRunner(docStore, metaStore, logger),
+		runner: NewIndexRunner(docStore, metaStore, depStore, metaExtractor, logger),
 		logger: logger,
 	}
 }

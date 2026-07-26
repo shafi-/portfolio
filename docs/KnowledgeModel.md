@@ -49,15 +49,28 @@ Represents a discovered software project.
 ### Metadata (Engine)
 
 - git information
+  - `git_head`, `default_branch`, `last_commit_at`, `last_modified_at`, `commit_count`
+  - **importance signals:** `first_commit_at`, `commit_velocity_90d`, `contributor_count`,
+    `tag_count`, `remote_url`, `is_published`
 - languages
 - frameworks
 - package managers
-- dependencies
+- dependencies (each with `scope`: `prod` or `dev`)
+- **capabilities_summary** — capability categories derived from dependency names
+  (database, auth, payments, queue, orm, search, container, orchestration,
+  caching, monitoring)
+- **maturity_score** + **maturity_indicators** — weighted file-presence scoreboard
+  (README, LICENSE, CHANGELOG, CI, test config, linter, Dockerfile, docs/, …)
 - documentation
 - project structure
 - statistics
 - hashes
 - timestamps
+
+These deterministic signals let projects be ranked by "importance" without any
+AI analysis. An `importance` composite is a **computed indicator** (derived at
+read time from the facts above), not a stored field — per "Store Facts, Compute
+Indicators." See ADR-017.
 
 ### Analysis (Agent)
 

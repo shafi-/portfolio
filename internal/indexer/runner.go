@@ -13,33 +13,46 @@ import (
 	"project-dash/pkg/models"
 )
 
+// MetaExtractor runs deterministic metadata extraction against a project root.
+// Implemented by *metadata.Service; declared here so the indexer does not
+// import the metadata package directly at call sites.
+type MetaExtractor interface {
+	Extract(rootPath string) (*models.Metadata, []models.Dependency, error)
+}
+
 type IndexRunner struct {
-	docStore   *store.DocumentStore
-	metaStore  *store.MetadataStore
-	discoverer *DocDiscoverer
-	reader     *DocReader
-	dedup      *DedupEngine
-	cleaner    *OrphanCleaner
-	fts        *FTSManager
-	logger     *zap.Logger
-	mu         *ProjectMutex
+	docStore      *store.DocumentStore
+	metaStore     *store.MetadataStore
+	depStore      *store.DependencyStore
+	metaExtractor MetaExtractor
+	discoverer    *DocDiscoverer
+	reader        *DocReader
+	dedup         *DedupEngine
+	cleaner       *OrphanCleaner
+	fts           *FTSManager
+	logger        *zap.Logger
+	mu            *ProjectMutex
 }
 
 func NewIndexRunner(
 	docStore *store.DocumentStore,
 	metaStore *store.MetadataStore,
+	depStore *store.DependencyStore,
+	metaExtractor MetaExtractor,
 	logger *zap.Logger,
 ) *IndexRunner {
 	return &IndexRunner{
-		docStore:   docStore,
-		metaStore:  metaStore,
-		discoverer: NewDocDiscoverer(),
-		reader:     NewDocReader(1 << 20),
-		dedup:      NewDedupEngine(docStore.StoreDB()),
-		cleaner:    NewOrphanCleaner(docStore),
-		fts:        NewFTSManager(docStore.StoreDB()),
-		logger:     logger,
-		mu:         NewProjectMutex(),
+		docStore:      docStore,
+		metaStore:     metaStore,
+		depStore:      depStore,
+		metaExtractor: metaExtractor,
+		discoverer:    NewDocDiscoverer(),
+		reader:        NewDocReader(1 << 20),
+		dedup:         NewDedupEngine(docStore.StoreDB()),
+		cleaner:       NewOrphanCleaner(docStore),
+		fts:           NewFTSManager(docStore.StoreDB()),
+		logger:        logger,
+		mu:            NewProjectMutex(),
 	}
 }
 
@@ -165,16 +178,42 @@ func (r *IndexRunner) Run(ctx context.Context, projectID, rootPath string) (*Ind
 	docHash, err := r.computeDocumentationHash(projectID)
 	if err != nil {
 		r.logger.Warn("failed to compute documentation hash", zap.String("project", projectID), zap.Error(err))
-	} else {
+	}
+
+	// Extract all deterministic metadata (git, languages, frameworks,
+	// dependencies, capabilities, maturity), attach indexer-owned fields
+	// (DocumentationHash, LastScanAt), and persist in a single upsert. This is
+	// the single correct metadata writer — it replaces the prior 2-field
+	// INSERT OR REPLACE that clobbered every other column. Dependency rows are
+	// replaced in the same pass.
+	meta := &models.Metadata{ProjectID: projectID}
+	var deps []models.Dependency
+	if r.metaExtractor != nil {
+		if extracted, extractedDeps, extractErr := r.metaExtractor.Extract(rootPath); extractErr != nil {
+			r.logger.Warn("metadata extraction failed", zap.String("project", projectID), zap.Error(extractErr))
+		} else if extracted != nil {
+			meta = extracted
+			deps = extractedDeps
+		}
+	}
+	meta.ProjectID = projectID
+	if docHash != "" {
+		meta.DocumentationHash = docHash
 		result.Documentation = docHash
 		result.DocsChanged = docHash != oldHash
-		meta := &models.Metadata{
-			ProjectID:         projectID,
-			DocumentationHash: docHash,
-			LastScanAt:        time.Now().UTC().Format(time.RFC3339),
+	}
+	meta.LastScanAt = time.Now().UTC().Format(time.RFC3339)
+
+	if err := r.metaStore.UpsertMetadata(meta); err != nil {
+		r.logger.Warn("failed to update metadata", zap.String("project", projectID), zap.Error(err))
+	}
+
+	if deps != nil && r.depStore != nil {
+		for i := range deps {
+			deps[i].ProjectID = projectID
 		}
-		if err := r.metaStore.UpsertMetadata(meta); err != nil {
-			r.logger.Warn("failed to update metadata", zap.String("project", projectID), zap.Error(err))
+		if err := r.depStore.ReplaceDependencies(projectID, deps); err != nil {
+			r.logger.Warn("failed to replace dependencies", zap.String("project", projectID), zap.Error(err))
 		}
 	}
 

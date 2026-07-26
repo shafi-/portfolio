@@ -175,6 +175,23 @@ func migrateTestDB(t *testing.T, db *sql.DB) {
 		// Ignore errors for ALTER TABLE - columns might already exist
 	}
 
+	// Deterministic importance signals (mirrors migration v8: metadataExtrasUp).
+	_, err = db.Exec(`
+		ALTER TABLE metadata ADD COLUMN first_commit_at TIMESTAMP;
+		ALTER TABLE metadata ADD COLUMN commit_velocity_90d INTEGER DEFAULT 0;
+		ALTER TABLE metadata ADD COLUMN contributor_count INTEGER DEFAULT 0;
+		ALTER TABLE metadata ADD COLUMN tag_count INTEGER DEFAULT 0;
+		ALTER TABLE metadata ADD COLUMN remote_url TEXT;
+		ALTER TABLE metadata ADD COLUMN is_published INTEGER DEFAULT 0;
+		ALTER TABLE metadata ADD COLUMN maturity_score INTEGER DEFAULT 0;
+		ALTER TABLE metadata ADD COLUMN maturity_indicators TEXT;
+		ALTER TABLE metadata ADD COLUMN capabilities_summary TEXT;
+		ALTER TABLE dependencies ADD COLUMN scope TEXT NOT NULL DEFAULT 'prod';
+	`)
+	if err != nil {
+		// Ignore errors for ALTER TABLE - columns might already exist
+	}
+
 	// Create unique index for analyses
 	_, err = db.Exec(`
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_analyses_project_analyzer ON analyses(project_id, analyzer);

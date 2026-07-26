@@ -79,4 +79,9 @@ func (s *Server) registerTools() {
 	for _, t := range relationshipTools {
 		s.mcp.AddTool(t.Tool, t.Handler)
 	}
+
+	codeTools := s.codeContentTools()
+	for _, t := range codeTools {
+		s.mcp.AddTool(t.Tool, t.Handler)
+	}
 }

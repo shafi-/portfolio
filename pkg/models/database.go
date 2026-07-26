@@ -23,6 +23,16 @@ type Metadata struct {
 	DependencySummary string `json:"dependency_summary"`
 	DocumentationHash string `json:"documentation_hash"`
 	LastScanAt        string `json:"last_scan_at"`
+	// Deterministic importance signals (no LLM required).
+	FirstCommitAt       string `json:"first_commit_at"`
+	CommitVelocity90d   int    `json:"commit_velocity_90d"`
+	ContributorCount    int    `json:"contributor_count"`
+	TagCount            int    `json:"tag_count"`
+	RemoteURL           string `json:"remote_url"`
+	IsPublished         bool   `json:"is_published"`
+	MaturityScore       int    `json:"maturity_score"`
+	MaturityIndicators  string `json:"maturity_indicators"`
+	CapabilitiesSummary string `json:"capabilities_summary"`
 }
 
 // Document represents indexed documentation
@@ -91,6 +101,7 @@ type Dependency struct {
 	ProjectID string `json:"project_id"`
 	Name      string `json:"name"`
 	Manager   string `json:"manager"`
+	Scope     string `json:"scope"` // "prod" (default) or "dev"
 }
 
 // Configuration represents system configuration

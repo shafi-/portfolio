@@ -205,3 +205,133 @@ All Portfolio integrations MUST use official tool methods for MCP server registr
 - OpenCode has `opencode mcp add` but only for remote servers
 - Cline requires manual `~/.cline/mcp.json` editing
 - All unsafe scripts live in `scripts/` with clear README documentation
+
+---
+
+## ADR-017: Deterministic Importance Signals
+
+**Status:** Accepted
+
+### Context
+
+Projects can be ranked by "importance" without any AI analysis — but only if the
+Engine persists enough deterministic signal. Before this decision, `metadata` was
+`null` for every project: extractors existed and were tested, but nothing in the
+production scan path called them, and the indexer's only metadata write was a
+two-field `INSERT OR REPLACE` that clobbered every other column.
+
+This violated two guiding principles: "Engine Knows, Agent Thinks" (the Engine
+should surface all the deterministic facts it can) and "Store Facts, Compute
+Indicators" (persist immutable facts; derive rankings at read time).
+
+### Decision
+
+Add a set of deterministic, LLM-free signals and make the Engine actually
+populate them:
+
+- **Git investment:** `first_commit_at`, `commit_velocity_90d`, `contributor_count`,
+  `tag_count`, `remote_url`, `is_published`.
+- **Dependency scope:** `scope` (`prod`/`dev`) on each dependency row, capturing
+  `devDependencies`.
+- **Capabilities:** `capabilities_summary` — categories (database, auth, payments,
+  queue, orm, search, container, orchestration, caching, monitoring) derived from
+  dependency names.
+- **Maturity:** `maturity_score` + `maturity_indicators` (JSON) from a weighted
+  file-presence scoreboard (README, LICENSE, CHANGELOG, CONTRIBUTING, SECURITY,
+  Dockerfile, CI, test config, linter, `tsconfig.json`, `docs/`, Makefile, …).
+
+Engineering changes that implement this:
+
+1. The indexer becomes the **single correct metadata writer**: it calls the pure
+   `metadata.Service.Extract`, attaches `ProjectID` + `DocumentationHash` +
+   `LastScanAt`, and issues one `UpsertMetadata` + `ReplaceDependencies`. The old
+   clobbering partial upsert is removed.
+2. A new `portfolio scan` command activates the previously-dormant scan path.
+3. LOC-by-language is **intentionally excluded** as noisy and low-signal.
+
+### Consequences
+
+**Positive:**
+
+- `getProject` (MCP/REST) and `portfolio projects get` (CLI) return real
+  investment/maturity/capability facts with zero AI cost.
+- Downstream ranking can be a **computed indicator** (read time), not a stored
+  one — fully aligned with "Store Facts, Compute Indicators."
+
+**Negative:**
+
+- The `dependencies` unique constraint is `(project_id, name, manager)` and does
+  not include `scope`; a package declared in both `dependencies` and
+  `devDependencies` collapses to one row (`INSERT OR IGNORE`). This is accepted as
+  a rare edge case.
+- More git invocations per scan (first commit, velocity, contributors, tags,
+  remote). All use cached, single-purpose `git` calls and tolerate failure.
+
+---
+
+## ADR-018: Per-Ecosystem Manifest Parser Registry
+
+**Status:** Accepted
+
+### Context
+
+Dependency extraction (`internal/metadata/dependencies.go`) was implemented as a
+single dispatcher with a hard-coded `switch` over manifest filenames, each case
+calling a bespoke `parseX(path)` free function. Adding an ecosystem required
+editing the central switch and growing an already-large file. This also diverged
+from the catalog Pattern A used everywhere else in the metadata package
+(`frameworks_data.go`, `capabilities_data.go`, `maturity_data.go`): a data type,
+a `default…` registry slice, and a defensive-copy `Default…()` accessor.
+
+### Decision
+
+Dependency extraction is now registry-driven. Each ecosystem is a stateless
+value type implementing a `ManifestParser` interface:
+
+```go
+type ManifestParser interface {
+    Filename() string
+    Parse(content []byte) ([]models.Dependency, error)
+}
+```
+
+`DetectDependencies(root, walker, parsers)` is a thin dispatcher: it builds a
+filename → parser map from the registry, and for each walked manifest reads the
+bytes once and delegates to `Parse`. Parsers live in one file per ecosystem
+(`dependencies_npm.go`, `dependencies_go.go`, `dependencies_python.go`,
+`dependencies_rust.go`, `dependencies_ruby.go`, `dependencies_jvm.go`).
+
+`Parse` receives the manifest **bytes**, not the path. This keeps every parser
+pure (no filesystem access) and unit-testable in isolation; `os.ReadFile` happens
+once, in the dispatcher.
+
+Adding an ecosystem is now: create one file with a parser type, append one entry
+to `defaultManifestParsers`. No dispatcher edits.
+
+This mirrors the existing catalog Pattern A and keeps `DetectDependencies`
+injectable (the parser set is a parameter, defaulting to
+`DefaultManifestParsers()`), consistent with `DetectFrameworks` /
+`DetectCapabilities` / `DetectMaturity`.
+
+### Consequences
+
+**Positive:**
+
+- Adding an ecosystem is local and low-risk (one file + one registry line).
+- Parsers are focused, individually unit-testable, and easy to enrich.
+- The dispatcher shrank from ~90 lines of branching to a generic loop.
+- Consistency with the rest of the metadata package's registry pattern.
+
+**Negative:**
+
+- `Parse(content)` carries no path context; a future parser that needs the
+  directory (e.g. npm workspaces reading nested manifests) would require widening
+  the interface to `Parse(path string, content []byte)`. This is a deliberate
+  YAGNI trade-off, documented on the interface.
+- One more concept (the interface) for contributors to learn — mitigated by
+  matching an already-established pattern in the package.
+
+No domain model, schema, store, or interface (MCP/REST/CLI) changed: the
+`manager` values, dedupe key (`name|manager|scope`), prod/dev scope, sort order,
+and summary are identical to before.
+

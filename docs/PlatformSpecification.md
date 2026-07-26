@@ -65,6 +65,15 @@ metadata
 - last_commit_at
 - last_modified_at
 - commit_count (INTEGER, default 0)
+- first_commit_at (TIMESTAMP)              -- importance signal
+- commit_velocity_90d (INTEGER, default 0) -- commits in last 90 days
+- contributor_count (INTEGER, default 0)
+- tag_count (INTEGER, default 0)
+- remote_url (TEXT)
+- is_published (INTEGER, default 0)        -- remote host is a known public forge
+- maturity_score (INTEGER, default 0)      -- weighted file-presence scoreboard
+- maturity_indicators (TEXT, JSON)         -- e.g. {"ci":true,"readme":true}
+- capabilities_summary (TEXT)              -- e.g. "auth, database, payments"
 - language_summary
 - framework_summary
 - dependency_summary
@@ -129,6 +138,7 @@ dependencies
 - project_id (FK)
 - name
 - manager (npm, go_mod, pip, cargo, bundler, maven, gradle)
+- scope (TEXT, "prod" default | "dev")  -- devDependencies are captured with scope="dev"
 - created_at
 - UNIQUE(project_id, name, manager)
 

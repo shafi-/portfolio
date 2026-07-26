@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -62,11 +63,19 @@ func detectSkillsDir(homeDir string) string {
 }
 
 func detectBinaryPath() (string, error) {
-	path, err := exec.LookPath("portfolio")
-	if err != nil {
-		return "", err
+	// The binary is already running — resolve its own path instead of
+	// searching PATH, which fails for ./portfolio or `go run`.
+	if exe, err := os.Executable(); err == nil {
+		if abs, err := filepath.Abs(exe); err == nil {
+			return abs, nil
+		}
+		return exe, nil
 	}
-	return path, nil
+	// Fallback: a Portfolio install on PATH (e.g. `go install`).
+	if path, err := exec.LookPath("portfolio"); err == nil {
+		return path, nil
+	}
+	return "", errors.New("could not locate the portfolio binary")
 }
 
 func detectInstallPath() string {

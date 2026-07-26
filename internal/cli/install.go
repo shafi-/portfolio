@@ -20,7 +20,11 @@ var installCmd = &cobra.Command{
 	Long: `Install components for Portfolio.
 
 Supported targets:
-  claude     Claude Code integration`,
+  claude     Claude Code integration
+
+Other AI agents (e.g. Cline, OpenCode) have no official automated install.
+Run 'portfolio install <agent>' for unofficial setup guidance, or see
+docs/integration-guideline.md.`,
 	Args: cobra.ExactArgs(1),
 	Run:  runInstall,
 }
@@ -52,8 +56,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 		runInstallClaude(cmd, []string{})
 		return
 	}
-	fmt.Printf("Error: Unknown install target '%s'\n", args[0])
-	fmt.Println("Supported targets: claude")
+	suggestAgentIntegration("install", args[0])
 	os.Exit(1)
 }
 
@@ -102,7 +105,7 @@ func runInstallClaude(cmd *cobra.Command, args []string) {
 	claudeIntegration, err := claude.New(store, mcpClient, logger.Zap())
 	if err != nil {
 		logger.Error("failed to create Claude integration", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to create Claude integration: %v\n\nTo fix: Check Claude Code is installed: https://claude.ai/download\n", err)
+		fmt.Printf("Error: failed to create Claude integration: %v\n", err)
 		os.Exit(1)
 	}
 	manager.RegisterIntegration(claudeIntegration)

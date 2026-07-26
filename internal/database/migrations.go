@@ -64,6 +64,12 @@ func getMigrations() []migration {
 			up:      upgradeMigrationTrackingUp,
 			down:    upgradeMigrationTrackingDown,
 		},
+		{
+			version: 8,
+			name:    "metadata_extras",
+			up:      metadataExtrasUp,
+			down:    metadataExtrasDown,
+		},
 	}
 }
 
@@ -618,6 +624,36 @@ const metadataExtractionDown = `
 DROP INDEX IF EXISTS idx_dependencies_name;
 DROP INDEX IF EXISTS idx_dependencies_project_id;
 DROP TABLE IF EXISTS dependencies;
+`
+
+const metadataExtrasUp = `
+-- Deterministic importance signals on metadata (idempotent; runMigration tolerates duplicate-column).
+ALTER TABLE metadata ADD COLUMN first_commit_at TIMESTAMP;
+ALTER TABLE metadata ADD COLUMN commit_velocity_90d INTEGER DEFAULT 0;
+ALTER TABLE metadata ADD COLUMN contributor_count INTEGER DEFAULT 0;
+ALTER TABLE metadata ADD COLUMN tag_count INTEGER DEFAULT 0;
+ALTER TABLE metadata ADD COLUMN remote_url TEXT;
+ALTER TABLE metadata ADD COLUMN is_published INTEGER DEFAULT 0;
+ALTER TABLE metadata ADD COLUMN maturity_score INTEGER DEFAULT 0;
+ALTER TABLE metadata ADD COLUMN maturity_indicators TEXT;
+ALTER TABLE metadata ADD COLUMN capabilities_summary TEXT;
+
+-- Dependency prod/dev scope (maturity signal). Defaults to "prod".
+ALTER TABLE dependencies ADD COLUMN scope TEXT NOT NULL DEFAULT 'prod';
+`
+
+const metadataExtrasDown = `
+ALTER TABLE metadata DROP COLUMN capabilities_summary;
+ALTER TABLE metadata DROP COLUMN maturity_indicators;
+ALTER TABLE metadata DROP COLUMN maturity_score;
+ALTER TABLE metadata DROP COLUMN is_published;
+ALTER TABLE metadata DROP COLUMN remote_url;
+ALTER TABLE metadata DROP COLUMN tag_count;
+ALTER TABLE metadata DROP COLUMN contributor_count;
+ALTER TABLE metadata DROP COLUMN commit_velocity_90d;
+ALTER TABLE metadata DROP COLUMN first_commit_at;
+
+ALTER TABLE dependencies DROP COLUMN scope;
 `
 
 const documentationIndexingUp = `

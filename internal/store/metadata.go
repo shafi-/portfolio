@@ -32,8 +32,10 @@ func (s *MetadataStore) upsertMetadata(q Querier, m *models.Metadata) error {
 		INSERT OR REPLACE INTO metadata (
 			project_id, git_head, default_branch, last_commit_at,
 			last_modified_at, commit_count, language_summary,
-			framework_summary, dependency_summary, documentation_hash, last_scan_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			framework_summary, dependency_summary, documentation_hash, last_scan_at,
+			first_commit_at, commit_velocity_90d, contributor_count, tag_count,
+			remote_url, is_published, maturity_score, maturity_indicators, capabilities_summary
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := q.ExecContext(ctx, query,
 		m.ProjectID, nullIfEmpty(m.GitHead), nullIfEmpty(m.DefaultBranch),
@@ -41,6 +43,9 @@ func (s *MetadataStore) upsertMetadata(q Querier, m *models.Metadata) error {
 		m.CommitCount, nullIfEmpty(m.LanguageSummary),
 		nullIfEmpty(m.FrameworkSummary), nullIfEmpty(m.DependencySummary),
 		nullIfEmpty(m.DocumentationHash), nullIfEmpty(m.LastScanAt),
+		nullIfEmpty(m.FirstCommitAt), m.CommitVelocity90d, m.ContributorCount,
+		m.TagCount, nullIfEmpty(m.RemoteURL), boolToInt(m.IsPublished),
+		m.MaturityScore, nullIfEmpty(m.MaturityIndicators), nullIfEmpty(m.CapabilitiesSummary),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to upsert metadata: %w", err)
@@ -60,17 +65,23 @@ func (s *MetadataStore) getMetadata(q Querier, projectID string) (*models.Metada
 	query := `
 		SELECT project_id, git_head, default_branch, last_commit_at,
 		       last_modified_at, commit_count, language_summary,
-		       framework_summary, dependency_summary, documentation_hash, last_scan_at
+		       framework_summary, dependency_summary, documentation_hash, last_scan_at,
+		       first_commit_at, commit_velocity_90d, contributor_count, tag_count,
+		       remote_url, is_published, maturity_score, maturity_indicators, capabilities_summary
 		FROM metadata WHERE project_id = ?
 	`
 	m := &models.Metadata{}
 	var gitHead, defaultBranch, lastCommitAt, lastModifiedAt *string
 	var languageSummary, frameworkSummary, dependencySummary, documentationHash, lastScanAt *string
+	var firstCommitAt, remoteURL, maturityIndicators, capabilitiesSummary *string
+	var isPublished int
 
 	err := q.QueryRowContext(context.Background(), query, projectID).Scan(
 		&m.ProjectID, &gitHead, &defaultBranch, &lastCommitAt,
 		&lastModifiedAt, &m.CommitCount, &languageSummary,
 		&frameworkSummary, &dependencySummary, &documentationHash, &lastScanAt,
+		&firstCommitAt, &m.CommitVelocity90d, &m.ContributorCount, &m.TagCount,
+		&remoteURL, &isPublished, &m.MaturityScore, &maturityIndicators, &capabilitiesSummary,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -106,6 +117,19 @@ func (s *MetadataStore) getMetadata(q Querier, projectID string) (*models.Metada
 	if lastScanAt != nil {
 		m.LastScanAt = *lastScanAt
 	}
+	if firstCommitAt != nil {
+		m.FirstCommitAt = *firstCommitAt
+	}
+	if remoteURL != nil {
+		m.RemoteURL = *remoteURL
+	}
+	m.IsPublished = isPublished != 0
+	if maturityIndicators != nil {
+		m.MaturityIndicators = *maturityIndicators
+	}
+	if capabilitiesSummary != nil {
+		m.CapabilitiesSummary = *capabilitiesSummary
+	}
 	return m, nil
 }
 
@@ -114,4 +138,11 @@ func nullIfEmpty(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
