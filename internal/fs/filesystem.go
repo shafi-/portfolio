@@ -9,6 +9,7 @@ import (
 // This interface exists to enable testing with mock filesystems
 type Filesystem interface {
 	ReadDir(path string) ([]os.DirEntry, error)
+	ReadFile(path string) ([]byte, error)
 	Lstat(path string) (os.FileInfo, error)
 	Stat(path string) (os.FileInfo, error)
 }
@@ -26,6 +27,11 @@ func (o *osFilesystem) ReadDir(path string) ([]os.DirEntry, error) {
 	return os.ReadDir(path)
 }
 
+// ReadFile returns the contents of a file
+func (o *osFilesystem) ReadFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
 // Lstat returns file info without following symlinks
 func (o *osFilesystem) Lstat(path string) (os.FileInfo, error) {
 	return os.Lstat(path)
@@ -40,6 +46,11 @@ func (o *osFilesystem) Stat(path string) (os.FileInfo, error) {
 // This is useful for testing without a real filesystem
 type MapFSAdapter struct {
 	MapFS fs.FS
+}
+
+// ReadFile returns file content from the map filesystem
+func (a *MapFSAdapter) ReadFile(path string) ([]byte, error) {
+	return fs.ReadFile(a.MapFS, path)
 }
 
 // ReadDir implements Filesystem.ReadDir for MapFS

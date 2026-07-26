@@ -3,9 +3,9 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -19,6 +19,15 @@ const maxFileContentBytes = 1 << 20 // 1 MiB
 // maxListDepth caps how deep listProjectFiles / getProjectStructure recurse, so
 // an agent-supplied depth cannot force an unbounded traversal of the tree.
 const maxListDepth = 20
+
+// maxSearchResults caps how many files searchFiles returns, bounding the
+// response size when a broad pattern matches many files.
+const maxSearchResults = 50
+
+// maxSearchContentBytes caps the per-file content preview returned by
+// searchFiles so a broad match cannot balloon the MCP message. The agent
+// can fetch the full file with getFileContent once it knows the path.
+const maxSearchContentBytes = 10_000
 
 // codeContentTools returns tools for accessing project code content
 func (s *Server) codeContentTools() []serverTool {
@@ -44,6 +53,15 @@ func (s *Server) codeContentTools() []serverTool {
 				mcp.WithBoolean("include_content", mcp.Description("Include file content for key files (default: false)")),
 			),
 			Handler: s.handleGetProjectStructure,
+		},
+		{
+			Tool: mcp.NewTool("searchFiles",
+				mcp.WithString("project_id", mcp.Required(), mcp.Description("Project ID")),
+				mcp.WithString("pattern", mcp.Required(), mcp.Description("Regex matched against relative file paths, e.g. \"auth\", \"payment.*handler\", \"src/.*_test\\.go\"")),
+				mcp.WithNumber("max_results", mcp.Description("Maximum number of files to return (default: 20)")),
+				mcp.WithBoolean("include_content", mcp.Description("Include each file's content (default: true)")),
+			),
+			Handler: s.handleSearchFiles,
 		},
 		{
 			Tool: mcp.NewTool("getDependencies",
@@ -107,7 +125,8 @@ func isSensitiveFile(relPath string) bool {
 			return true
 		}
 	}
-	if strings.HasPrefix(base, ".env") {
+	// Block .env and .env.* variants for secrets; allow .env.sample (template)
+	if base == ".env" || (strings.HasPrefix(base, ".env.") && base != ".env.sample") {
 		return true
 	}
 	switch base {
@@ -170,8 +189,8 @@ func (s *Server) handleListProjectFiles(ctx context.Context, req mcp.CallToolReq
 
 	// Get project
 	project, err := s.projects.GetProject(projectID)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("project not found: %v", err)), nil
+	if err != nil || project == nil {
+		return mcp.NewToolResultError("project not found"), nil
 	}
 
 	// Resolve + contain the path (defeats traversal and symlink escape).
@@ -219,8 +238,8 @@ func (s *Server) handleGetFileContent(ctx context.Context, req mcp.CallToolReque
 
 	// Get project
 	project, err := s.projects.GetProject(projectID)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("project not found: %v", err)), nil
+	if err != nil || project == nil {
+		return mcp.NewToolResultError("project not found"), nil
 	}
 
 	// Resolve + contain the path (defeats traversal and symlink escape).
@@ -246,8 +265,7 @@ func (s *Server) handleGetFileContent(ctx context.Context, req mcp.CallToolReque
 			"file is too large (%d bytes; limit %d)", info.Size(), maxFileContentBytes)), nil
 	}
 
-	// Read file using os.ReadFile since the fs interface doesn't have ReadFile.
-	content, err := os.ReadFile(fullPath)
+	content, err := s.osFS.ReadFile(fullPath)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to read file: %v", err)), nil
 	}
@@ -258,6 +276,130 @@ func (s *Server) handleGetFileContent(ctx context.Context, req mcp.CallToolReque
 		"content":    string(content),
 		"size":       info.Size(),
 		"modified":   info.ModTime(),
+	}
+
+	return mcp.NewToolResultJSON(result)
+}
+
+// handleSearchFiles finds files whose relative path matches a regex and
+// returns them, optionally with content. It lets an agent locate the files that
+// implement a feature by searching on the feature name (e.g. pattern "auth" or
+// "payment.*handler"). Matching is performed against slash-form relative paths
+// so patterns are portable across platforms.
+func (s *Server) handleSearchFiles(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+	projectID, _ := args["project_id"].(string)
+	if projectID == "" {
+		return mcp.NewToolResultError("project_id is required"), nil
+	}
+
+	pattern, _ := args["pattern"].(string)
+	if pattern == "" {
+		return mcp.NewToolResultError("pattern is required"), nil
+	}
+
+	// regexp uses RE2 (linear-time, no backtracking), so an agent-supplied
+	// pattern cannot cause catastrophic backtracking here.
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("invalid regex pattern: %v", err)), nil
+	}
+
+	maxResults := 20
+	if r, ok := args["max_results"].(float64); ok && r >= 1 {
+		maxResults = int(r)
+	}
+	if maxResults > maxSearchResults {
+		maxResults = maxSearchResults
+	}
+
+	includeContent := true
+	if ic, ok := args["include_content"].(bool); ok {
+		includeContent = ic
+	}
+
+	// Get project
+	project, err := s.projects.GetProject(projectID)
+	if err != nil || project == nil {
+		return mcp.NewToolResultError("project not found"), nil
+	}
+
+	// Collect candidate relative paths by walking the project tree, skipping the
+	// same ignored directories as listProjectFiles (vendor, node_modules, etc.).
+	candidates, err := s.collectFilePaths(project.RootPath, maxListDepth)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to walk project: %v", err)), nil
+	}
+
+	type fileMatch struct {
+		Path      string `json:"path"`
+		Size      int64  `json:"size"`
+		Content   string `json:"content,omitempty"`
+		Truncated bool   `json:"truncated,omitempty"`
+	}
+
+	matches := []fileMatch{}
+	skipped := 0
+	truncated := false
+
+	for _, rel := range candidates {
+		if len(matches) >= maxResults {
+			truncated = true
+			break
+		}
+		if !re.MatchString(rel) {
+			continue
+		}
+		// Never expose credentials/keys/VCS config to the agent.
+		if isSensitiveFile(rel) {
+			skipped++
+			continue
+		}
+
+		// Resolve + contain each path (defeats traversal and symlink escape),
+		// same as getFileContent.
+		fullPath, err := resolveProjectPath(project.RootPath, rel)
+		if err != nil {
+			skipped++
+			continue
+		}
+		info, err := s.osFS.Stat(fullPath)
+		if err != nil || info.IsDir() {
+			skipped++
+			continue
+		}
+
+		match := fileMatch{Path: rel, Size: info.Size()}
+
+		if includeContent {
+			if info.Size() > maxFileContentBytes {
+				skipped++
+				continue
+			}
+			content, err := s.osFS.ReadFile(fullPath)
+			if err != nil {
+				skipped++
+				continue
+			}
+			if len(content) > maxSearchContentBytes {
+				match.Content = truncateContent(content, maxSearchContentBytes)
+				match.Truncated = true
+			} else {
+				match.Content = string(content)
+			}
+		}
+
+		matches = append(matches, match)
+	}
+
+	result := map[string]interface{}{
+		"project_id":      projectID,
+		"pattern":         pattern,
+		"matches":         matches,
+		"count":           len(matches),
+		"truncated":       truncated,
+		"skipped":         skipped,
+		"include_content": includeContent,
 	}
 
 	return mcp.NewToolResultJSON(result)
@@ -278,8 +420,8 @@ func (s *Server) handleGetProjectStructure(ctx context.Context, req mcp.CallTool
 
 	// Get project
 	project, err := s.projects.GetProject(projectID)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("project not found: %v", err)), nil
+	if err != nil || project == nil {
+		return mcp.NewToolResultError("project not found"), nil
 	}
 
 	// Get metadata
@@ -320,7 +462,7 @@ func (s *Server) handleGetProjectStructure(ctx context.Context, req mcp.CallTool
 			if err != nil || info.IsDir() || info.Size() > maxFileContentBytes {
 				continue
 			}
-			if content, err := os.ReadFile(fullPath); err == nil {
+			if content, err := s.osFS.ReadFile(fullPath); err == nil {
 				contents[keyFile] = truncateContent(content, 10000)
 			}
 		}
@@ -348,31 +490,67 @@ func (s *Server) handleGetDependencies(ctx context.Context, req mcp.CallToolRequ
 		return mcp.NewToolResultError("project_id is required"), nil
 	}
 
+	// Get project for repository_type
+	project, err := s.projects.GetProject(projectID)
+	if err != nil || project == nil {
+		return mcp.NewToolResultError("project not found"), nil
+	}
+
 	// Get dependencies from store
 	dependencies, err := s.dependencies.ListDependencies(projectID)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to get dependencies: %v", err)), nil
 	}
 
-	// Get metadata for language info
-	metadata, err := s.metadata.GetMetadata(projectID)
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("metadata not found: %v", err)), nil
-	}
+	// Get metadata for language info (optional)
+	metadata, _ := s.metadata.GetMetadata(projectID)
 
 	result := map[string]interface{}{
-		"project_id":   projectID,
-		"dependencies": dependencies,
-		"count":        len(dependencies),
-		"languages":    []string{},
+		"project_id":      projectID,
+		"dependencies":    dependencies,
+		"count":           len(dependencies),
+		"languages":       []string{},
+		"repository_type": project.RepositoryType,
 	}
 
 	if metadata != nil {
 		result["languages"] = metadata.LanguageSummary
-		result["repository_type"] = "" // Add from project if needed
 	}
 
 	return mcp.NewToolResultJSON(result)
+}
+
+// collectFilePaths returns the slash-form relative paths of all files under
+// basePath. It flattens the tree produced by listFilesRecursively, so the
+// ReadDir / shouldSkip / depth-limit walk logic lives in exactly one place.
+// Symlink escape is not re-checked here; callers resolve each path via
+// resolveProjectPath before reading, which defeats out-of-root symlinks.
+func (s *Server) collectFilePaths(basePath string, maxDepth int) ([]string, error) {
+	tree, err := s.listFilesRecursively(basePath, "", maxDepth, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	var paths []string
+	var flatten func(nodes []map[string]interface{})
+	flatten = func(nodes []map[string]interface{}) {
+		for _, node := range nodes {
+			// listFilesRecursively emits OS-native paths; normalise to
+			// slash-form so regexes match portably across platforms and stay
+			// consistent with isSensitiveFile.
+			if isDir, _ := node["is_dir"].(bool); !isDir {
+				if p, ok := node["path"].(string); ok {
+					paths = append(paths, filepath.ToSlash(p))
+				}
+			}
+			if children, ok := node["children"].([]map[string]interface{}); ok {
+				flatten(children)
+			}
+		}
+	}
+	flatten(tree)
+
+	return paths, nil
 }
 
 // Helper: list files recursively with depth limit
@@ -429,6 +607,11 @@ func (s *Server) listFilesRecursively(basePath, relPath string, maxDepth, curren
 
 // Helper: check if path should be skipped
 func (s *Server) shouldSkip(name string) bool {
+	// Skip all .env.* variants except .env.sample (it's a template, not secrets)
+	if name == ".env" || (strings.HasPrefix(name, ".env.") && name != ".env.sample") {
+		return true
+	}
+
 	skipDirs := map[string]bool{
 		"node_modules": true,
 		"vendor":       true,
@@ -444,7 +627,6 @@ func (s *Server) shouldSkip(name string) bool {
 		".venv":        true,
 		"venv":         true,
 		"env":          true,
-		".env":         true,
 		".DS_Store":    true,
 	}
 
