@@ -8,6 +8,11 @@
 *.so
 *.dylib
 
+# Project CLI binary (built into repo root and bin/). Never commit these —
+# release artifacts come from the release pipeline, not the working tree.
+/portfolio
+/bin/portfolio
+
 # Test binary, built with `go test -c`
 *.test
 

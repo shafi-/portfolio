@@ -1,7 +1,7 @@
 # Portfolio User Manual
 
-Version: 1.0  
-Last Updated: July 24, 2026
+Version: 0.2.0  
+Last Updated: July 26, 2026
 
 ---
 
@@ -339,73 +339,103 @@ portfolio health --discovery
 
 ## AI Agent Integration
 
-### Claude Code Integration
+Portfolio ships first-class integrations for two AI coding agents, with the same
+capabilities (install / verify / upgrade / remove). Both install a local stdio MCP
+server and a Portfolio skill rendered from one shared template.
 
-Portfolio provides seamless integration with Claude Code through the Model Context Protocol (MCP).
-
-#### Installation
-
-```bash
-# Install Claude Code integration
-portfolio install claude
-
-# Verify installation
-portfolio doctor claude
-
-# Force reinstall
-portfolio install claude --force
-```
-
-#### What gets installed:
-
-1. **MCP Server Registration** - Portfolio registers as an MCP server in Claude Code's configuration
-2. **Portfolio Skill** - A skill file that tells Claude Code how to use Portfolio effectively
-3. **Validation** - Automatic verification that all tools are available
-
-#### Uninstallation
+### Claude Code
 
 ```bash
-# Remove Claude Code integration
-portfolio uninstall claude
-
-# Verify removal
-portfolio doctor claude
+portfolio install claude          # register MCP server + install skill
+portfolio doctor claude           # verify
+portfolio upgrade claude          # upgrade
+portfolio uninstall claude        # remove
+portfolio install claude --force  # force reinstall
 ```
 
-#### Upgrade
+### OpenCode
+
+OpenCode has no local-stdio MCP CLI, so Portfolio writes its schema-documented
+config file (`~/.config/opencode/opencode.json`) — the official method per
+**ADR-021**. The install is an idempotent read-merge-write that preserves your
+other settings and any sibling MCP servers, and installs the Portfolio skill to
+`~/.config/opencode/skills/portfolio/SKILL.md`.
 
 ```bash
-# Upgrade to latest integration
-portfolio upgrade claude
+portfolio install opencode        # register MCP server + install skill
+portfolio doctor opencode         # verify
+portfolio upgrade opencode        # upgrade
+portfolio uninstall opencode      # remove (preserves other servers)
 ```
+
+### Other agents
+
+Portfolio works with any MCP-capable agent (Cursor, Zed, Continue, Roo, …). There
+is no automated installer for these, but the connection is identical: point your
+agent at the MCP server command `portfolio mcp`. For the canonical, always
+up-to-date integration reference (the rendered skill plus connection details),
+run `portfolio manual` or read `docs/agent-integration-manual.md`.
+
+### What every integration installs
+
+1. **MCP server registration** — Portfolio is registered as a local stdio MCP
+   server (Claude Code via `claude mcp add`; OpenCode via its config file).
+2. **Portfolio skill** — rendered from a single shared template (`SKILL_COMMON`)
+   that documents every tool and the three-tier knowledge protocol. The skill
+   records an `analyzer` identity so Portfolio can attribute analyses and
+   features to the agent that produced them.
+3. **Validation** — `portfolio doctor <agent>` verifies the server is registered,
+   the skill is present, and all tools respond.
 
 ### Available MCP Tools
 
-When integrated, Claude Code can access these Portfolio tools:
+Every integrated agent can call the same **26** Portfolio tools:
 
-**Discovery Tools:**
-- `health()` - Check Portfolio health
-- `discoverProjects()` - Discover projects
-- `listProjects()` - List all projects
-- `getProject(project_id)` - Get project details
+**Discovery (4)**
+- `health()` — check Portfolio health
+- `discoverProjects()` — discover git repositories
+- `listProjects()` — list all known projects
+- `getProject(project_id)` — full project details (deterministic facts)
 
-**Search Tools:**
-- `searchProjects(query)` - Search projects
-- `searchDocumentation(query)` - Search documentation
+**Search (2)**
+- `searchProjects(query)` — search projects by text
+- `searchDocumentation(query)` — search indexed documentation
 
-**Analysis Tools:**
-- `getAnalysis(project_id)` - Get stored analysis
-- `storeAnalysis(analysis)` - Store AI analysis
-- `listProjectsNeedingAnalysis()` - List projects needing new analysis
+**Configuration (2)**
+- `getConfiguration()` — read engine configuration
+- `updateConfiguration(config)` — update engine configuration
 
-**Relationship Tools:**
-- `listRelationships(project_id)` - List project relationships
-- `storeRelationship(relationship)` - Store project relationship
-- `deleteRelationship(relationship_id)` - Remove relationship
+**Project & code content (5)**
+- `getProjectStructure(project_id)` — project file tree
+- `listProjectFiles(project_id)` — list project files
+- `getFileContent(project_id, path)` — read a single file (sensitive files are blocked)
+- `searchFiles(query)` — search across project files
+- `getDependencies(project_id)` — declared dependencies and versions
 
-### Usage in Claude Code
+**Analysis (3)**
+- `getAnalysis(project_id)` — read stored analysis
+- `storeAnalysis(analysis)` — store AI analysis (Tier 2)
+- `listProjectsNeedingAnalysis()` — projects whose analysis is stale or missing
 
-Once integrated, Claude Code can:
+**Features (3)**
+- `listFeatures(project_id)` — list a project's features
+- `searchFeatures(query | implementation_status | pattern)` — search features
+- `storeFeature(...)` — create/update a feature (Tier 2/3, upsert by name)
+
+**Technologies (5)**
+- `listTechnologies()` — list known technologies
+- `searchByTechnology(technology)` — projects using a technology
+- `listProjectTechnologies(project_id)` — technologies in a project
+- `storeTechnology(...)` — record a technology
+- `tagProjectWithTechnology(project_id, technology)` — tag a project
+
+**Relationships (2)**
+- `listRelationships(project_id)` — list project relationships
+- `storeRelationship(relationship)` — store a relationship
+
+### Example Session
+
+Once integrated, an agent can:
 
 ```text
 User: What authentication mechanisms are used in my portfolio?
@@ -830,6 +860,12 @@ https://github.com/shafi-/project-dash/issues
 ---
 
 ## Version History
+
+**v0.2.0** (July 26, 2026)
+- Official OpenCode integration (`portfolio install opencode`)
+- `portfolio manual` command + committed `docs/agent-integration-manual.md`
+- Deterministic dependency versions; feature deep-dive fields; `searchFeatures`
+- ADR-021 (schema-documented config files are official methods)
 
 **v1.0** (July 24, 2026)
 - Initial release

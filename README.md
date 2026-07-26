@@ -13,7 +13,7 @@ Portfolio is a local-first project inventory and knowledge platform that enables
 
 ```bash
 # Clone the repository
-git clone https://github.com/nerddevsltd/portfolio.git
+git clone https://github.com/shafi-/project-dash.git
 cd portfolio
 
 # Build the CLI
