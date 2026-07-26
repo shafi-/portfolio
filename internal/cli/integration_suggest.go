@@ -21,7 +21,9 @@ type unsupportedAgent struct {
 
 // knownUnsupportedAgents mirrors the Integration Decision Matrix in
 // docs/integration-guideline.md. Keep this in sync with that document and with
-// the scripts/ directory.
+// the scripts/ directory. Claude Code and OpenCode have official automated
+// integrations (see internal/integration/claude, internal/integration/opencode)
+// and are intentionally absent here.
 var knownUnsupportedAgents = []unsupportedAgent{
 	{
 		aliases:    []string{"cline"},
@@ -37,21 +39,23 @@ var knownUnsupportedAgents = []unsupportedAgent{
   }
 }`,
 	},
-	{
-		aliases:    []string{"opencode"},
-		display:    "OpenCode",
-		script:     "scripts/unsafe-opencode-integration.sh",
-		configFile: "~/.config/opencode/opencode.json",
-		snippet: `{
-  "mcp": {
-    "portfolio": {
-      "type": "local",
-      "command": ["%s", "mcp"],
-      "enabled": true
-    }
-  }
-}`,
-	},
+}
+
+// supportedTargets is the list of agents with an official automated integration,
+// shown to users who request an unsupported or unknown one.
+const supportedTargets = "claude, opencode"
+
+// integrationDisplayName returns the human-readable name for a supported
+// integration target, falling back to the raw name.
+func integrationDisplayName(name string) string {
+	switch strings.ToLower(name) {
+	case "claude":
+		return "Claude Code"
+	case "opencode":
+		return "OpenCode"
+	default:
+		return name
+	}
 }
 
 // findUnsupportedAgent returns the known unsupported agent matching target
@@ -84,7 +88,7 @@ func formatAgentSuggestion(verb, target string, a unsupportedAgent, binaryPath s
 	fmt.Fprintf(&b, "Error: '%s' is not a supported %s target.\n\n", target, verb)
 	fmt.Fprintf(&b, "Portfolio has no official automated integration for %s\n", a.display)
 	b.WriteString("(it has no CLI for registering local MCP servers).\n")
-	b.WriteString("Supported target: claude\n\n")
+	fmt.Fprintf(&b, "Supported targets: %s\n\n", supportedTargets)
 	b.WriteString("You can set it up with the unofficial script approach:\n\n")
 	if a.script != "" {
 		fmt.Fprintf(&b, "  ⚠️  Unofficial and unsafe — it edits %s directly and may\n", a.configFile)
@@ -98,7 +102,8 @@ func formatAgentSuggestion(verb, target string, a unsupportedAgent, binaryPath s
 	for _, line := range strings.Split(rendered, "\n") {
 		fmt.Fprintf(&b, "    %s\n", line)
 	}
-	b.WriteString("\nSee docs/integration-guideline.md for full details.\n")
+	b.WriteString("\nFor the full agent-integration manual, run:\n\n    portfolio manual\n\n")
+	b.WriteString("See docs/integration-guideline.md for full details.\n")
 	return b.String()
 }
 
@@ -107,11 +112,13 @@ func formatAgentSuggestion(verb, target string, a unsupportedAgent, binaryPath s
 func formatUnknownAgentSuggestion(verb, target string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Error: '%s' is not a recognized %s target.\n\n", target, verb)
-	b.WriteString("Supported target: claude\n\n")
+	fmt.Fprintf(&b, "Supported targets: %s\n\n", supportedTargets)
 	b.WriteString("Portfolio works with any MCP-capable agent by running its MCP server:\n\n")
 	b.WriteString("    portfolio mcp\n\n")
-	b.WriteString("Unofficial setup scripts exist for some agents (Cline, OpenCode) in scripts/,\n")
-	b.WriteString("and manual setup for others is documented in docs/integration-guideline.md.\n")
+	b.WriteString("To integrate any agent manually, generate the agent-integration manual:\n\n")
+	b.WriteString("    portfolio manual\n\n")
+	b.WriteString("It documents the MCP server connection and the shared skill your agent\n")
+	b.WriteString("should load. See docs/agent-integration-manual.md for the same content.\n")
 	return b.String()
 }
 

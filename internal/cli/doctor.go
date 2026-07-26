@@ -12,8 +12,6 @@ import (
 
 	"project-dash/internal/config"
 	"project-dash/internal/database"
-	"project-dash/internal/integration"
-	"project-dash/internal/integration/claude"
 	"project-dash/internal/logging"
 	"project-dash/pkg/models"
 )
@@ -32,7 +30,8 @@ Without arguments, runs system diagnostics:
 - Go environment and dependencies
 
 With a target, runs integration-specific diagnostics:
-  claude     Claude Code integration health`,
+  claude     Claude Code integration health
+  opencode   OpenCode integration health`,
 	Args: cobra.MaximumNArgs(1),
 	Run:  runDoctor,
 }
@@ -49,20 +48,38 @@ configuration files, and skills installation.`,
 	Run:     runDoctorClaude,
 }
 
+var doctorOpencodeCmd = &cobra.Command{
+	Use:   "opencode",
+	Short: "Check OpenCode integration health",
+	Long: `Check the health of the OpenCode integration.
+
+This validates the integration status, MCP server connectivity,
+the opencode.json config entry, and the installed skill.`,
+	Example: `  portfolio doctor opencode`,
+	Args:    cobra.NoArgs,
+	Run:     runDoctorOpencode,
+}
+
 func init() {
 	rootCmd.AddCommand(doctorCmd)
 	doctorCmd.AddCommand(doctorClaudeCmd)
+	doctorCmd.AddCommand(doctorOpencodeCmd)
 }
 
 func runDoctor(cmd *cobra.Command, args []string) {
 	if len(args) > 0 {
-		if args[0] == "claude" {
+		switch args[0] {
+		case "claude":
 			runDoctorClaude(cmd, []string{})
 			return
+		case "opencode":
+			runDoctorOpencode(cmd, []string{})
+			return
+		default:
+			fmt.Printf("Error: Unknown doctor target '%s'\n", args[0])
+			fmt.Println("Supported targets: claude, opencode")
+			os.Exit(1)
 		}
-		fmt.Printf("Error: Unknown doctor target '%s'\n", args[0])
-		fmt.Println("Supported targets: claude")
-		os.Exit(1)
 	}
 
 	logger := logging.GetGlobalLogger()
@@ -340,69 +357,35 @@ func validateProjectRoot(root string) error {
 	return nil
 }
 
-func runDoctorClaude(cmd *cobra.Command, args []string) {
+func runDoctorClaude(cmd *cobra.Command, args []string)   { runDoctorIntegration(cmd, "claude") }
+func runDoctorOpencode(cmd *cobra.Command, args []string) { runDoctorIntegration(cmd, "opencode") }
+
+func runDoctorIntegration(cmd *cobra.Command, name string) {
 	logger := logging.GetGlobalLogger()
 	ctx := cmd.Context()
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	im, err := setupIntegrationManager(logger)
 	if err != nil {
-		logger.Error("failed to load config", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to load config: %v\n", err)
+		logger.Error(err.Error(), models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+	defer im.db.Close()
 
-	db, err := database.NewDatabase(cfg.General.DatabasePath, logger)
-	if err != nil {
-		logger.Error("failed to create database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to create database: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err := db.Connect(); err != nil {
-		logger.Error("failed to connect to database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-	defer db.Close()
-
-	if err := db.Initialize(); err != nil {
-		logger.Error("failed to initialize database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to initialize database: %v\n", err)
-		os.Exit(1)
-	}
-
-	binaryPath := os.Args[0]
-	if absPath, err := os.Executable(); err == nil {
-		binaryPath = absPath
-	}
-
-	mcpClient := integration.NewStdioMCPClient(binaryPath, []string{"mcp"})
-	store := integration.NewDatabaseStore(db.DB(), logger.Zap())
-
-	manager := integration.NewManager(store, mcpClient, logger.Zap(), version)
-
-	claudeIntegration, err := claude.New(store, mcpClient, logger.Zap())
-	if err != nil {
-		logger.Error("failed to create Claude integration", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to create Claude integration: %v\n", err)
-		os.Exit(1)
-	}
-	manager.RegisterIntegration(claudeIntegration)
-
-	result, err := manager.Doctor(ctx, "claude", false)
+	result, err := im.manager.Doctor(ctx, name, false)
 	if err != nil {
 		logger.Error("doctor check failed", models.Field{Key: "error", Value: err})
 		fmt.Printf("Error: doctor check failed: %v\n", err)
 		os.Exit(1)
 	}
 
+	display := integrationDisplayName(name)
 	if result.Passed {
-		fmt.Println("✓ All Claude Code integration checks passed")
+		fmt.Printf("✓ All %s integration checks passed\n", display)
 		return
 	}
 
-	fmt.Println("✗ Claude Code integration health check failed")
+	fmt.Printf("✗ %s integration health check failed\n", display)
 	fmt.Println()
 
 	for _, check := range result.Checks {

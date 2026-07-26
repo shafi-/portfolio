@@ -6,14 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+
+	"project-dash/internal/version"
 )
 
 var (
-	// Version information
-	version = "0.1.0"
-	commit  = "dev"
-	date    = "unknown"
-
 	// CLI flags
 	cfgFile string
 	verbose bool
@@ -31,7 +28,7 @@ and knowledge storage while maintaining clear separation between engine operatio
 and AI agent reasoning.
 
 Primary interface through AI coding agents. CLI exists for administrative tasks only.`,
-	Version: fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
+	Version: version.Full(),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

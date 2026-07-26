@@ -6,6 +6,7 @@ import (
 
 	"project-dash/internal/cli"
 	"project-dash/internal/logging"
+	"project-dash/internal/version"
 	"project-dash/pkg/models"
 )
 
@@ -34,7 +35,7 @@ func main() {
 
 	logging.SetGlobalLogger(logger)
 	logger.Info("Portfolio Engine starting",
-		models.Field{Key: "version", Value: "0.1.0"},
+		models.Field{Key: "version", Value: version.Version()},
 	)
 
 	// Execute CLI

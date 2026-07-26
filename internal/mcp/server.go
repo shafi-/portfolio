@@ -10,6 +10,7 @@ import (
 	"project-dash/internal/fs"
 	"project-dash/internal/logging"
 	"project-dash/internal/store"
+	"project-dash/internal/version"
 )
 
 type serverTool struct {
@@ -39,7 +40,7 @@ func New(cfg *Config) *Server {
 
 	s.mcp = server.NewMCPServer(
 		"portfolio",
-		"0.1.0",
+		version.Version(),
 		server.WithResourceCapabilities(true, true),
 		server.WithLogging(),
 	)

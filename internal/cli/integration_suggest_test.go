@@ -14,11 +14,10 @@ func TestFindUnsupportedAgent(t *testing.T) {
 		{"cline", true, "Cline"},
 		{"Cline", true, "Cline"}, // case-insensitive
 		{"CLINE", true, "Cline"}, // case-insensitive
-		{"opencode", true, "OpenCode"},
-		{"OpenCode", true, "OpenCode"}, // case-insensitive
-		{"cursor", false, ""},          // unknown
-		{"claude", false, ""},          // supported, not unsupported
-		{"", false, ""},                // empty
+		{"opencode", false, ""},  // supported (official integration), not unsupported
+		{"cursor", false, ""},    // unknown
+		{"claude", false, ""},    // supported, not unsupported
+		{"", false, ""},          // empty
 	}
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
@@ -63,9 +62,10 @@ func TestFormatUnknownAgentSuggestion(t *testing.T) {
 
 	wantSubstrings := []string{
 		"'cursor' is not a recognized install target",
-		"Supported target: claude",
+		"Supported targets: claude, opencode",
 		"portfolio mcp",
-		"docs/integration-guideline.md",
+		"portfolio manual",
+		"docs/agent-integration-manual.md",
 	}
 	for _, s := range wantSubstrings {
 		if !strings.Contains(got, s) {

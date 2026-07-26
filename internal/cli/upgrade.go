@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"project-dash/internal/config"
-	"project-dash/internal/database"
 	"project-dash/internal/integration"
 	"project-dash/internal/integration/claude"
+	"project-dash/internal/integration/opencode"
 	"project-dash/internal/logging"
+	"project-dash/internal/version"
 	"project-dash/pkg/models"
 )
 
@@ -20,7 +20,8 @@ var upgradeCmd = &cobra.Command{
 	Long: `Upgrade components for Portfolio.
 
 Supported targets:
-  claude     Claude Code integration`,
+  claude     Claude Code integration
+  opencode   OpenCode integration`,
 	Args: cobra.ExactArgs(1),
 	Run:  runUpgrade,
 }
@@ -37,71 +38,52 @@ version while preserving user settings.`,
 	Run:     runUpgradeClaude,
 }
 
+var upgradeOpencodeCmd = &cobra.Command{
+	Use:   "opencode",
+	Short: "Upgrade OpenCode integration",
+	Long: `Upgrade OpenCode integration to the latest version.
+
+This command refreshes the OpenCode config entry and skill to the
+latest version while preserving user settings.`,
+	Example: `  portfolio upgrade opencode`,
+	Args:    cobra.NoArgs,
+	Run:     runUpgradeOpencode,
+}
+
 func init() {
 	rootCmd.AddCommand(upgradeCmd)
 	upgradeCmd.AddCommand(upgradeClaudeCmd)
+	upgradeCmd.AddCommand(upgradeOpencodeCmd)
 }
 
 func runUpgrade(cmd *cobra.Command, args []string) {
-	if args[0] == "claude" {
+	switch args[0] {
+	case "claude":
 		runUpgradeClaude(cmd, []string{})
-		return
+	case "opencode":
+		runUpgradeOpencode(cmd, []string{})
+	default:
+		suggestAgentIntegration("upgrade", args[0])
+		os.Exit(1)
 	}
-	suggestAgentIntegration("upgrade", args[0])
-	os.Exit(1)
 }
 
-func runUpgradeClaude(cmd *cobra.Command, args []string) {
+func runUpgradeClaude(cmd *cobra.Command, args []string)   { runUpgradeIntegration(cmd, "claude") }
+func runUpgradeOpencode(cmd *cobra.Command, args []string) { runUpgradeIntegration(cmd, "opencode") }
+
+func runUpgradeIntegration(cmd *cobra.Command, name string) {
 	logger := logging.GetGlobalLogger()
 	ctx := cmd.Context()
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	im, err := setupIntegrationManager(logger)
 	if err != nil {
-		logger.Error("failed to load config", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to load config: %v\n", err)
+		logger.Error(err.Error(), models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+	defer im.db.Close()
 
-	db, err := database.NewDatabase(cfg.General.DatabasePath, logger)
-	if err != nil {
-		logger.Error("failed to create database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to create database: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err := db.Connect(); err != nil {
-		logger.Error("failed to connect to database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-	defer db.Close()
-
-	if err := db.Initialize(); err != nil {
-		logger.Error("failed to initialize database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to initialize database: %v\n", err)
-		os.Exit(1)
-	}
-
-	binaryPath := os.Args[0]
-	if absPath, err := os.Executable(); err == nil {
-		binaryPath = absPath
-	}
-
-	mcpClient := integration.NewStdioMCPClient(binaryPath, []string{"mcp"})
-	store := integration.NewDatabaseStore(db.DB(), logger.Zap())
-
-	manager := integration.NewManager(store, mcpClient, logger.Zap(), version)
-
-	claudeIntegration, err := claude.New(store, mcpClient, logger.Zap())
-	if err != nil {
-		logger.Error("failed to create Claude integration", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to create Claude integration: %v\n", err)
-		os.Exit(1)
-	}
-	manager.RegisterIntegration(claudeIntegration)
-
-	previousMeta, err := manager.Get(ctx, "claude")
+	previousMeta, err := im.manager.Get(ctx, name)
 	if err != nil {
 		logger.Error("failed to get current integration", models.Field{Key: "error", Value: err})
 		fmt.Printf("Error: failed to get current integration: %v\n", err)
@@ -110,22 +92,29 @@ func runUpgradeClaude(cmd *cobra.Command, args []string) {
 
 	previousVersion := previousMeta.Version
 
-	opts := integration.UpgradeOptions{
-		TargetVersion: "1.0.0",
-		EngineVersion: version,
+	// Target the integration's own latest version constant.
+	targetVersion := claude.Version
+	if name == opencode.Name {
+		targetVersion = opencode.Version
 	}
 
-	result, err := manager.Upgrade(ctx, "claude", opts)
+	opts := integration.UpgradeOptions{
+		TargetVersion: targetVersion,
+		EngineVersion: version.Version(),
+	}
+
+	result, err := im.manager.Upgrade(ctx, name, opts)
 	if err != nil {
 		logger.Error("upgrade failed", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: upgrade failed: %v\n\nTo fix: Check integration status with 'portfolio doctor claude'\n", err)
+		fmt.Printf("Error: upgrade failed: %v\n\nTo fix: Check integration status with 'portfolio doctor %s'\n", err, name)
 		os.Exit(1)
 	}
 
+	display := integrationDisplayName(name)
 	if result.Version == previousVersion {
-		fmt.Printf("✓ Claude Code integration already up to date (v%s)\n", result.Version)
+		fmt.Printf("✓ %s integration already up to date (v%s)\n", display, result.Version)
 	} else {
-		fmt.Printf("✓ Claude Code integration upgraded successfully\n")
+		fmt.Printf("✓ %s integration upgraded successfully\n", display)
 		fmt.Printf("  Previous Version: %s\n", previousVersion)
 		fmt.Printf("  New Version: %s\n", result.Version)
 		fmt.Printf("  Updated At: %s\n", result.UpdatedAt)

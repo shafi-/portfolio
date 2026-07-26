@@ -6,10 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"project-dash/internal/config"
-	"project-dash/internal/database"
-	"project-dash/internal/integration"
-	"project-dash/internal/integration/claude"
 	"project-dash/internal/logging"
 	"project-dash/pkg/models"
 )
@@ -20,7 +16,8 @@ var uninstallCmd = &cobra.Command{
 	Long: `Uninstall components from Portfolio.
 
 Supported targets:
-  claude     Claude Code integration`,
+  claude     Claude Code integration
+  opencode   OpenCode integration`,
 	Args: cobra.ExactArgs(1),
 	Run:  runUninstall,
 }
@@ -37,76 +34,60 @@ while preserving all project data in the Portfolio database.`,
 	Run:     runUninstallClaude,
 }
 
+var uninstallOpencodeCmd = &cobra.Command{
+	Use:   "opencode",
+	Short: "Uninstall OpenCode integration",
+	Long: `Uninstall OpenCode integration from Portfolio.
+
+This command removes the Portfolio MCP entry from OpenCode's config
+and the installed skill, while preserving all project data.`,
+	Example: `  portfolio uninstall opencode`,
+	Args:    cobra.NoArgs,
+	Run:     runUninstallOpencode,
+}
+
 func init() {
 	rootCmd.AddCommand(uninstallCmd)
 	uninstallCmd.AddCommand(uninstallClaudeCmd)
+	uninstallCmd.AddCommand(uninstallOpencodeCmd)
 }
 
 func runUninstall(cmd *cobra.Command, args []string) {
-	if args[0] == "claude" {
+	switch args[0] {
+	case "claude":
 		runUninstallClaude(cmd, []string{})
-		return
+	case "opencode":
+		runUninstallOpencode(cmd, []string{})
+	default:
+		suggestAgentIntegration("uninstall", args[0])
+		os.Exit(1)
 	}
-	suggestAgentIntegration("uninstall", args[0])
-	os.Exit(1)
 }
 
-func runUninstallClaude(cmd *cobra.Command, args []string) {
+func runUninstallClaude(cmd *cobra.Command, args []string) { runUninstallIntegration(cmd, "claude") }
+func runUninstallOpencode(cmd *cobra.Command, args []string) {
+	runUninstallIntegration(cmd, "opencode")
+}
+
+func runUninstallIntegration(cmd *cobra.Command, name string) {
 	logger := logging.GetGlobalLogger()
 	ctx := cmd.Context()
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	im, err := setupIntegrationManager(logger)
 	if err != nil {
-		logger.Error("failed to load config", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to load config: %v\n", err)
+		logger.Error(err.Error(), models.Field{Key: "error", Value: err})
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+	defer im.db.Close()
 
-	db, err := database.NewDatabase(cfg.General.DatabasePath, logger)
-	if err != nil {
-		logger.Error("failed to create database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to create database: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err := db.Connect(); err != nil {
-		logger.Error("failed to connect to database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-	defer db.Close()
-
-	if err := db.Initialize(); err != nil {
-		logger.Error("failed to initialize database", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to initialize database: %v\n", err)
-		os.Exit(1)
-	}
-
-	binaryPath := os.Args[0]
-	if absPath, err := os.Executable(); err == nil {
-		binaryPath = absPath
-	}
-
-	mcpClient := integration.NewStdioMCPClient(binaryPath, []string{"mcp"})
-	store := integration.NewDatabaseStore(db.DB(), logger.Zap())
-
-	manager := integration.NewManager(store, mcpClient, logger.Zap(), version)
-
-	claudeIntegration, err := claude.New(store, mcpClient, logger.Zap())
-	if err != nil {
-		logger.Error("failed to create Claude integration", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to create Claude integration: %v\n", err)
-		os.Exit(1)
-	}
-	manager.RegisterIntegration(claudeIntegration)
-
-	if err := manager.Remove(ctx, "claude"); err != nil {
+	if err := im.manager.Remove(ctx, name); err != nil {
 		logger.Error("uninstallation failed", models.Field{Key: "error", Value: err})
 		fmt.Printf("Error: uninstallation failed: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("✓ Claude Code integration uninstalled successfully\n")
+	display := integrationDisplayName(name)
+	fmt.Printf("✓ %s integration uninstalled successfully\n", display)
 	fmt.Println("  Project data preserved in database")
 }
