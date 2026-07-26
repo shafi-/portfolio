@@ -22,23 +22,6 @@ Some AI coding tools **do not have official CLI commands** for registering local
 
 ## Available Scripts
 
-### unsafe-opencode-integration.sh
-**Tool**: OpenCode
-**Official Method**: `opencode mcp add --url https://...` (remote servers only)
-**Status**: ❌ No official CLI for local stdio servers
-
-```bash
-./scripts/unsafe-opencode-integration.sh
-```
-
-**What it does**:
-- Detects portfolio binary location
-- Creates/updates `~/.config/opencode/opencode.json`
-- Adds portfolio MCP server configuration
-- Backs up existing config before changes
-
-**Risks**: Breaks when OpenCode updates config format
-
 ### unsafe-cline-integration.sh
 **Tool**: Cline (VS Code extension)
 **Official Method**: VS Code Command Palette → "MCP: Add Server"
@@ -58,11 +41,17 @@ Some AI coding tools **do not have official CLI commands** for registering local
 
 ## Safe Integration Methods
 
-For tools with official CLI support, **DO NOT USE these scripts**. Use the official commands instead:
+For tools with official methods, **DO NOT USE these scripts**. Use the official
+commands instead:
 
 ### Claude Code (Official Method) ✅
 ```bash
-claude mcp add portfolio /path/to/portfolio mcp
+portfolio install claude     # or: claude mcp add portfolio /path/to/portfolio mcp
+```
+
+### OpenCode (Official Method) ✅
+```bash
+portfolio install opencode   # writes the schema-documented opencode.json (ADR-021)
 ```
 
 **See**: [`docs/integration-guideline.md`](../docs/integration-guideline.md) for official methods.
@@ -114,10 +103,7 @@ To remove portfolio MCP servers:
 
 ### OpenCode
 ```bash
-# Edit config manually
-nano ~/.config/opencode/opencode.json
-
-# Remove the "portfolio" section from "mcp" object
+portfolio uninstall opencode
 ```
 
 ### Cline

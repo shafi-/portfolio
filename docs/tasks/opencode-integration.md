@@ -1,5 +1,35 @@
 # Epic: OpenCode Integration
 
+> **Status: ✅ IMPLEMENTED (Portfolio v0.2.0, 2026-07-26).**
+> The sections below are the original *design draft* for this epic, kept for
+> historical context. The shipped integration diverges from the draft in several
+> important ways; treat the code snippets below as a design sketch, **not** the
+> source of truth.
+>
+> **Where it really lives:**
+> - `internal/integration/opencode/` — `integration.go`, `paths.go`,
+>   `mcp_config.go`, `skill.go`, `verify.go`, `skill.md` (+ `*_test.go`)
+> - CLI: `portfolio install|uninstall|upgrade|doctor opencode`
+> - Policy: **ADR-021** ("Schema-Documented Config Files Are Official Methods")
+>
+> **Corrections vs. the draft below:**
+> 1. **License is AGPL-3.0, not MIT.** The shipped skill frontmatter is
+>    `license: AGPL-3.0` (the project license). The `license: MIT` shown in the
+>    draft skill snippet (Phase 4) is wrong.
+> 2. **Skill body is rendered from `SKILL_COMMON`**, not the hand-written tool
+>    list in Phase 4. `skill.md` is a thin wrapper (frontmatter +
+>    `{{SKILL_COMMON}}`) expanded by `integration.RenderSkill`, so the tool
+>    catalog has a single source of truth (26 tools).
+> 3. **`isVersionCompatible` is real semver** (shared with the Claude
+>   integration), not the `return true // Placeholder` shown in Phase 6.
+> 4. **The MCP config write is an atomic read-merge-write** that preserves
+>    unrelated top-level keys, an existing `$schema`, and sibling servers (temp
+>    file + rename; idempotent). The draft's `writeMCPConfig` overwrites the
+>    whole file and would clobber a user's other settings.
+> 5. **Binary detection uses `os.Executable()` first**, falling back to
+>    `LookPath("portfolio")` — the draft only does `LookPath`.
+> 6. **`MinEngine = "0.1.0"`** (the draft shows `1.0.0`).
+
 ## Overview
 
 Add complete OpenCode integration support to Portfolio, providing feature parity with the existing Claude Code integration. OpenCode is an open-source AI coding agent (https://opencode.ai/) that supports multiple AI providers and extensive MCP integration capabilities.
