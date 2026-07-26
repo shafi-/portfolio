@@ -378,3 +378,55 @@ so `version` holds the whole declared string under kind `range`/`any`. Reading
 lockfiles (`package-lock.json`, `Cargo.lock`, `go.sum`) for *resolved* versions is
 deliberately out of scope; the declared spec is the fact stored here.
 
+## ADR-020: Three-Tier Knowledge Model and Feature Upsert-by-Name
+
+**Status:** Accepted
+
+### Context
+
+Analysis knowledge had two layers: Tier 1 (engine-owned, deterministic) and
+Tier 2 (agent-owned analysis + features). In practice an agent needs a third,
+optional layer — a per-feature deep dive ("how is auth implemented?", "what
+pattern does search use?") — without re-running the whole investigation. The
+`features` table stored only `name`, `description`, `confidence`, so there was
+nowhere to put implementation status, architecture, or pattern. Worse, the
+`storeFeature` MCP tool always created a new row (fresh UUID), so a deep-dive
+"update" actually produced a duplicate feature with empty Tier-2 fields — the
+documented workflow did not work.
+
+### Decision
+
+1. **Add three Tier-3 columns** to `features` (migration `tier3_feature_extras`,
+   v3): `implementation_status` (`planned|partial|complete|mature|deprecated`,
+   default `planned`), `feature_architecture` (how it is implemented), and
+   `pattern` (architectural patterns).
+
+2. **Upsert `storeFeature` by (project, analyzer, name).** The handler resolves
+   the analysis for the analyzer, then looks up a feature by
+   `(analysis_id, name)` via `FeatureStore.GetByAnalysisAndName`. If present, it
+   **merges** the caller's supplied fields onto the stored row and calls
+   `UpdateFeature`; otherwise it creates. Merge semantics: empty strings mean
+   "leave as-is" (so a Tier-3 call omitting `description` never blanks the
+   stored Tier-2 description), and `confidence` is applied only when explicitly
+   passed. This makes a single investigation pass reusable across tiers.
+
+3. **No `UNIQUE(analysis_id, name)` constraint yet.** The lookup is read-then-
+   write. The store is single-writer (the indexer for deterministic facts; the
+   agent for analyses/features, low concurrency), so the TOCTOU window is
+   acceptable. A unique constraint + backfill of any pre-existing duplicates is
+   recorded as future hardening; `GetByAnalysisAndName` collapses duplicates to
+   the first row (`LIMIT 1`).
+
+### Consequences
+
+The deep-dive workflow now enriches instead of duplicating, and the three-tier
+model (engine context → project analysis+features → per-feature deep dive) is the
+documented agent contract in the Claude Code skill. `searchFeatures` queries the
+new columns (status, pattern, free text across name/description/architecture).
+`featureColumns` is `f.`-qualified because the search/list-by-project readers
+JOIN `analyses`, which also has `id`/`name` — an unqualified projection was
+ambiguous. A second call with the same name is an update (returns `updated: true`
+vs `created: true`), so callers can distinguish the two. Stale Tier-3 fields are
+preserved unless explicitly overwritten; agents that want to clear a field must
+pass the new value rather than rely on omission.
+

@@ -197,8 +197,8 @@ func TestMigrationConsolidatedSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSchemaVersion: %v", err)
 	}
-	if version != 2 {
-		t.Errorf("schema version: got %d, want 2 (consolidated initial_schema + fts5_fulltext_search)", version)
+	if version != 3 {
+		t.Errorf("schema version: got %d, want 3 (initial_schema + fts5_fulltext_search + tier3_feature_extras)", version)
 	}
 
 	metaCols := tableColumns(t, db, "metadata")

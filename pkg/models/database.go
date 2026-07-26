@@ -66,11 +66,14 @@ type Analysis struct {
 
 // Feature represents extracted features
 type Feature struct {
-	ID          string  `json:"id"`
-	AnalysisID  string  `json:"analysis_id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Confidence  float64 `json:"confidence"`
+	ID                   string  `json:"id"`
+	AnalysisID           string  `json:"analysis_id"`
+	Name                 string  `json:"name"`
+	Description          string  `json:"description"`
+	Confidence           float64 `json:"confidence"`
+	ImplementationStatus string  `json:"implementation_status"` // planned|partial|complete|mature|deprecated
+	FeatureArchitecture  string  `json:"feature_architecture"`  // how the feature is implemented
+	Pattern              string  `json:"pattern"`               // architectural pattern(s)
 }
 
 // Technology represents technology reference

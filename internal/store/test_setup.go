@@ -116,6 +116,9 @@ func migrateTestDB(t *testing.T, db *sql.DB) {
 			name TEXT NOT NULL,
 			description TEXT,
 			confidence REAL,
+			implementation_status TEXT DEFAULT 'planned',
+			feature_architecture TEXT,
+			pattern TEXT,
 			FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
 		);
 		

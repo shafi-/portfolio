@@ -45,6 +45,12 @@ func getMigrations() []migration {
 			up:      fts5SearchUp,
 			down:    fts5SearchDown,
 		},
+		{
+			version: 3,
+			name:    "tier3_feature_extras",
+			up:      tier3FeatureExtrasUp,
+			down:    tier3FeatureExtrasDown,
+		},
 	}
 }
 
@@ -553,3 +559,11 @@ DROP TRIGGER IF EXISTS documents_ad;
 DROP TRIGGER IF EXISTS documents_ai;
 DROP TABLE IF EXISTS documents_fts;
 `
+
+const tier3FeatureExtrasUp = `
+ALTER TABLE features ADD COLUMN implementation_status TEXT DEFAULT 'planned';
+ALTER TABLE features ADD COLUMN feature_architecture TEXT;
+ALTER TABLE features ADD COLUMN pattern TEXT;
+`
+
+const tier3FeatureExtrasDown = `-- No rollback for ALTER TABLE ADD COLUMN`
