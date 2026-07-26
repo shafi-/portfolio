@@ -137,7 +137,7 @@ specifications.
 
 ## ADR-016: Official Methods Only for Agent Integrations
 
-**Status:** Accepted
+**Status:** Accepted (amended by ADR-021)
 
 ### Context
 
@@ -145,7 +145,7 @@ Portfolio integrations need to register MCP servers with various AI coding agent
 Different agents have different approaches to MCP server registration:
 
 - **Claude Code**: Provides official CLI commands (`claude mcp add/remove/get`)
-- **OpenCode**: Partial support (remote servers only via CLI, local requires config editing)
+- **OpenCode**: No local-stdio CLI, but its config file (`~/.config/opencode/opencode.json`) is the officially schema-documented method for local servers — see ADR-021
 - **Cline**: No CLI support (requires manual config editing)
 
 Initial implementation attempted direct config file manipulation, which created several problems:
@@ -162,7 +162,7 @@ All Portfolio integrations MUST use official tool methods for MCP server registr
 **Requirements:**
 
 1. **Use official CLI**: When available, integrations must use official CLI commands
-2. **No direct config editing**: Production code must never directly edit agent config files
+2. **No fragile/undocumented config editing**: Production code must not edit agent config files by guesswork. Editing a tool's *officially schema-documented* config file — one the tool publishes a `$schema` for and documents as its config surface — is permitted, because that file IS the tool's official method. Blind/undocumented edits remain forbidden. See ADR-021.
 3. **Transparent fallback**: For tools without official methods, provide unsafe scripts with warnings
 4. **Documentation first**: Manual setup documentation takes precedence over automation
 
@@ -202,9 +202,9 @@ All Portfolio integrations MUST use official tool methods for MCP server registr
 **Implementation Notes:**
 
 - Claude Code integration uses `claude mcp add/remove/get` commands
-- OpenCode has `opencode mcp add` but only for remote servers
-- Cline requires manual `~/.cline/mcp.json` editing
-- All unsafe scripts live in `scripts/` with clear README documentation
+- OpenCode: local-stdio servers are registered by writing its schema-documented `opencode.json` (the official method per ADR-021); `opencode mcp add` covers remote servers only
+- Cline requires manual `~/.cline/mcp.json` editing (no official method)
+- Unsafe scripts for tools without any official method live in `scripts/` with clear README documentation
 
 ---
 
@@ -429,4 +429,71 @@ ambiguous. A second call with the same name is an update (returns `updated: true
 vs `created: true`), so callers can distinguish the two. Stale Tier-3 fields are
 preserved unless explicitly overwritten; agents that want to clear a field must
 pass the new value rather than rely on omission.
+
+---
+
+## ADR-021: Schema-Documented Config Files Are Official Methods
+
+**Status:** Accepted
+**Amends:** ADR-016
+
+### Context
+
+ADR-016 forbade direct config-file editing in production code to avoid fragility
+and "guesswork" edits. The OpenCode integration needs to register a **local**
+(stdio) MCP server, but OpenCode ships no local-stdio MCP CLI — `opencode mcp
+add` supports remote servers only. OpenCode's only documented way to register a
+local server is to write its config file, `~/.config/opencode/opencode.json`,
+which it declares stable by publishing `$schema: https://opencode.ai/config.json`
+and documenting the `mcp.<name>` object shape.
+
+This is categorically different from the fragile edits ADR-016 warned against:
+the file is the tool's intended, versioned config surface, not an internal
+representation we reverse-engineered.
+
+### Decision
+
+Writing a tool's **officially schema-documented** config file is an *official
+method*, permitted in production code. It is held to the same standard as an
+official CLI. Requirements for any such integration:
+
+1. The target file must be publicly schema-documented (e.g. a published `$schema`)
+   by the tool itself.
+2. The write must be a **read-merge-write** that preserves all unrelated keys
+   (other servers, user settings) and an existing `$schema`.
+3. The write must be **atomic** (temp file + rename) so the config is never left
+   half-written on failure.
+4. The integration must be **idempotent** — re-running install/upgrade produces
+   the same result without duplicating entries.
+5. Remove must delete only our entry and leave siblings intact.
+
+Blind/undocumented config edits remain forbidden by ADR-016.
+
+### Consequences
+
+**Positive:**
+
+- OpenCode gets a first-class, automated integration (`portfolio install
+  opencode`) on equal footing with Claude Code.
+- The policy now distinguishes *official config surfaces* from *fragile hacks*,
+  so ADR-016's intent (stability, trust) is preserved without blocking
+  legitimate official methods.
+
+**Negative:**
+
+- We own correctness of the merge/atomic-write logic; it is covered by tests
+  (`internal/integration/opencode/mcp_config_test.go`).
+- If OpenCode renames or restructures the documented config, the integration
+  needs an update — the same maintenance reality as any official CLI whose
+  commands change.
+
+**Implementation Notes:**
+
+- `internal/integration/opencode/mcp_config.go` performs the read-merge-write via
+  `map[string]json.RawMessage` (preserves unrelated top-level keys) and a
+  per-entry `mcp` map (preserves sibling servers).
+- The entry written is `mcp.portfolio = {type:"local", command:[<binary>,"mcp"],
+  enabled:true}`.
+- The superseded `scripts/unsafe-opencode-integration.sh` is removed; Cline
+  (no official method) keeps its unsafe script.
 

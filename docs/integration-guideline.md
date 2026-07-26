@@ -4,7 +4,7 @@ This document provides official integration methods for AI coding agents and man
 
 ## Philosophy
 
-**Official Methods Only**: Portfolio integrations must use the tool's official CLI commands or APIs for MCP server registration. Direct config file manipulation is **not permitted** in production code as it's fragile and breaks when tools update.
+**Official Methods Only**: Portfolio integrations must use a tool's official method for MCP server registration — an official CLI, or the tool's **officially schema-documented** config file (one it publishes a `$schema` for; see ADR-021). Fragile, undocumented config manipulation is **not permitted** in production code as it breaks when tools update.
 
 **Unsafe Scripts Available**: For tools without official methods, we provide transparent `unsafe-*.sh` scripts in `scripts/` directory. These scripts:
 - Clearly state they are unsafe and unofficial
@@ -18,7 +18,7 @@ This document provides official integration methods for AI coding agents and man
 | Tool | Official Method | Status | Approach |
 |------|---------------|--------|----------|
 | Claude Code | `claude mcp add` | ✅ Full Support | Use official CLI |
-| OpenCode | `opencode mcp add` | ⚠️ Partial | Remote only. Local: use `scripts/unsafe-opencode-integration.sh` |
+| OpenCode | `opencode.json` (schema-documented; ADR-021) | ✅ Full Support | `portfolio install opencode` writes the config file |
 | Cline | None found | ❌ No Support | Use `scripts/unsafe-cline-integration.sh` or manual setup |
 
 ---
@@ -77,34 +77,38 @@ claude mcp remove portfolio
 
 ## OpenCode Integration
 
-### Official Method ⚠️
+### Official Method ✅
 
-OpenCode has **limited official support** for MCP servers:
-
-```bash
-# For remote MCP servers only
-opencode mcp add portfolio --url https://your-mcp-server.com/mcp
-
-# For local servers with environment variables (no direct command support)
-opencode mcp add portfolio --env PORTFOLIO_PATH=/path/to/portfolio
-```
-
-**Limitation**: `opencode mcp add` does NOT support local stdio-based MCP servers with direct command execution. It only supports:
-- Remote HTTP servers via `--url`
-- Environment variable configuration via `--env`
-
-### Manual Setup Guidelines
-
-Since OpenCode lacks official CLI for local stdio MCP servers, users must manually configure the config file:
-
-#### Step 1: Create/Edit Config File
+OpenCode ships **no local-stdio MCP CLI** — `opencode mcp add` supports remote
+servers only. Its officially schema-documented method for registering a **local**
+MCP server is its config file, `~/.config/opencode/opencode.json`, which OpenCode
+declares stable by publishing `$schema: https://opencode.ai/config.json`. Per
+**ADR-021**, writing that file is an official method, so Portfolio provides a
+first-class automated integration:
 
 ```bash
-# Edit OpenCode config
-nano ~/.config/opencode/opencode.json
+# Install (registers the MCP server + installs the skill)
+portfolio install opencode
+
+# Verify
+portfolio doctor opencode
+
+# Force reinstall
+portfolio install opencode --force
+
+# Remove
+portfolio uninstall opencode
 ```
 
-#### Step 2: Add Portfolio MCP Server
+`portfolio install opencode` performs an **idempotent read-merge-write** of
+`opencode.json`: it preserves an existing `$schema`, unrelated top-level keys,
+and any other MCP servers you have configured, and writes atomically (temp file
++ rename). It also installs the Portfolio skill to
+`~/.config/opencode/skills/portfolio/SKILL.md`.
+
+### What gets written
+
+The MCP entry added under `mcp` is:
 
 ```json
 {
@@ -112,79 +116,45 @@ nano ~/.config/opencode/opencode.json
   "mcp": {
     "portfolio": {
       "type": "local",
-      "command": [
-        "/usr/local/bin/portfolio",
-        "mcp"
-      ],
+      "command": ["/path/to/portfolio", "mcp"],
       "enabled": true
     }
   }
 }
 ```
 
-#### Step 3: Verify Configuration
+### Manual Setup (any agent without an official method)
+
+The same structure lets you wire Portfolio into any MCP-capable agent by hand.
+For the canonical, always-up-to-date reference (skill content + connection
+info), run:
 
 ```bash
-# Check if OpenCode recognizes the server
+portfolio manual
+```
+
+…or read `docs/agent-integration-manual.md`.
+
+### Verify
+
+```bash
+# OpenCode recognizes the server
 opencode mcp list
 
 # Debug MCP configuration
 opencode debug config
 ```
 
-#### Step 4: Test MCP Tools
-
-```bash
-# Start OpenCode and test portfolio tools
-opencode
-
-# Within OpenCode, test:
-# Call health()
-# Call listProjects()
-```
-
-### Config Format Details
-
-**File**: `~/.config/opencode/opencode.json` or `~/.config/opencode/opencode.jsonc`
-
-**Structure for Local Servers**:
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "server-name": {
-      "type": "local",
-      "command": ["executable", "arg1", "arg2"],
-      "enabled": true
-    }
-  }
-}
-```
-
-**Structure for Remote Servers**:
-```json
-{
-  "mcp": {
-    "server-name": {
-      "type": "remote",
-      "url": "https://server.com/mcp",
-      "enabled": true
-    }
-  }
-}
-```
-
 ### Implementation Status
 
-- **Automated Integration**: ❌ Not Available - No official CLI for local stdio servers
-- **Manual Setup**: ✅ Required - Follow steps above
-- **Official Documentation**: [OpenCode MCP Configuration Guide](https://blog.wenhaofree.com/en/posts/articles/opencode-mcp-configuration-guide/)
+- **Automated Integration**: ✅ Available - `portfolio install opencode` writes the schema-documented config (ADR-021)
+- **Manual Setup**: ✅ Documented - see `portfolio manual`
+- **Official Documentation**: [OpenCode config reference](https://opencode.ai/config.json)
 
-### Important Notes
+### Notes
 
-- **Do Not Automate**: Do not create integration code that directly edits this file
-- **Tool Changes**: OpenCode may change config format without notice
-- **Alternative**: Consider using remote MCP server if available
+- **Safe merge**: install/upgrade never overwrite unrelated keys or sibling servers; remove deletes only the `portfolio` entry.
+- **Tool changes**: if OpenCode restructures the documented config, the integration is updated in lockstep — the same maintenance reality as any official CLI.
 
 ---
 
