@@ -4,6 +4,8 @@ import (
 	_ "embed"
 	"os"
 	"path/filepath"
+
+	"project-dash/internal/integration"
 )
 
 //go:embed skill.md
@@ -14,8 +16,11 @@ func (c *ClaudeCodeIntegration) installSkill() error {
 		return err
 	}
 
+	// skillContent is a template carrying the {{SKILL_COMMON}} placeholder (and
+	// {{ANALYZER}} inside the shared body); expand both before writing so the
+	// installed file is the fully resolved skill.
 	skillPath := c.skillPath()
-	if err := os.WriteFile(skillPath, []byte(skillContent), 0644); err != nil {
+	if err := os.WriteFile(skillPath, []byte(integration.RenderSkill(skillContent, "claude-code")), 0644); err != nil {
 		return err
 	}
 

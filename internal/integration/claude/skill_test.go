@@ -3,6 +3,7 @@ package claude
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -109,5 +110,40 @@ func TestSkillPath(t *testing.T) {
 
 	if actualPath != expectedPath {
 		t.Errorf("expected skill path %s, got %s", expectedPath, actualPath)
+	}
+}
+
+// TestSkillContentRendered verifies that the installed skill file is the fully
+// expanded document: no {{SKILL_COMMON}}/{{ANALYZER}} placeholders survive, the
+// shared body is present, and the per-integration analyzer id is filled in.
+func TestSkillContentRendered(t *testing.T) {
+	tempDir := t.TempDir()
+	integration := &ClaudeCodeIntegration{
+		config: ClaudeConfig{SkillsDir: filepath.Join(tempDir, "skills")},
+	}
+
+	if err := integration.installSkill(); err != nil {
+		t.Fatalf("installSkill failed: %v", err)
+	}
+
+	content, err := os.ReadFile(integration.skillPath())
+	if err != nil {
+		t.Fatalf("read installed skill: %v", err)
+	}
+	got := string(content)
+
+	for _, needle := range []string{"{{SKILL_COMMON}}", "{{ANALYZER}}"} {
+		if strings.Contains(got, needle) {
+			t.Errorf("installed skill contains unresolved placeholder %s", needle)
+		}
+	}
+	if !strings.HasPrefix(got, "# Portfolio — Claude Code Skill") {
+		t.Error("installed skill does not start with the Claude header")
+	}
+	if !strings.Contains(got, "## Tools") {
+		t.Error("installed skill is missing the shared ## Tools section")
+	}
+	if !strings.Contains(got, `analyzer: "claude-code"`) {
+		t.Error(`installed skill missing expanded analyzer: "claude-code"`)
 	}
 }
