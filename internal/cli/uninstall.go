@@ -47,8 +47,7 @@ func runUninstall(cmd *cobra.Command, args []string) {
 		runUninstallClaude(cmd, []string{})
 		return
 	}
-	fmt.Printf("Error: Unknown uninstall target '%s'\n", args[0])
-	fmt.Println("Supported targets: claude")
+	suggestAgentIntegration("uninstall", args[0])
 	os.Exit(1)
 }
 

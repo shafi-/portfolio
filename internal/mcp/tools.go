@@ -222,9 +222,26 @@ func (s *Server) handleSearchProjects(ctx context.Context, req mcp.CallToolReque
 		return mcp.NewToolResultError("query is required"), nil
 	}
 
-	rows, err := s.db.Query(
-		"SELECT id, name, root_path, repository_type, discovered_at, updated_at FROM projects WHERE name LIKE ? ORDER BY name LIMIT 50",
-		"%"+query+"%",
+	like := "%" + query + "%"
+
+	// Search across projects, analyses, features, and technologies
+	rows, err := s.db.Query(`
+		SELECT DISTINCT p.id, p.name, p.root_path, p.repository_type, p.discovered_at, p.updated_at
+		FROM projects p
+		LEFT JOIN analyses a ON a.project_id = p.id
+		LEFT JOIN features f ON f.analysis_id = a.id
+		LEFT JOIN project_technologies pt ON pt.project_id = p.id
+		LEFT JOIN technologies t ON t.id = pt.technology_id
+		WHERE p.name LIKE ?
+		   OR a.summary LIKE ?
+		   OR a.purpose LIKE ?
+		   OR a.architecture LIKE ?
+		   OR a.notes LIKE ?
+		   OR f.name LIKE ?
+		   OR f.description LIKE ?
+		   OR t.name LIKE ?
+		ORDER BY p.name LIMIT 50`,
+		like, like, like, like, like, like, like, like,
 	)
 	if err != nil {
 		return mcp.NewToolResultErrorFromErr("search failed", err), nil

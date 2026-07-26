@@ -23,6 +23,16 @@ type Metadata struct {
 	DependencySummary string `json:"dependency_summary"`
 	DocumentationHash string `json:"documentation_hash"`
 	LastScanAt        string `json:"last_scan_at"`
+	// Deterministic importance signals (no LLM required).
+	FirstCommitAt       string `json:"first_commit_at"`
+	CommitVelocity90d   int    `json:"commit_velocity_90d"`
+	ContributorCount    int    `json:"contributor_count"`
+	TagCount            int    `json:"tag_count"`
+	RemoteURL           string `json:"remote_url"`
+	IsPublished         bool   `json:"is_published"`
+	MaturityScore       int    `json:"maturity_score"`
+	MaturityIndicators  string `json:"maturity_indicators"`
+	CapabilitiesSummary string `json:"capabilities_summary"`
 }
 
 // Document represents indexed documentation
@@ -56,11 +66,14 @@ type Analysis struct {
 
 // Feature represents extracted features
 type Feature struct {
-	ID          string  `json:"id"`
-	AnalysisID  string  `json:"analysis_id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Confidence  float64 `json:"confidence"`
+	ID                   string  `json:"id"`
+	AnalysisID           string  `json:"analysis_id"`
+	Name                 string  `json:"name"`
+	Description          string  `json:"description"`
+	Confidence           float64 `json:"confidence"`
+	ImplementationStatus string  `json:"implementation_status"` // planned|partial|complete|mature|deprecated
+	FeatureArchitecture  string  `json:"feature_architecture"`  // how the feature is implemented
+	Pattern              string  `json:"pattern"`               // architectural pattern(s)
 }
 
 // Technology represents technology reference
@@ -88,9 +101,12 @@ type Relationship struct {
 
 // Dependency represents a project dependency
 type Dependency struct {
-	ProjectID string `json:"project_id"`
-	Name      string `json:"name"`
-	Manager   string `json:"manager"`
+	ProjectID   string `json:"project_id"`
+	Name        string `json:"name"`
+	Manager     string `json:"manager"`
+	Scope       string `json:"scope"`        // "prod" (default) or "dev"
+	Version     string `json:"version"`      // declared version value (operator stripped)
+	VersionType string `json:"version_type"` // constraint kind: ^/~/~>/>=/==/exact/range/any, "" if unknown
 }
 
 // Configuration represents system configuration

@@ -47,7 +47,16 @@ func initSchema(t *testing.T, db *sql.DB, projectID, rootPath string) {
 		framework_summary TEXT,
 		dependency_summary TEXT,
 		documentation_hash TEXT,
-		last_scan_at TIMESTAMP
+		last_scan_at TIMESTAMP,
+		first_commit_at TIMESTAMP,
+		commit_velocity_90d INTEGER DEFAULT 0,
+		contributor_count INTEGER DEFAULT 0,
+		tag_count INTEGER DEFAULT 0,
+		remote_url TEXT,
+		is_published INTEGER DEFAULT 0,
+		maturity_score INTEGER DEFAULT 0,
+		maturity_indicators TEXT,
+		capabilities_summary TEXT
 	);
 	CREATE TABLE IF NOT EXISTS documents (
 		id TEXT PRIMARY KEY,
@@ -62,6 +71,17 @@ func initSchema(t *testing.T, db *sql.DB, projectID, rootPath string) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_documents_project_kind ON documents(project_id, kind);
 	CREATE INDEX IF NOT EXISTS idx_documents_path ON documents(project_id, path);
+	CREATE TABLE IF NOT EXISTS dependencies (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		manager TEXT NOT NULL,
+		scope TEXT NOT NULL DEFAULT 'prod',
+		version TEXT NOT NULL DEFAULT '',
+		version_type TEXT NOT NULL DEFAULT '',
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(project_id, name, manager)
+	);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		t.Fatalf("init schema: %v", err)
@@ -394,6 +414,77 @@ func TestIndexProject_Idempotent(t *testing.T) {
 		t.Logf("first: docs=%d skipped=%d, second: docs=%d skipped=%d",
 			r1.Documents, r1.Skipped, r2.Documents, r2.Skipped)
 	}
+}
+
+// TestIndexProject_PopulatesMetadataAndDeps verifies the indexer is the single
+// correct metadata writer: after Run, deterministic facts (maturity,
+// capabilities) and dependency rows (with prod/dev scope) are populated, and a
+// second Run does not clobber them.
+func TestIndexProject_PopulatesMetadataAndDeps(t *testing.T) {
+	db := tempDB(t)
+	projectID := "proj-meta"
+	rootPath := t.TempDir()
+
+	initSchema(t, db, projectID, rootPath)
+	writeFile(t, filepath.Join(rootPath, "README.md"), "# Proj")
+	writeFile(t, filepath.Join(rootPath, "main.go"), "package main")
+	writeFile(t, filepath.Join(rootPath, "package.json"),
+		`{"dependencies":{"pg":"^8.0.0"},"devDependencies":{"jest":"^29.0.0"}}`)
+
+	idx := NewIndexer(db, zap.NewNop())
+	if _, err := idx.IndexProject(context.Background(), projectID, rootPath); err != nil {
+		t.Fatalf("first index: %v", err)
+	}
+
+	assertMetaAndDeps := func(label string) {
+		t.Helper()
+		var maturity int
+		var caps, docHash sql.NullString
+		if err := db.QueryRow(
+			"SELECT maturity_score, capabilities_summary, documentation_hash FROM metadata WHERE project_id = ?",
+			projectID,
+		).Scan(&maturity, &caps, &docHash); err != nil {
+			t.Fatalf("%s: query metadata: %v", label, err)
+		}
+		if maturity == 0 {
+			t.Errorf("%s: expected maturity_score > 0", label)
+		}
+		if !caps.Valid || caps.String == "" {
+			t.Errorf("%s: expected capabilities_summary set, got %v", label, caps)
+		}
+		if !docHash.Valid || docHash.String == "" {
+			t.Errorf("%s: expected documentation_hash set", label)
+		}
+
+		scopes := map[string]string{}
+		rows, err := db.Query("SELECT name, scope FROM dependencies WHERE project_id = ?", projectID)
+		if err != nil {
+			t.Fatalf("%s: query deps: %v", label, err)
+		}
+		for rows.Next() {
+			var name, scope string
+			if err := rows.Scan(&name, &scope); err != nil {
+				rows.Close()
+				t.Fatalf("%s: scan dep: %v", label, err)
+			}
+			scopes[name] = scope
+		}
+		rows.Close()
+		if scopes["pg"] != "prod" {
+			t.Errorf("%s: pg scope: got %q, want prod", label, scopes["pg"])
+		}
+		if scopes["jest"] != "dev" {
+			t.Errorf("%s: jest scope: got %q, want dev", label, scopes["jest"])
+		}
+	}
+
+	assertMetaAndDeps("after first run")
+
+	// Re-indexing must not clobber the deterministic facts.
+	if _, err := idx.IndexProject(context.Background(), projectID, rootPath); err != nil {
+		t.Fatalf("second index: %v", err)
+	}
+	assertMetaAndDeps("after second run")
 }
 
 func TestIndexProject_EmptyProject(t *testing.T) {

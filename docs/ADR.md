@@ -205,3 +205,228 @@ All Portfolio integrations MUST use official tool methods for MCP server registr
 - OpenCode has `opencode mcp add` but only for remote servers
 - Cline requires manual `~/.cline/mcp.json` editing
 - All unsafe scripts live in `scripts/` with clear README documentation
+
+---
+
+## ADR-017: Deterministic Importance Signals
+
+**Status:** Accepted
+
+### Context
+
+Projects can be ranked by "importance" without any AI analysis — but only if the
+Engine persists enough deterministic signal. Before this decision, `metadata` was
+`null` for every project: extractors existed and were tested, but nothing in the
+production scan path called them, and the indexer's only metadata write was a
+two-field `INSERT OR REPLACE` that clobbered every other column.
+
+This violated two guiding principles: "Engine Knows, Agent Thinks" (the Engine
+should surface all the deterministic facts it can) and "Store Facts, Compute
+Indicators" (persist immutable facts; derive rankings at read time).
+
+### Decision
+
+Add a set of deterministic, LLM-free signals and make the Engine actually
+populate them:
+
+- **Git investment:** `first_commit_at`, `commit_velocity_90d`, `contributor_count`,
+  `tag_count`, `remote_url`, `is_published`.
+- **Dependency scope:** `scope` (`prod`/`dev`) on each dependency row, capturing
+  `devDependencies`.
+- **Capabilities:** `capabilities_summary` — categories (database, auth, payments,
+  queue, orm, search, container, orchestration, caching, monitoring) derived from
+  dependency names.
+- **Maturity:** `maturity_score` + `maturity_indicators` (JSON) from a weighted
+  file-presence scoreboard (README, LICENSE, CHANGELOG, CONTRIBUTING, SECURITY,
+  Dockerfile, CI, test config, linter, `tsconfig.json`, `docs/`, Makefile, …).
+
+Engineering changes that implement this:
+
+1. The indexer becomes the **single correct metadata writer**: it calls the pure
+   `metadata.Service.Extract`, attaches `ProjectID` + `DocumentationHash` +
+   `LastScanAt`, and issues one `UpsertMetadata` + `ReplaceDependencies`. The old
+   clobbering partial upsert is removed.
+2. A new `portfolio scan` command activates the previously-dormant scan path.
+3. LOC-by-language is **intentionally excluded** as noisy and low-signal.
+
+### Consequences
+
+**Positive:**
+
+- `getProject` (MCP/REST) and `portfolio projects get` (CLI) return real
+  investment/maturity/capability facts with zero AI cost.
+- Downstream ranking can be a **computed indicator** (read time), not a stored
+  one — fully aligned with "Store Facts, Compute Indicators."
+
+**Negative:**
+
+- The `dependencies` unique constraint is `(project_id, name, manager)` and does
+  not include `scope`; a package declared in both `dependencies` and
+  `devDependencies` collapses to one row (`INSERT OR IGNORE`). This is accepted as
+  a rare edge case.
+- More git invocations per scan (first commit, velocity, contributors, tags,
+  remote). All use cached, single-purpose `git` calls and tolerate failure.
+
+---
+
+## ADR-018: Per-Ecosystem Manifest Parser Registry
+
+**Status:** Accepted
+
+### Context
+
+Dependency extraction (`internal/metadata/dependencies.go`) was implemented as a
+single dispatcher with a hard-coded `switch` over manifest filenames, each case
+calling a bespoke `parseX(path)` free function. Adding an ecosystem required
+editing the central switch and growing an already-large file. This also diverged
+from the catalog Pattern A used everywhere else in the metadata package
+(`frameworks_data.go`, `capabilities_data.go`, `maturity_data.go`): a data type,
+a `default…` registry slice, and a defensive-copy `Default…()` accessor.
+
+### Decision
+
+Dependency extraction is now registry-driven. Each ecosystem is a stateless
+value type implementing a `ManifestParser` interface:
+
+```go
+type ManifestParser interface {
+    Filename() string
+    Parse(content []byte) ([]models.Dependency, error)
+}
+```
+
+`DetectDependencies(root, walker, parsers)` is a thin dispatcher: it builds a
+filename → parser map from the registry, and for each walked manifest reads the
+bytes once and delegates to `Parse`. Parsers live in one file per ecosystem
+(`dependencies_npm.go`, `dependencies_go.go`, `dependencies_python.go`,
+`dependencies_rust.go`, `dependencies_ruby.go`, `dependencies_jvm.go`).
+
+`Parse` receives the manifest **bytes**, not the path. This keeps every parser
+pure (no filesystem access) and unit-testable in isolation; `os.ReadFile` happens
+once, in the dispatcher.
+
+Adding an ecosystem is now: create one file with a parser type, append one entry
+to `defaultManifestParsers`. No dispatcher edits.
+
+This mirrors the existing catalog Pattern A and keeps `DetectDependencies`
+injectable (the parser set is a parameter, defaulting to
+`DefaultManifestParsers()`), consistent with `DetectFrameworks` /
+`DetectCapabilities` / `DetectMaturity`.
+
+### Consequences
+
+**Positive:**
+
+- Adding an ecosystem is local and low-risk (one file + one registry line).
+- Parsers are focused, individually unit-testable, and easy to enrich.
+- The hard-coded switch over manifest filenames was replaced by a generic
+  map-dispatch loop; adding an ecosystem no longer touches the dispatcher.
+- Consistency with the rest of the metadata package's registry pattern.
+
+**Negative:**
+
+- `Parse(content)` carries no path context; a future parser that needs the
+  directory (e.g. npm workspaces reading nested manifests) would require widening
+  the interface to `Parse(path string, content []byte)`. This is a deliberate
+  YAGNI trade-off, documented on the interface.
+- One more concept (the interface) for contributors to learn — mitigated by
+  matching an already-established pattern in the package.
+
+No domain model, schema, store, or interface (MCP/REST/CLI) changed: the
+`manager` values, dedupe key (`name|manager|scope`), prod/dev scope, sort order,
+and summary are identical to before.
+
+## ADR-019: Store Declared Dependency Version as a Literal Fact
+
+**Status:** Accepted
+
+### Context
+
+`dependencies` rows stored only `name`, `manager`, and `scope`; every parser
+discarded the declared version (npm even had it in hand and dropped it). Users
+want to identify projects on a given version and to judge whether a dependency is
+"outdated." The design question was what to store: the raw declared spec (e.g.
+`^4.0.0`, `~> 7.0`), a normalized bare version, or a split of the two.
+
+### Decision
+
+Store the declared version as **two** columns on `dependencies`:
+
+- `version` — the value with its operator stripped (`4.0.0`, `v1.2.3`, `2.28.0`).
+- `version_type` — the literal constraint kind: the leading operator verbatim
+  (`^`, `~`, `~>`, `>=`, `<=`, `==`, `!=`, `=`, `>`, `<`), or `exact` for a bare
+  pin, `range` for a compound spec (`>=1.0,<2.0`), `any` for `*`/`latest`/x-ranges,
+  or `""` when unknown.
+
+The decomposition is **literal, not semantic.** Cargo's implicit caret
+(`serde = "1.0"`) is recorded as `exact` because the manifest pins it literally;
+interpreting it as a caret is the AI agent's job. A single shared helper,
+`parseVersionSpec(raw)` in `internal/metadata/version.go`, centralizes the
+operator/kind logic; each ecosystem parser extracts its raw spec string and feeds
+it in. The dedupe identity is unchanged (`name|manager|scope`, prod wins the
+`INSERT OR IGNORE`), so the version rides along on the surviving production row.
+
+### Consequences
+
+Both the value and the constraint kind are independently queryable ("who pins
+exactly 4.0.0", "who uses caret ranges"). "Is this outdated?" remains a
+**semantic indicator** — it needs a registry/latest-version lookup plus semver
+comparison — and so stays agent-side, consistent with "Engine Knows, Agent
+Thinks" and "Store Facts, Compute Indicators." The `dependencies` table gains two
+NOT NULL DEFAULT '' columns. Compound ranges and x-ranges have no single value,
+so `version` holds the whole declared string under kind `range`/`any`. Reading
+lockfiles (`package-lock.json`, `Cargo.lock`, `go.sum`) for *resolved* versions is
+deliberately out of scope; the declared spec is the fact stored here.
+
+## ADR-020: Three-Tier Knowledge Model and Feature Upsert-by-Name
+
+**Status:** Accepted
+
+### Context
+
+Analysis knowledge had two layers: Tier 1 (engine-owned, deterministic) and
+Tier 2 (agent-owned analysis + features). In practice an agent needs a third,
+optional layer — a per-feature deep dive ("how is auth implemented?", "what
+pattern does search use?") — without re-running the whole investigation. The
+`features` table stored only `name`, `description`, `confidence`, so there was
+nowhere to put implementation status, architecture, or pattern. Worse, the
+`storeFeature` MCP tool always created a new row (fresh UUID), so a deep-dive
+"update" actually produced a duplicate feature with empty Tier-2 fields — the
+documented workflow did not work.
+
+### Decision
+
+1. **Add three Tier-3 columns** to `features` (migration `tier3_feature_extras`,
+   v3): `implementation_status` (`planned|partial|complete|mature|deprecated`,
+   default `planned`), `feature_architecture` (how it is implemented), and
+   `pattern` (architectural patterns).
+
+2. **Upsert `storeFeature` by (project, analyzer, name).** The handler resolves
+   the analysis for the analyzer, then looks up a feature by
+   `(analysis_id, name)` via `FeatureStore.GetByAnalysisAndName`. If present, it
+   **merges** the caller's supplied fields onto the stored row and calls
+   `UpdateFeature`; otherwise it creates. Merge semantics: empty strings mean
+   "leave as-is" (so a Tier-3 call omitting `description` never blanks the
+   stored Tier-2 description), and `confidence` is applied only when explicitly
+   passed. This makes a single investigation pass reusable across tiers.
+
+3. **No `UNIQUE(analysis_id, name)` constraint yet.** The lookup is read-then-
+   write. The store is single-writer (the indexer for deterministic facts; the
+   agent for analyses/features, low concurrency), so the TOCTOU window is
+   acceptable. A unique constraint + backfill of any pre-existing duplicates is
+   recorded as future hardening; `GetByAnalysisAndName` collapses duplicates to
+   the first row (`LIMIT 1`).
+
+### Consequences
+
+The deep-dive workflow now enriches instead of duplicating, and the three-tier
+model (engine context → project analysis+features → per-feature deep dive) is the
+documented agent contract in the Claude Code skill. `searchFeatures` queries the
+new columns (status, pattern, free text across name/description/architecture).
+`featureColumns` is `f.`-qualified because the search/list-by-project readers
+JOIN `analyses`, which also has `id`/`name` — an unqualified projection was
+ambiguous. A second call with the same name is an update (returns `updated: true`
+vs `created: true`), so callers can distinguish the two. Stale Tier-3 fields are
+preserved unless explicitly overwritten; agents that want to clear a field must
+pass the new value rather than rely on omission.
+

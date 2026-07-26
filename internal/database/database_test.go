@@ -93,8 +93,8 @@ func TestDatabaseInitialization(t *testing.T) {
 		t.Errorf("Failed to get schema version: %v", err)
 	}
 
-	if version < 3 {
-		t.Errorf("Expected schema version >= 3, got %d", version)
+	if version < 2 {
+		t.Errorf("Expected schema version >= 2 (consolidated schema fully applied), got %d", version)
 	}
 
 	// Check table count
@@ -167,6 +167,76 @@ func TestSchemaValidation(t *testing.T) {
 	if err := db.ValidateSchema(); err != nil {
 		t.Errorf("Valid schema should pass validation: %v", err)
 	}
+}
+
+func TestMigrationConsolidatedSchema(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	logger, _ := logging.NewLogger("INFO", "console")
+
+	db, err := NewDatabase(dbPath, logger)
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+	if err := db.Connect(); err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Migrate(); err != nil {
+		t.Fatalf("Migrations failed: %v", err)
+	}
+
+	// Re-running Migrate must be a no-op: the version check in Migrate() skips
+	// migrations already recorded, and the consolidated schema uses IF NOT EXISTS.
+	if err := db.Migrate(); err != nil {
+		t.Fatalf("Re-running migrations failed (not idempotent): %v", err)
+	}
+
+	version, err := db.GetSchemaVersion()
+	if err != nil {
+		t.Fatalf("GetSchemaVersion: %v", err)
+	}
+	if version != 3 {
+		t.Errorf("schema version: got %d, want 3 (initial_schema + fts5_fulltext_search + tier3_feature_extras)", version)
+	}
+
+	metaCols := tableColumns(t, db, "metadata")
+	for _, c := range []string{
+		"first_commit_at", "commit_velocity_90d", "contributor_count", "tag_count",
+		"remote_url", "is_published", "maturity_score", "maturity_indicators",
+		"capabilities_summary",
+	} {
+		if !metaCols[c] {
+			t.Errorf("metadata column %q missing after migration", c)
+		}
+	}
+
+	if depCols := tableColumns(t, db, "dependencies"); !depCols["scope"] {
+		t.Error("dependencies column \"scope\" missing after migration")
+	}
+}
+
+func tableColumns(t *testing.T, db *Database, table string) map[string]bool {
+	t.Helper()
+	rows, err := db.DB().Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		t.Fatalf("PRAGMA table_info(%s): %v", table, err)
+	}
+	defer rows.Close()
+
+	out := make(map[string]bool)
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt interface{}
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			t.Fatalf("scan pragma row: %v", err)
+		}
+		out[name] = true
+	}
+	return out
 }
 
 func TestDatabasePermissions(t *testing.T) {

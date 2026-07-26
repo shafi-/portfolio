@@ -48,8 +48,20 @@ var discoverCmd = &cobra.Command{
 	Run:   runDiscoverProjects,
 }
 
+// discoverRootCmd is a top-level shortcut for "portfolio projects discover".
+// It reuses the same handler so behavior stays identical.
+var discoverRootCmd = &cobra.Command{
+	Use:   "discover",
+	Short: "Run project discovery on configured roots (shortcut for 'projects discover')",
+	Long: `Run project discovery on configured root directories.
+
+This is a shortcut for 'portfolio projects discover'.`,
+	Run: runDiscoverProjects,
+}
+
 func init() {
 	rootCmd.AddCommand(projectsCmd)
+	rootCmd.AddCommand(discoverRootCmd)
 	projectsCmd.AddCommand(listCmd)
 	projectsCmd.AddCommand(searchCmd)
 	projectsCmd.AddCommand(getCmd)
@@ -216,6 +228,24 @@ func runGetProject(cmd *cobra.Command, args []string) {
 		}
 		if metadata.FrameworkSummary != "" {
 			fmt.Printf("  Frameworks: %s\n", metadata.FrameworkSummary)
+		}
+		if metadata.CapabilitiesSummary != "" {
+			fmt.Printf("  Capabilities: %s\n", metadata.CapabilitiesSummary)
+		}
+		fmt.Printf("  Maturity score: %d\n", metadata.MaturityScore)
+		if metadata.MaturityIndicators != "" {
+			fmt.Printf("  Maturity indicators: %s\n", metadata.MaturityIndicators)
+		}
+		fmt.Printf("  Commits (total): %d  (last 90d): %d\n", metadata.CommitCount, metadata.CommitVelocity90d)
+		fmt.Printf("  Contributors: %d  Tags: %d\n", metadata.ContributorCount, metadata.TagCount)
+		if metadata.FirstCommitAt != "" {
+			fmt.Printf("  First commit: %s\n", metadata.FirstCommitAt)
+		}
+		if metadata.RemoteURL != "" {
+			fmt.Printf("  Remote: %s (published: %v)\n", metadata.RemoteURL, metadata.IsPublished)
+		}
+		if metadata.LastScanAt != "" {
+			fmt.Printf("  Last scan: %s\n", metadata.LastScanAt)
 		}
 	}
 }

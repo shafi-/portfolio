@@ -47,8 +47,7 @@ func runUpgrade(cmd *cobra.Command, args []string) {
 		runUpgradeClaude(cmd, []string{})
 		return
 	}
-	fmt.Printf("Error: Unknown upgrade target '%s'\n", args[0])
-	fmt.Println("Supported targets: claude")
+	suggestAgentIntegration("upgrade", args[0])
 	os.Exit(1)
 }
 

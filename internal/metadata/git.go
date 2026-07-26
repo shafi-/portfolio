@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -9,11 +10,17 @@ import (
 )
 
 type GitResult struct {
-	GitHead        *string
-	DefaultBranch  *string
-	LastCommitAt   *time.Time
-	LastModifiedAt *time.Time
-	CommitCount    int
+	GitHead           *string
+	DefaultBranch     *string
+	LastCommitAt      *time.Time
+	LastModifiedAt    *time.Time
+	CommitCount       int
+	FirstCommitAt     *time.Time
+	CommitVelocity90d int
+	ContributorCount  int
+	TagCount          int
+	RemoteURL         *string
+	IsPublished       bool
 }
 
 func ExtractGitMetadata(root string) (*GitResult, error) {
@@ -48,10 +55,104 @@ func ExtractGitMetadata(root string) (*GitResult, error) {
 		}
 	}
 
+	// First (oldest) commit timestamp — `--reverse` makes the oldest commit first.
+	firstCommitStr := firstLine(runGit(root, "log", "--reverse", "--format=%ct", "HEAD"))
+	if firstCommitStr != "" {
+		if ts, err := strconv.ParseInt(firstCommitStr, 10, 64); err == nil {
+			t := time.Unix(ts, 0)
+			result.FirstCommitAt = &t
+		}
+	}
+
+	// Commits in the last 90 days — activity / "is this cared about right now".
+	velocityStr := runGit(root, "rev-list", "--count", "--since=90 days ago", "HEAD")
+	if velocityStr != "" {
+		if v, err := strconv.Atoi(strings.TrimSpace(velocityStr)); err == nil {
+			result.CommitVelocity90d = v
+		}
+	}
+
+	// Unique contributor count via author emails.
+	result.ContributorCount = countUniqueLines(runGit(root, "log", "--format=%ae", "HEAD"))
+
+	// Tag count — release maturity.
+	result.TagCount = countNonEmptyLines(runGit(root, "tag", "--list"))
+
+	// Remote URL + published flag (host is a known public forge).
+	remoteURL := runGit(root, "remote", "get-url", "origin")
+	if remoteURL != "" {
+		result.RemoteURL = &remoteURL
+		result.IsPublished = isPublishedRemote(remoteURL)
+	}
+
 	lastModifiedAt := getLastModifiedAt(root)
 	result.LastModifiedAt = lastModifiedAt
 
 	return result, nil
+}
+
+// firstLine returns the first non-empty line of s.
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
+// countUniqueLines counts non-empty unique lines (case-insensitive).
+func countUniqueLines(s string) int {
+	seen := make(map[string]struct{})
+	for _, line := range strings.Split(s, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			seen[strings.ToLower(line)] = struct{}{}
+		}
+	}
+	return len(seen)
+}
+
+// countNonEmptyLines counts non-empty lines.
+func countNonEmptyLines(s string) int {
+	count := 0
+	for _, line := range strings.Split(s, "\n") {
+		if strings.TrimSpace(line) != "" {
+			count++
+		}
+	}
+	return count
+}
+
+// knownPublicForges are remote hosts that imply a project is published.
+var knownPublicForges = map[string]bool{
+	"github.com":    true,
+	"gitlab.com":    true,
+	"bitbucket.org": true,
+	"codeberg.org":  true,
+	"git.sr.ht":     true,
+}
+
+// isPublishedRemote reports whether the remote URL points at a known public forge.
+func isPublishedRemote(remote string) bool {
+	remote = strings.TrimSpace(remote)
+	if remote == "" {
+		return false
+	}
+	// SSH form: git@github.com:owner/repo.git
+	if strings.HasPrefix(remote, "git@") {
+		if i := strings.Index(remote, "@"); i != -1 {
+			host := remote[i+1:]
+			if j := strings.Index(host, ":"); j != -1 {
+				host = host[:j]
+			}
+			return knownPublicForges[strings.ToLower(host)]
+		}
+	}
+	// HTTPS form: https://github.com/owner/repo.git
+	if u, err := url.Parse(remote); err == nil && u.Host != "" {
+		return knownPublicForges[strings.ToLower(u.Host)]
+	}
+	return false
 }
 
 func runGit(root string, args ...string) string {
