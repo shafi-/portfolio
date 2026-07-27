@@ -41,12 +41,20 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
           else
-            # Extract version from branch name (e.g., release-v0.2.0 -> v0.2.0)
+            # Extract version from branch name (e.g., release-v0.2.1 -> v0.2.1)
             BRANCH="${GITHUB_REF#refs/heads/}"
             VERSION="${BRANCH#release-}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Releasing version: $VERSION"
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
