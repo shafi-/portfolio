@@ -401,29 +401,51 @@ func (s *Server) handleListProjectsNeedingAnalysis(ctx context.Context, req mcp.
 		return mcp.NewToolResultErrorFromErr("failed to list projects", err), nil
 	}
 
-	var needing []*models.Project
+	noAnalysis := make([]map[string]interface{}, 0)
+	staleAnalysis := make([]map[string]interface{}, 0)
+
 	for _, p := range projects {
 		analyses, err := s.analyses.ListAnalyses(p.ID)
 		if err != nil || len(analyses) == 0 {
-			needing = append(needing, p)
+			noAnalysis = append(noAnalysis, map[string]interface{}{
+				"id":   p.ID,
+				"name": p.Name,
+				"path": p.RootPath,
+			})
 			continue
 		}
 
 		meta, err := s.metadata.GetMetadata(p.ID)
 		if err != nil || meta == nil {
-			needing = append(needing, p)
+			noAnalysis = append(noAnalysis, map[string]interface{}{
+				"id":   p.ID,
+				"name": p.Name,
+				"path": p.RootPath,
+			})
 			continue
 		}
 
 		latest := analyses[0]
 		if meta.GitHead != "" && latest.AnalyzedGitHead != meta.GitHead {
-			needing = append(needing, p)
+			staleAnalysis = append(staleAnalysis, map[string]interface{}{
+				"id":                p.ID,
+				"name":              p.Name,
+				"path":              p.RootPath,
+				"analyzed_at":       latest.AnalyzedAt,
+				"analyzed_git_head": latest.AnalyzedGitHead,
+				"current_git_head":  meta.GitHead,
+			})
 		}
 	}
 
 	result := map[string]interface{}{
-		"projects": needing,
-		"count":    len(needing),
+		"no_analysis":    noAnalysis,
+		"stale_analysis": staleAnalysis,
+		"counts": map[string]interface{}{
+			"no_analysis":    len(noAnalysis),
+			"stale_analysis": len(staleAnalysis),
+			"total":          len(noAnalysis) + len(staleAnalysis),
+		},
 	}
 	return mcp.NewToolResultJSON(result)
 }

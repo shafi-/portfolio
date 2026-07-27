@@ -43,7 +43,7 @@ func createTestProject(t *testing.T, db *database.Database) *models.Project {
 	project := &models.Project{
 		ID:             projectID,
 		Name:           "test-project",
-		RootPath:       "/tmp/test-project",
+		RootPath:       "/tmp/test-project-" + uuid.New().String(),
 		RepositoryType: "git",
 		DiscoveredAt:   now,
 		UpdatedAt:      now,
@@ -60,11 +60,15 @@ func createTestProject(t *testing.T, db *database.Database) *models.Project {
 	return project
 }
 
-func createTestMetadata(t *testing.T, db *database.Database, projectID string) *models.Metadata {
+func createTestMetadata(t *testing.T, db *database.Database, projectID string, gitHead ...string) *models.Metadata {
 	t.Helper()
+	head := "abc123"
+	if len(gitHead) > 0 {
+		head = gitHead[0]
+	}
 	metadata := &models.Metadata{
 		ProjectID:         projectID,
-		GitHead:           "abc123",
+		GitHead:           head,
 		DefaultBranch:     "main",
 		LastCommitAt:      time.Now().UTC().Format(time.RFC3339),
 		LastModifiedAt:    time.Now().UTC().Format(time.RFC3339),
@@ -594,21 +598,39 @@ func TestRootsConfigProvider(t *testing.T) {
 // Feature tool tests
 // ---------------------------------------------------------------------------
 
-func createTestAnalysis(t *testing.T, db *database.Database, projectID string) string {
+func createTestAnalysis(t *testing.T, db *database.Database, projectID string, extra ...string) *models.Analysis {
 	t.Helper()
+	gitHead := "abc123"
+	analyzedAt := time.Now().UTC().Format(time.RFC3339)
+	analyzer := "test-analyzer"
+	if len(extra) > 0 {
+		gitHead = extra[0]
+	}
+	if len(extra) > 1 {
+		analyzedAt = extra[1]
+	}
+	if len(extra) > 2 {
+		analyzer = extra[2]
+	}
 	id := uuid.New().String()
-	// Must supply all columns that ListAnalyses scans, even with empty defaults,
-	// so SQL NULL never hits a string Scan (which would error).
 	_, err := db.DB().Exec(
 		`INSERT INTO analyses (id, project_id, analyzer, analyzed_git_head, analyzed_at,
 		 summary, purpose, architecture, maturity, strengths, weaknesses, reusable_components, notes, raw_json)
-		 VALUES (?, ?, ?, ?, datetime('now'), ?, ?, '', '', '', '', '', '', '')`,
-		id, projectID, "test-analyzer", "abc123", "Test summary", "Test purpose",
+		 VALUES (?, ?, ?, ?, ?, ?, ?, '', '', '', '', '', '', '')`,
+		id, projectID, analyzer, gitHead, analyzedAt, "Test summary", "Test purpose",
 	)
 	if err != nil {
 		t.Fatalf("failed to create test analysis: %v", err)
 	}
-	return id
+	return &models.Analysis{
+		ID:              id,
+		ProjectID:       projectID,
+		Analyzer:        analyzer,
+		AnalyzedGitHead: gitHead,
+		AnalyzedAt:      analyzedAt,
+		Summary:         "Test summary",
+		Purpose:         "Test purpose",
+	}
 }
 
 func TestHandleStoreFeature(t *testing.T) {
@@ -1618,4 +1640,365 @@ func TestGetStringArg(t *testing.T) {
 	if got := getStringArg(args, "missing"); got != "" {
 		t.Errorf("expected empty string for missing key, got '%s'", got)
 	}
+}
+
+func TestHandleListProjectsNeedingAnalysis(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	logger, _ := logging.NewLogger("INFO", "console")
+	cfg := &Config{
+		DB:     db.DB(),
+		Logger: logger,
+		Roots:  []string{},
+	}
+	server := New(cfg)
+
+	t.Run("empty database", func(t *testing.T) {
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		if result == nil {
+			t.Fatal("expected non-nil result")
+		}
+
+		if result.IsError {
+			t.Fatal("listProjectsNeedingAnalysis should not error on empty database")
+		}
+
+		// Parse response
+		var response map[string]interface{}
+		if len(result.Content) > 0 {
+			if content, ok := result.Content[0].(mcp.TextContent); ok {
+				if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+					t.Fatalf("failed to parse response JSON: %v", err)
+				}
+			}
+		}
+
+		// Verify structure
+		if _, ok := response["no_analysis"]; !ok {
+			t.Error("response missing 'no_analysis' field")
+		}
+		if _, ok := response["stale_analysis"]; !ok {
+			t.Error("response missing 'stale_analysis' field")
+		}
+		if _, ok := response["counts"]; !ok {
+			t.Error("response missing 'counts' field")
+		}
+
+		// Verify empty arrays
+		noAnalysis := response["no_analysis"].([]interface{})
+		staleAnalysis := response["stale_analysis"].([]interface{})
+		counts := response["counts"].(map[string]interface{})
+
+		if len(noAnalysis) != 0 {
+			t.Errorf("expected 0 no_analysis projects, got %d", len(noAnalysis))
+		}
+		if len(staleAnalysis) != 0 {
+			t.Errorf("expected 0 stale_analysis projects, got %d", len(staleAnalysis))
+		}
+		if int(counts["total"].(float64)) != 0 {
+			t.Errorf("expected total 0, got %v", counts["total"])
+		}
+	})
+
+	t.Run("project with no analysis", func(t *testing.T) {
+		// Clean database for this subtest
+		db.DB().Exec("DELETE FROM projects")
+		db.DB().Exec("DELETE FROM metadata")
+
+		project := createTestProject(t, db)
+		createTestMetadata(t, db, project.ID, "current123")
+
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		var response map[string]interface{}
+		if content, ok := result.Content[0].(mcp.TextContent); ok {
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("failed to parse response JSON: %v", err)
+			}
+		}
+
+		noAnalysis := response["no_analysis"].([]interface{})
+		staleAnalysis := response["stale_analysis"].([]interface{})
+		counts := response["counts"].(map[string]interface{})
+
+		if len(noAnalysis) != 1 {
+			t.Errorf("expected 1 no_analysis project, got %d", len(noAnalysis))
+		}
+		if len(staleAnalysis) != 0 {
+			t.Errorf("expected 0 stale_analysis projects, got %d", len(staleAnalysis))
+		}
+		if int(counts["no_analysis"].(float64)) != 1 {
+			t.Errorf("expected no_analysis count 1, got %v", counts["no_analysis"])
+		}
+		if int(counts["total"].(float64)) != 1 {
+			t.Errorf("expected total 1, got %v", counts["total"])
+		}
+
+		// Verify no_analysis project structure
+		projectData := noAnalysis[0].(map[string]interface{})
+		if projectData["id"].(string) != project.ID {
+			t.Errorf("expected project ID %s, got %s", project.ID, projectData["id"])
+		}
+		if projectData["name"].(string) != project.Name {
+			t.Errorf("expected project name %s, got %s", project.Name, projectData["name"])
+		}
+		if _, ok := projectData["path"]; !ok {
+			t.Error("no_analysis project missing 'path' field")
+		}
+	})
+
+	t.Run("project with stale analysis", func(t *testing.T) {
+		// Clean database
+		db.DB().Exec("DELETE FROM projects")
+		db.DB().Exec("DELETE FROM metadata")
+		db.DB().Exec("DELETE FROM analyses")
+
+		project := createTestProject(t, db)
+		analyzedAt := time.Now().Add(-24 * time.Hour).UTC().Format(time.RFC3339)
+		createTestAnalysis(t, db, project.ID, "old123", analyzedAt)
+		createTestMetadata(t, db, project.ID, "current456")
+
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		var response map[string]interface{}
+		if content, ok := result.Content[0].(mcp.TextContent); ok {
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("failed to parse response JSON: %v", err)
+			}
+		}
+
+		noAnalysis := response["no_analysis"].([]interface{})
+		staleAnalysis := response["stale_analysis"].([]interface{})
+		counts := response["counts"].(map[string]interface{})
+
+		if len(noAnalysis) != 0 {
+			t.Errorf("expected 0 no_analysis projects, got %d", len(noAnalysis))
+		}
+		if len(staleAnalysis) != 1 {
+			t.Errorf("expected 1 stale_analysis project, got %d", len(staleAnalysis))
+		}
+		if int(counts["stale_analysis"].(float64)) != 1 {
+			t.Errorf("expected stale_analysis count 1, got %v", counts["stale_analysis"])
+		}
+
+		// Verify stale_analysis project structure
+		projectData := staleAnalysis[0].(map[string]interface{})
+		if projectData["id"].(string) != project.ID {
+			t.Errorf("expected project ID %s, got %s", project.ID, projectData["id"])
+		}
+		if projectData["analyzed_git_head"].(string) != "old123" {
+			t.Errorf("expected analyzed_git_head old123, got %s", projectData["analyzed_git_head"])
+		}
+		if projectData["current_git_head"].(string) != "current456" {
+			t.Errorf("expected current_git_head current456, got %s", projectData["current_git_head"])
+		}
+		if _, ok := projectData["analyzed_at"]; !ok {
+			t.Error("stale_analysis project missing 'analyzed_at' field")
+		}
+	})
+
+	t.Run("project with up-to-date analysis", func(t *testing.T) {
+		// Clean database
+		db.DB().Exec("DELETE FROM projects")
+		db.DB().Exec("DELETE FROM metadata")
+		db.DB().Exec("DELETE FROM analyses")
+
+		project := createTestProject(t, db)
+		analyzedAt := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
+		createTestAnalysis(t, db, project.ID, "same123", analyzedAt)
+		createTestMetadata(t, db, project.ID, "same123")
+
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		var response map[string]interface{}
+		if content, ok := result.Content[0].(mcp.TextContent); ok {
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("failed to parse response JSON: %v", err)
+			}
+		}
+
+		noAnalysis := response["no_analysis"].([]interface{})
+		staleAnalysis := response["stale_analysis"].([]interface{})
+		counts := response["counts"].(map[string]interface{})
+
+		if len(noAnalysis) != 0 {
+			t.Errorf("expected 0 no_analysis projects, got %d", len(noAnalysis))
+		}
+		if len(staleAnalysis) != 0 {
+			t.Errorf("expected 0 stale_analysis projects, got %d", len(staleAnalysis))
+		}
+		if int(counts["total"].(float64)) != 0 {
+			t.Errorf("expected total 0, got %v", counts["total"])
+		}
+	})
+
+	t.Run("mixed scenario", func(t *testing.T) {
+		// Clean database
+		db.DB().Exec("DELETE FROM projects")
+		db.DB().Exec("DELETE FROM metadata")
+		db.DB().Exec("DELETE FROM analyses")
+
+		// Project 1: No analysis
+		project1 := createTestProject(t, db)
+		createTestMetadata(t, db, project1.ID, "git1")
+
+		// Project 2: Stale analysis
+		project2 := createTestProject(t, db)
+		analyzedAt2 := time.Now().Add(-48 * time.Hour).UTC().Format(time.RFC3339)
+		createTestAnalysis(t, db, project2.ID, "old2", analyzedAt2)
+		createTestMetadata(t, db, project2.ID, "new2")
+
+		// Project 3: Up-to-date analysis
+		project3 := createTestProject(t, db)
+		analyzedAt3 := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
+		createTestAnalysis(t, db, project3.ID, "same3", analyzedAt3)
+		createTestMetadata(t, db, project3.ID, "same3")
+
+		// Project 4: No metadata (should be no_analysis)
+		_ = createTestProject(t, db)
+
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		var response map[string]interface{}
+		if content, ok := result.Content[0].(mcp.TextContent); ok {
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("failed to parse response JSON: %v", err)
+			}
+		}
+
+		noAnalysis := response["no_analysis"].([]interface{})
+		staleAnalysis := response["stale_analysis"].([]interface{})
+		counts := response["counts"].(map[string]interface{})
+
+		// Should have 2 no_analysis (project1, project4) and 1 stale (project2)
+		if len(noAnalysis) != 2 {
+			t.Errorf("expected 2 no_analysis projects, got %d", len(noAnalysis))
+		}
+		if len(staleAnalysis) != 1 {
+			t.Errorf("expected 1 stale_analysis project, got %d", len(staleAnalysis))
+		}
+		if int(counts["total"].(float64)) != 3 {
+			t.Errorf("expected total 3, got %v", counts["total"])
+		}
+
+		// Verify counts match array lengths
+		if int(counts["no_analysis"].(float64)) != len(noAnalysis) {
+			t.Errorf("no_analysis count %d doesn't match array length %d", int(counts["no_analysis"].(float64)), len(noAnalysis))
+		}
+		if int(counts["stale_analysis"].(float64)) != len(staleAnalysis) {
+			t.Errorf("stale_analysis count %d doesn't match array length %d", int(counts["stale_analysis"].(float64)), len(staleAnalysis))
+		}
+	})
+
+	t.Run("project with no metadata and no analysis", func(t *testing.T) {
+		// Clean database
+		db.DB().Exec("DELETE FROM projects")
+		db.DB().Exec("DELETE FROM metadata")
+		db.DB().Exec("DELETE FROM analyses")
+
+		_ = createTestProject(t, db)
+
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		var response map[string]interface{}
+		if content, ok := result.Content[0].(mcp.TextContent); ok {
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("failed to parse response JSON: %v", err)
+			}
+		}
+
+		noAnalysis := response["no_analysis"].([]interface{})
+		staleAnalysis := response["stale_analysis"].([]interface{})
+
+		// Project with no metadata should be in no_analysis
+		if len(noAnalysis) != 1 {
+			t.Errorf("expected 1 no_analysis project, got %d", len(noAnalysis))
+		}
+		if len(staleAnalysis) != 0 {
+			t.Errorf("expected 0 stale_analysis projects, got %d", len(staleAnalysis))
+		}
+	})
+
+	t.Run("empty git head in metadata", func(t *testing.T) {
+		// Clean database
+		db.DB().Exec("DELETE FROM projects")
+		db.DB().Exec("DELETE FROM metadata")
+		db.DB().Exec("DELETE FROM analyses")
+
+		project := createTestProject(t, db)
+		analyzedAt := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
+		createTestAnalysis(t, db, project.ID, "old123", analyzedAt)
+		createTestMetadata(t, db, project.ID, "") // Empty git head
+
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		var response map[string]interface{}
+		if content, ok := result.Content[0].(mcp.TextContent); ok {
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("failed to parse response JSON: %v", err)
+			}
+		}
+
+		noAnalysis := response["no_analysis"].([]interface{})
+		staleAnalysis := response["stale_analysis"].([]interface{})
+
+		// Empty git head should skip staleness check, so project not flagged
+		if len(noAnalysis) != 0 {
+			t.Errorf("expected 0 no_analysis projects, got %d", len(noAnalysis))
+		}
+		if len(staleAnalysis) != 0 {
+			t.Errorf("expected 0 stale_analysis projects, got %d", len(staleAnalysis))
+		}
+	})
 }

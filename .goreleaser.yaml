@@ -1,0 +1,69 @@
+# Goreleaser configuration for Portfolio
+# Builds single binary releases for multiple platforms
+
+project_name: portfolio
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    main: ./cmd/portfolio
+
+archives:
+  - format: binary
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: 'checksums.txt'
+
+release:
+  draft: false
+  prerelease: false
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^build:'
+
+# Universal binaries for macOS
+universal_binaries:
+  - replace: false
+    name_template: 'portfolio-darwin-universal'
+
+# Brew tap for macOS
+brews:
+  - name: portfolio
+    homepage: "https://github.com/shafi-/portfolio"
+    description: "Local-first project inventory and knowledge platform"
+    license: MIT
+    folder: Formula
+    tap:
+      owner: shafi-
+      name: homebrew-portfolio
+      branch: main
+    commit_author:
+      name: goreleaser-bot
+      email: bot@goreleaser.com
+    install: |
+      bin.install "portfolio"
+    test: |
+      system "#{bin}/portfolio --version"
