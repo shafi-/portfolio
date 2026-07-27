@@ -27,6 +27,7 @@ type DiscoveryConfig struct {
 // LoggingConfig contains logging settings
 type LoggingConfig struct {
 	Level string `toml:"level"`
+	File  string `toml:"file"` // Path to log file; empty disables file logging
 }
 
 // DashboardConfig contains dashboard server settings
@@ -58,6 +59,7 @@ func GetDefaultConfig() *Config {
 		},
 		Logging: LoggingConfig{
 			Level: "INFO",
+			File:  filepath.Join(homeDir, ".portfolio", "portfolio.log"),
 		},
 		Dashboard: DashboardConfig{
 			Host:           "localhost",

@@ -2,12 +2,15 @@ package logging
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 
+	"project-dash/internal/version"
 	"project-dash/pkg/models"
 )
 
@@ -22,16 +25,29 @@ var globalLogger *Logger
 
 // NewLogger creates a new structured logger
 func NewLogger(level string, format string) (*Logger, error) {
-	// Parse log level
-	zapLevel, err := parseLogLevel(level)
+	return newLoggerWithFile(level, format, "", os.Stdout)
+}
+
+// NewLoggerWithFile creates a logger that writes to both file and console.
+// The file always captures INFO+ level (full trail for debugging), while
+// console output respects the provided level (typically ERROR by default,
+// INFO with --verbose). If filePath is empty, file logging is disabled.
+func NewLoggerWithFile(level string, format string, filePath string, consoleWriter io.Writer) (*Logger, error) {
+	return newLoggerWithFile(level, format, filePath, consoleWriter)
+}
+
+// newLoggerWithFile is the internal constructor that implements file+console tee logging.
+func newLoggerWithFile(level string, format string, filePath string, consoleWriter io.Writer) (*Logger, error) {
+	// Parse the console log level (user-facing, may be ERROR or INFO)
+	consoleLevel, err := parseLogLevel(level)
 	if err != nil {
 		return nil, err
 	}
 
-	// Configure encoder
-	var encoderConfig zapcore.EncoderConfig
+	// Configure encoder for console
+	var consoleEncoderConfig zapcore.EncoderConfig
 	if format == "json" {
-		encoderConfig = zapcore.EncoderConfig{
+		consoleEncoderConfig = zapcore.EncoderConfig{
 			TimeKey:        "timestamp",
 			LevelKey:       "level",
 			NameKey:        "logger",
@@ -43,14 +59,13 @@ func NewLogger(level string, format string) (*Logger, error) {
 			EncodeTime:     zapcore.ISO8601TimeEncoder,
 			EncodeDuration: zapcore.StringDurationEncoder,
 		}
-		// Omit CallerKey from config to skip caller in output
 	} else {
 		// Clean, readable console format
-		encoderConfig = zapcore.EncoderConfig{
-			TimeKey:  "T",
-			LevelKey: "L",
-			NameKey:  "N",
-			// CallerKey omitted - no file:line in output
+		consoleEncoderConfig = zapcore.EncoderConfig{
+			TimeKey:        "T",
+			LevelKey:       "L",
+			NameKey:        "N",
+			CallerKey:      "C",
 			FunctionKey:    zapcore.OmitKey,
 			MessageKey:     "M",
 			StacktraceKey:  "S",
@@ -61,23 +76,72 @@ func NewLogger(level string, format string) (*Logger, error) {
 		}
 	}
 
-	// Create encoder
-	var encoder zapcore.Encoder
-	if format == "json" {
-		encoder = zapcore.NewJSONEncoder(encoderConfig)
-	} else {
-		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+	// Configure encoder for file (plain text, no color)
+	fileEncoderConfig := zapcore.EncoderConfig{
+		TimeKey:        "timestamp",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "message",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
 	}
 
-	// Create core
-	core := zapcore.NewCore(
-		encoder,
-		zapcore.AddSync(os.Stdout),
-		zapLevel,
+	// Create encoders
+	var consoleEncoder, fileEncoder zapcore.Encoder
+	if format == "json" {
+		consoleEncoder = zapcore.NewJSONEncoder(consoleEncoderConfig)
+		fileEncoder = zapcore.NewJSONEncoder(fileEncoderConfig)
+	} else {
+		consoleEncoder = zapcore.NewConsoleEncoder(consoleEncoderConfig)
+		fileEncoder = zapcore.NewConsoleEncoder(fileEncoderConfig)
+	}
+
+	// Create console core
+	consoleCore := zapcore.NewCore(
+		consoleEncoder,
+		zapcore.AddSync(consoleWriter),
+		consoleLevel,
 	)
 
-	// Create logger
-	zapLogger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	// If no file path, return console-only logger
+	if filePath == "" {
+		zapLogger := zap.New(consoleCore,
+			zap.AddCaller(),
+			zap.AddStacktrace(zapcore.ErrorLevel),
+			zap.Fields(zap.String("version", version.Version())),
+		)
+		return &Logger{zapLogger: zapLogger}, nil
+	}
+
+	// Open log file with rotation (30-day retention, 100MB max size, compress old logs)
+	logFile := &lumberjack.Logger{
+		Filename:   filePath,
+		MaxSize:    100,  // megabytes
+		MaxBackups: 10,   // keep last 10 rotated files
+		MaxAge:     30,   // days
+		Compress:   true, // gzip old logs
+	}
+
+	// Create file core (always INFO level for debugging)
+	fileCore := zapcore.NewCore(
+		fileEncoder,
+		zapcore.AddSync(logFile),
+		zapcore.InfoLevel,
+	)
+
+	// Combine cores with tee: write to both console and file
+	core := zapcore.NewTee(consoleCore, fileCore)
+
+	// Create logger with version as a global field
+	zapLogger := zap.New(core,
+		zap.AddCaller(),
+		zap.AddStacktrace(zapcore.ErrorLevel),
+		zap.Fields(zap.String("version", version.Version())),
+	)
 
 	return &Logger{zapLogger: zapLogger}, nil
 }
@@ -139,8 +203,12 @@ func NewStderrLogger(level string, format string) (*Logger, error) {
 		zapLevel,
 	)
 
-	// Create logger
-	zapLogger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	// Create logger with version as a global field
+	zapLogger := zap.New(core,
+		zap.AddCaller(),
+		zap.AddStacktrace(zapcore.ErrorLevel),
+		zap.Fields(zap.String("version", version.Version())),
+	)
 
 	return &Logger{zapLogger: zapLogger}, nil
 }

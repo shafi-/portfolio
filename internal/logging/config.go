@@ -2,6 +2,8 @@ package logging
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -9,6 +11,7 @@ import (
 type Config struct {
 	Level  string
 	Format string // "json" or "console"
+	File   string // Path to log file; empty disables file logging
 }
 
 // LoadConfigFromEnv loads logging configuration from environment
@@ -16,6 +19,7 @@ func LoadConfigFromEnv() *Config {
 	return &Config{
 		Level:  GetLogLevelFromEnv(),
 		Format: GetLogFormatFromEnv(),
+		File:   GetLogFileFromEnv(),
 	}
 }
 
@@ -61,4 +65,14 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+// GetLogFileFromEnv returns log file path from environment variable or default
+func GetLogFileFromEnv() string {
+	if path := os.Getenv("PORTFOLIO_LOG_FILE"); path != "" {
+		return path
+	}
+	// Default to ~/.portfolio/portfolio.log
+	homeDir, _ := os.UserHomeDir()
+	return filepath.Join(homeDir, ".portfolio", "portfolio.log")
 }

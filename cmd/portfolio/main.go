@@ -6,7 +6,6 @@ import (
 
 	"project-dash/internal/cli"
 	"project-dash/internal/logging"
-	"project-dash/internal/version"
 	"project-dash/pkg/models"
 )
 
@@ -34,7 +33,10 @@ func main() {
 		if !cli.HasVerboseFlag(os.Args) {
 			level = "ERROR"
 		}
-		logger, err = logging.NewLogger(level, logConfig.Format)
+
+		// Log file always captures INFO level for debugging (issue attachment).
+		// File path comes from config (default ~/.portfolio/portfolio.log).
+		logger, err = logging.NewLoggerWithFile(level, logConfig.Format, logConfig.File, os.Stdout)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
@@ -42,9 +44,7 @@ func main() {
 	}
 
 	logging.SetGlobalLogger(logger)
-	logger.Info("Portfolio Engine starting",
-		models.Field{Key: "version", Value: version.Version()},
-	)
+	logger.Info("Portfolio Engine starting")
 
 	// Execute CLI
 	if err := cli.Execute(); err != nil {
