@@ -52,11 +52,24 @@ Portfolio is a **local-first project inventory and knowledge platform** that ena
 
 ### Installation Methods
 
-#### Method 1: Binary Release (Recommended)
+#### Method 1: One-Command Install (Recommended)
 
 ```bash
-# Download latest release
-curl -L https://github.com/shafi-/project-dash/releases/latest/download/portfolio-darwin-amd64 -o portfolio
+# Install and start in one command
+curl -fsSL https://raw.githubusercontent.com/shafi-/portfolio/main/install.sh | bash
+portfolio init
+```
+
+#### Method 2: Binary Release
+
+```bash
+# Download latest release for your platform
+# macOS (Intel): portfolio-darwin-amd64
+# macOS (Apple Silicon): portfolio-darwin-arm64  
+# Linux (Intel): portfolio-linux-amd64
+# Linux (ARM): portfolio-linux-arm64
+
+curl -L https://github.com/shafi-/portfolio/releases/latest/download/portfolio-darwin-amd64 -o portfolio
 chmod +x portfolio
 sudo mv portfolio /usr/local/bin/
 
@@ -64,12 +77,12 @@ sudo mv portfolio /usr/local/bin/
 portfolio --version
 ```
 
-#### Method 2: Build from Source
+#### Method 3: Build from Source
 
 ```bash
 # Clone repository
-git clone https://github.com/shafi-/project-dash.git
-cd project-dash
+git clone https://github.com/shafi-/portfolio.git
+cd portfolio
 
 # Build binary
 go build -o portfolio ./cmd/portfolio
@@ -81,7 +94,7 @@ sudo mv portfolio /usr/local/bin/
 #### Method 3: Homebrew (macOS)
 
 ```bash
-brew tap shafi-/project-dash
+brew tap shafi-/portfolio
 brew install portfolio
 ```
 
@@ -850,11 +863,11 @@ A: Portfolio will show the project as "not found" in the file system but retains
 ### Reporting Issues
 
 Report bugs or feature requests at:  
-https://github.com/shafi-/project-dash/issues
+https://github.com/shafi-/portfolio/issues
 
 ### Community
 
-- **GitHub Discussions:** https://github.com/shafi-/project-dash/discussions
+- **GitHub Discussions:** https://github.com/shafi-/portfolio/discussions
 - **Documentation Updates:** Pull requests welcome
 
 ---
@@ -867,7 +880,7 @@ https://github.com/shafi-/project-dash/issues
 - Deterministic dependency versions; feature deep-dive fields; `searchFeatures`
 - ADR-021 (schema-documented config files are official methods)
 
-**v1.0** (July 24, 2026)
+**v0.1.0** (July 24, 2026)
 - Initial release
 - Core discovery and metadata extraction
 - Documentation indexing
