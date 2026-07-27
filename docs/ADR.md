@@ -497,3 +497,88 @@ Blind/undocumented config edits remain forbidden by ADR-016.
 - The superseded `scripts/unsafe-opencode-integration.sh` is removed; Cline
   (no official method) keeps its unsafe script.
 
+## ADR-022: Append-Only Versioned Migrations
+
+**Status:** Accepted
+
+### Context
+
+The schema was consolidated into three migrations (`v1 initial_schema`, `v2
+fts5_fulltext_search`, `v3 tier3_feature_extras`) that reused version numbers
+1–3 previously belonging to an incremental lineage (`v1`–`v8`). The migration
+code explicitly endorsed editing the consolidated baseline in place — *"A new
+schema change is now a direct edit to `initialSchemaUp` (bump nothing) rather
+than a new versioned migration."*
+
+Each migration records a `sha256(up-SQL)` checksum in `schema_migrations`, and
+`Migrate()` verified those checksums **before** applying any migration. Editing
+the baseline SQL changed its checksum, so an upgraded binary refused to open
+every pre-existing database with:
+
+```
+failed to run migrations: migration checksum mismatch:
+migration 1 (initial_schema) checksum changed …
+```
+
+The reuse of version numbers compounded this: a database created by the legacy
+incremental lineage had recorded v1 with a *different* checksum than the
+consolidated v1, so it could never satisfy verification. This broke the core
+expectation that a newer binary carries an existing local database forward.
+
+### Decision
+
+Migration `up`/`down` SQL is **immutable once released**. The baseline
+migrations are frozen (marked `FROZEN` in `internal/database/migrations.go`). A
+schema change is a **new entry** in `getMigrations()` with the next strictly
+increasing, never-reused version number (`v4`, `v5`, …) — never an edit to
+existing migration SQL.
+
+Version numbers are append-only and never recycled, so a stored version not in
+the current set is an unambiguous signal of a legacy lineage.
+
+A legacy database is carried forward **in place**, not rebuilt: when
+`verifyAppliedMigrations` detects a lineage that does not perfectly match the
+current baseline (a stored version outside the current set, or a checksum
+mismatch on a current version), `reconcileLegacyDB` runs once — adding missing
+additive columns, rebuilding the divergent `dependencies` table, and resetting
+`schema_migrations` to the baseline — all in a single atomic transaction.
+
+Verification deliberately does **not** hard-error on a checksum mismatch. A
+legacy database stopped at an early incremental version is indistinguishable
+from tampering by checksum alone; bricking a local-first database on upgrade is
+the defect this ADR corrects. Reconciliation is idempotent and self-healing, and
+genuine structural corruption surfaces at runtime instead.
+
+### Consequences
+
+**Positive:**
+
+- An upgraded binary always opens an existing database and migrates it forward.
+- The consolidation defect cannot recur — contributors add migrations instead of
+  editing the frozen baseline, so released checksums never change.
+- Existing data is preserved. In particular, AI-generated `analyses` (which the
+  deterministic engine cannot regenerate) survive every upgrade untouched.
+
+**Negative:**
+
+- Genuine tampering with `schema_migrations` is silently healed rather than
+  reported. For a local-first, single-user tool this is an acceptable trade for
+  never losing a database to a false positive.
+- The `dependencies` table is recreated empty during reconciliation when it has
+  the wrong (pre-history bootstrap) shape. Dependencies are deterministic facts
+  the engine re-extracts (`DetectDependencies`), so a scan repopulates them —
+  but a user who reconciles must re-scan to restore dependency rows.
+
+**Implementation Notes:**
+
+- `verifyAppliedMigrations() (legacy bool, err error)` returns `legacy=true` for
+  a non-fresh database whose stored history does not perfectly match the current
+  embedded baseline.
+- `reconcileLegacyDB()` (single transaction) calls `addMissingColumns`
+  (features +3 tier-3; metadata +9 ADR-017, skipped if already present),
+  `rebuildDependenciesIfWrongShape` (drops + recreates `dependencies` when the
+  `manager` column is absent), and `resetMigrationLogToBaseline` (rewrites
+  `schema_migrations` from `getMigrations()` with current checksums).
+- Covered by `TestMigrate_LegacyDBUpgrade`, `_Idempotent`, `_FreshDBUnchanged`,
+  and `_ChecksumMismatch_Heals` in `internal/database/database_test.go`.
+
