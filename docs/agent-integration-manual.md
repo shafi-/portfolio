@@ -128,38 +128,21 @@ Automatically populated by the engine:
 
 ### Tier 2: Analysis + Features (Agent — project-level)
 
-One investigation pass produces both an analysis and a **non-empty feature list**.
+One investigation pass produces both an analysis and a feature list.
 
-**Rule: investigate only through Portfolio's MCP file tools.** Never read the
-project directory on disk — no shell, `cat`, or your agent's native file reader.
-Everything goes through `project_id` via: `listProjectFiles`, `getFileContent`,
-`searchFiles`, `getProjectStructure`, `searchDocumentation`, `getDependencies`.
-This keeps your view identical to what Portfolio indexed and avoids touching
-repos your agent should not see.
+**Rule:** investigate only through Portfolio's MCP file tools — never read the project directory on disk. Use `project_id` with: `getProject`, `searchDocumentation`, `getProjectStructure`, `getDependencies`, `searchFiles`, `getFileContent`.
 
 **Investigation order:**
-1. `getProject(id: "<project-id>")` — existing state, language, framework, prior analysis.
-2. `searchDocumentation(query: "overview")` then `query: "architecture"` — README and top-level docs; usually enough to state the purpose.
-3. `getProjectStructure(project_id, include_content: true)` — file tree + key file contents in one call. Read it fully.
-4. `getDependencies(project_id)` — manifests, stack, versions → feeds `reusable_components`.
-5. For each capability you suspect is a feature, `searchFiles(project_id, pattern: "<name>")` (e.g. `auth`, `payment.*handler`, `search.*service`) to locate its source, then `getFileContent` to confirm.
+1. `getProject(id)` — existing state
+2. `searchDocumentation("overview")` then `searchDocumentation("architecture")` — purpose
+3. `getProjectStructure(project_id, include_content: true)` — file tree
+4. `getDependencies(project_id)` — stack
+5. `searchFiles(project_id, pattern)` per feature → `getFileContent` to confirm
 
-**Required outputs — Tier 2 is incomplete without BOTH:**
-- `storeAnalysis` — purpose, architecture, maturity, strengths, weaknesses, reusable_components (project-level, not feature-level).
-- `storeFeature` for **≥1 feature**. A summary with zero `storeFeature` calls is a failed Tier 2 — do not stop at a shallow description. Most projects yield 3–8 features.
+**Required outputs (BOTH):**
+- `storeAnalysis` — purpose, architecture, maturity, strengths, weaknesses, reusable_components
+- `storeFeature` for ≥1 feature (name, description, confidence: 0.5|0.8|1.0). Zero features = failed Tier 2.
 
-**Feature granularity.** A feature is a named, user-facing or architectural
-capability — not a file, module, or route. Good: "User Authentication",
-"Full-text Search", "Webhook Delivery", "Audit Log". Bad: "auth.go",
-"the utils package".
-
-**Confidence.** 0.5 = inferred from docs/structure; 0.8 = confirmed in source; 1.0 = verified end-to-end.
-
-**Acceptance checklist — all four before Tier 2 is done:**
-- Investigated via MCP file tools only; nothing read off disk.
-- `storeAnalysis` written with a real purpose + architecture (not a one-liner).
-- ≥1 `storeFeature` stored, each a named capability with a description.
-- Each feature's `confidence` reflects whether you saw its source.
 
 ### Tier 3: Feature Deep Dive (Agent — per-feature)
 
