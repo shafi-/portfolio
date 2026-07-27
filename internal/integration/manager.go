@@ -57,7 +57,7 @@ func (m *Manager) Install(ctx context.Context, name string, opts InstallOptions)
 			if opts.Force {
 				m.logger.Info("Reinstalling integration", zap.String("name", name))
 			} else {
-				return nil, NewError(ErrCodeAlreadyInstalled, fmt.Sprintf("Integration '%s' is already installed. Use `upgrade` or `remove` first.", name), nil)
+				return nil, NewError(ErrCodeAlreadyInstalled, fmt.Sprintf("Integration '%s' is already installed. Use `upgrade` or `uninstall` first.", name), nil)
 			}
 		}
 	} else if err != ErrNotFound {
