@@ -35,6 +35,13 @@ jobs:
       - name: Run vet
         run: go vet ./...
 
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg-key@v6
+        id: import_gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+
       - name: Extract version from branch
         id: version
         run: |
@@ -48,35 +55,12 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Releasing version: $VERSION"
 
-      - name: Build release artifacts
-        run: |
-          go build -ldflags="-s -w -X main.version=${{ steps.version.outputs.version }}" -o portfolio ./cmd/portfolio
-
-      - name: Generate checksums
-        run: |
-          sha256sum portfolio > checksums.txt
-
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Portfolio ${{ steps.version.outputs.version }}
-          draft: true
-          prerelease: false
-          files: |
-            portfolio
-            checksums.txt
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run GoReleaser (optional)
-        if: false  # Disabled for now - using manual release creation
+      - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean
+          args: release --clean --release-notes .github/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
