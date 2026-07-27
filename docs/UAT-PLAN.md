@@ -448,15 +448,27 @@ portfolio mcp
 
 # Expected
 {
-  "projects": [<projects without analysis or with stale analysis>],
-  "count": <number>
+  "no_analysis": [
+    {"id": "...", "name": "...", "path": "..."}
+  ],
+  "stale_analysis": [
+    {"id": "...", "name": "...", "path": "...",
+     "analyzed_at": "...", "analyzed_git_head": "...", "current_git_head": "..."}
+  ],
+  "counts": {
+    "no_analysis": <number>,
+    "stale_analysis": <number>,
+    "total": <number>
+  }
 }
 ```
 
 **Verify:**
-- [ ] Projects without any analysis included
-- [ ] Projects with analysis older than current git HEAD included
-- [ ] Projects with up-to-date analysis excluded
+- [ ] Projects without any analysis appear in `no_analysis` array
+- [ ] Projects with stale analysis (git HEAD changed) appear in `stale_analysis` array
+- [ ] `stale_analysis` entries include analyzed_at, analyzed_git_head, and current_git_head
+- [ ] Projects with up-to-date analysis excluded from both arrays
+- [ ] `counts` fields match array lengths
 
 ---
 

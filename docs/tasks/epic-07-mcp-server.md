@@ -80,7 +80,10 @@ As an AI agent, I want to store analyses so that semantic knowledge persists for
 **Acceptance Criteria:**
 - getAnalysis(projectId) → retrieve stored analysis
 - storeAnalysis(projectId, analysis) → persist analysis JSON
-- listProjectsNeedingAnalysis() → return projects without or with outdated analysis
+- listProjectsNeedingAnalysis() → return structured data:
+  - `no_analysis`: Projects never analyzed
+  - `stale_analysis`: Projects with outdated analysis (includes git head comparison)
+  - `counts`: Category breakdown
 - Validates analysis schema
 
 ---

@@ -452,8 +452,23 @@ Store semantic analysis for a project.
 Usage: `Call storeAnalysis(projectId: "<project-id>", summary: "...", purpose: "...")`
 
 ### listProjectsNeedingAnalysis
-Find projects missing or with outdated analysis.
+Find projects missing analysis or with outdated analysis.
+Returns structured data with two categories:
+- `no_analysis`: Projects never analyzed
+- `stale_analysis`: Projects with outdated analysis (git HEAD changed)
 Usage: `Call listProjectsNeedingAnalysis()`
+
+Response structure:
+```json
+{
+  "no_analysis": [{"id": "...", "name": "...", "path": "..."}],
+  "stale_analysis": [
+    {"id": "...", "name": "...", "path": "...",
+     "analyzed_at": "...", "analyzed_git_head": "...", "current_git_head": "..."}
+  ],
+  "counts": {"no_analysis": <int>, "stale_analysis": <int>, "total": <int>}
+}
+```
 
 ### getConfiguration
 View Portfolio configuration.

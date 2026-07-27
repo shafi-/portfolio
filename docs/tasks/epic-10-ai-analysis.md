@@ -64,13 +64,18 @@ As the Portfolio Engine, I want to detect outdated analyses so that agents know 
 **Acceptance Criteria:**
 - ✅ Compares analyzed_git_head vs current git_head
 - ✅ Computes analysis_outdated indicator
-- ✅ listProjectsNeedingAnalysis() returns stale projects
-- ✅ Projects without analysis are also returned
+- ✅ listProjectsNeedingAnalysis() returns structured response:
+  - `no_analysis`: Projects with no analysis
+  - `stale_analysis`: Projects with outdated analysis (includes analyzed_at, analyzed_git_head, current_git_head)
+  - `counts`: Breakdown by category
+- ✅ Projects without analysis are in `no_analysis` array
+- ✅ Projects with stale analysis are in `stale_analysis` array
+- ✅ Projects with up-to-date analysis excluded
 
 **Technical Context:**
 - Store facts (git_head), compute indicators (analysis_outdated)
 - IsAnalysisOutdated() helper function in pkg/models/validation.go
-- MCP tool listProjectsNeedingAnalysis already implemented
+- MCP tool listProjectsNeedingAnalysis returns structured data
 
 ---
 

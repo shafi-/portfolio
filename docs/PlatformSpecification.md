@@ -173,6 +173,31 @@ Analysis
 - storeAnalysis(projectId, analysis)
 - listProjectsNeedingAnalysis()
 
+  Returns structured data distinguishing projects with no analysis vs stale analysis:
+
+  ```json
+  {
+    "no_analysis": [
+      {"id": "<uuid>", "name": "<project>", "path": "/path/to/project"}
+    ],
+    "stale_analysis": [
+      {
+        "id": "<uuid>",
+        "name": "<project>",
+        "path": "/path/to/project",
+        "analyzed_at": "<timestamp>",
+        "analyzed_git_head": "<commit>",
+        "current_git_head": "<commit>"
+      }
+    ],
+    "counts": {
+      "no_analysis": <int>,
+      "stale_analysis": <int>,
+      "total": <int>
+    }
+  }
+  ```
+
 Configuration
 
 - getConfiguration()
