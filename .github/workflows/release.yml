@@ -35,25 +35,26 @@ jobs:
       - name: Run vet
         run: go vet ./...
 
-      - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg-key@v6
-        id: import_gpg
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
-
       - name: Extract version from branch
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
           else
-            # Extract version from branch name (e.g., release-v0.2.0 -> v0.2.0)
+            # Extract version from branch name (e.g., release-v0.2.2 -> v0.2.2)
             BRANCH="${GITHUB_REF#refs/heads/}"
             VERSION="${BRANCH#release-}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Releasing version: $VERSION"
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
@@ -63,4 +64,3 @@ jobs:
           args: release --clean --release-notes .github/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
