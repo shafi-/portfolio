@@ -35,13 +35,6 @@ jobs:
       - name: Run vet
         run: go vet ./...
 
-      - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg-key@v6
-        id: import_gpg
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
-
       - name: Extract version from branch
         id: version
         run: |
@@ -63,4 +56,3 @@ jobs:
           args: release --clean --release-notes .github/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
