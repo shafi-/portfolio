@@ -26,7 +26,15 @@ func main() {
 	if isMCPMode {
 		logger, err = logging.NewStderrLogger(logConfig.Level, logConfig.Format)
 	} else {
-		logger, err = logging.NewLogger(logConfig.Level, logConfig.Format)
+		// Engine logs are noisy on the happy path. Default to ERROR so a
+		// successful command prints only its own output; --verbose restores the
+		// configured level. Cobra parses flags inside cli.Execute() (after the
+		// logger is built), so read --verbose from os.Args here.
+		level := logConfig.Level
+		if !cli.HasVerboseFlag(os.Args) {
+			level = "ERROR"
+		}
+		logger, err = logging.NewLogger(level, logConfig.Format)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)

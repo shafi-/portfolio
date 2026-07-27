@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -42,7 +43,7 @@ func init() {
 
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.portfolio/config.toml)")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "show diagnostic logging (hidden by default; honors the configured [logging] level)")
 	rootCmd.Flags().Bool("toggle", false, "Help message for toggle")
 }
 
@@ -73,4 +74,28 @@ func GetRootCommand() *cobra.Command {
 // GenerateDocs generates markdown documentation for CLI commands
 func GenerateDocs(dir string) error {
 	return doc.GenMarkdownTree(rootCmd, dir)
+}
+
+// HasVerboseFlag reports whether args contain the --verbose/-v flag. It is used
+// before cobra parses flags (in main, where the logger is constructed) to pick
+// the initial log level: without --verbose the engine runs quiet (ERROR level),
+// with it the configured level applies. The scan is intentionally shallow — it
+// stops at "--" (end of flags) and does not try to model every subcommand's
+// flag set, only the global persistent --verbose.
+func HasVerboseFlag(args []string) bool {
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		switch {
+		case a == "--verbose" || strings.HasPrefix(a, "--verbose="):
+			return a != "--verbose=false"
+		case a == "-v":
+			return true
+		case len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.ContainsRune(a, 'v'):
+			// Short-flag group containing v, e.g. -vv or -hv.
+			return true
+		}
+	}
+	return false
 }
