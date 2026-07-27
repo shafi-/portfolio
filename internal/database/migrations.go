@@ -2,6 +2,7 @@ package database
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,18 +20,22 @@ type migration struct {
 	down    string
 }
 
-// getMigrations returns the embedded migrations.
+// getMigrations returns the embedded baseline migrations.
 //
 // The schema is consolidated into a single initial migration that creates every
-// table, column, and index in its final form. The project is pre-release, so
-// there is no need to preserve the historical incremental ALTER steps (and the
-// partial-apply fragility they introduced — a single failing ALTER left the rest
-// of a multi-statement migration un-run yet "recorded"). CREATE TABLE / CREATE
-// INDEX IF NOT EXISTS make the migration idempotent on a fresh database.
+// table, column, and index in its final form, plus the FTS5 full-text-search and
+// tier-3 feature-deep-dive migrations. CREATE TABLE / CREATE INDEX IF NOT EXISTS
+// make each migration idempotent on a fresh database. FTS5 is a separate
+// migration so Migrate() can skip it on SQLite builds compiled without FTS5.
 //
-// FTS5 is kept as a separate migration so Migrate() can skip it on SQLite builds
-// compiled without FTS5 support. A new schema change is now a direct edit to
-// initialSchemaUp (bump nothing) rather than a new versioned migration.
+// APPEND-ONLY CONTRACT (ADR-022): the migrations below are FROZEN. Their up/down
+// SQL is immutable once released — editing it changes the sha256 checksum stored
+// in every existing database's schema_migrations and breaks forward
+// compatibility (an upgraded binary would refuse to open the DB). A new schema
+// change is a NEW entry in this list with the next monotonic version number
+// (v4, v5, …), never an edit to initialSchemaUp or any other migration's SQL.
+// Pre-consolidation databases are carried forward to this baseline by
+// reconcileLegacyDB (see verifyAppliedMigrations).
 func getMigrations() []migration {
 	return []migration{
 		{
@@ -143,8 +148,16 @@ func (d *Database) Migrate() error {
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
 
-	if err := d.verifyAppliedMigrations(); err != nil {
-		return fmt.Errorf("migration checksum mismatch: %w", err)
+	legacy, err := d.verifyAppliedMigrations()
+	if err != nil {
+		return fmt.Errorf("failed to verify applied migrations: %w", err)
+	}
+
+	if legacy {
+		d.logger.Warn("Legacy migration lineage detected; reconciling schema and resetting migration log to consolidated baseline")
+		if err := d.reconcileLegacyDB(); err != nil {
+			return fmt.Errorf("failed to reconcile legacy database: %w", err)
+		}
 	}
 
 	currentVersion, err := d.GetSchemaVersion()
@@ -191,12 +204,31 @@ func (d *Database) Migrate() error {
 	return nil
 }
 
-func (d *Database) verifyAppliedMigrations() error {
+// verifyAppliedMigrations inspects the stored migration history and reports
+// whether the database is on the current migration lineage.
+//
+// It returns legacy=true when the stored history does NOT perfectly match the
+// current embedded baseline — i.e. any stored version outside the current set
+// (a pre-consolidation incremental DB recorded v4..v8) or a checksum mismatch on
+// a current-version migration (the consolidation reused v1/v2/v3, so a legacy DB
+// that recorded those numbers with different SQL trips this). In that case the
+// caller (Migrate) reconciles the schema and resets the log instead of erroring,
+// so a legacy database is carried forward in place.
+//
+// A fresh database (no rows) returns (false, nil) and is built by the apply loop.
+// A current consolidated database whose checksums all match returns (false, nil).
+//
+// This deliberately does NOT hard-error on a checksum mismatch: a legacy DB
+// stopped at an early version is indistinguishable from tampering by checksum
+// alone, and bricking a local-first database on upgrade is the exact defect this
+// fixes. Reconciliation is idempotent and self-healing; genuine structural
+// corruption surfaces at runtime instead.
+func (d *Database) verifyAppliedMigrations() (legacy bool, err error) {
 	rows, err := d.db.Query("SELECT version, checksum FROM schema_migrations")
 	if err != nil {
 		// schema_migrations is created immediately before this runs, so an error
 		// here means there is nothing applied yet to verify.
-		return nil
+		return false, nil
 	}
 	defer rows.Close()
 
@@ -205,26 +237,204 @@ func (d *Database) verifyAppliedMigrations() error {
 		var version int
 		var checksum string
 		if err := rows.Scan(&version, &checksum); err != nil {
-			return err
+			return false, err
 		}
 		applied[version] = checksum
 	}
 	if err := rows.Err(); err != nil {
-		return err
+		return false, err
 	}
 
-	for _, m := range loadMigrations() {
+	if len(applied) == 0 {
+		return false, nil // fresh database — apply loop builds it
+	}
+
+	migrations := getMigrations()
+	currentVersions := make(map[int]bool, len(migrations))
+	for _, m := range migrations {
+		currentVersions[m.version] = true
+	}
+
+	// Any stored version outside the current set marks a legacy lineage.
+	for v := range applied {
+		if !currentVersions[v] {
+			return true, nil
+		}
+	}
+
+	// All stored versions are within the current set; a checksum mismatch on any
+	// of them also marks a legacy lineage (consolidation reused v1/v2/v3).
+	for _, m := range migrations {
 		if stored, ok := applied[m.version]; ok {
 			// The FTS5 migration is recorded with the same checksum whether it
-			// ran or was skipped, so this check holds in both cases.
-			expected := calculateChecksum(m.up)
-			if stored != expected {
-				return fmt.Errorf("migration %d (%s) checksum changed: expected %s, got %s",
-					m.version, m.name, stored, expected)
+			// ran or was skipped, so this comparison holds in both cases.
+			if stored != calculateChecksum(m.up) {
+				return true, nil
 			}
 		}
 	}
+
+	return false, nil
+}
+
+// reconcileLegacyDB brings a pre-consolidation database forward to the current
+// baseline in a single atomic transaction: it adds any missing additive columns,
+// rebuilds the dependencies table if it has the wrong (legacy bootstrap) shape,
+// and resets schema_migrations to the embedded baseline with current checksums.
+//
+// The whole operation commits together, so on any failure the database is left
+// untouched. It is idempotent — safe to run on an already-current or
+// partially-reconciled database.
+func (d *Database) reconcileLegacyDB() error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin reconciliation transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := d.addMissingColumns(tx); err != nil {
+		return fmt.Errorf("add missing columns: %w", err)
+	}
+	if err := d.rebuildDependenciesIfWrongShape(tx); err != nil {
+		return fmt.Errorf("rebuild dependencies table: %w", err)
+	}
+	if err := d.resetMigrationLogToBaseline(tx); err != nil {
+		return fmt.Errorf("reset migration log: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit reconciliation: %w", err)
+	}
 	return nil
+}
+
+// addMissingColumns adds any consolidated columns missing from legacy tables.
+// All additions are additive (nullable or with a default), so existing rows are
+// preserved. Each ALTER is gated on PRAGMA table_info so it is idempotent —
+// SQLite has no ADD COLUMN IF NOT EXISTS.
+func (d *Database) addMissingColumns(tx *sql.Tx) error {
+	type colSpec struct {
+		table, name, def string
+	}
+	// The consolidated schema's additive columns over the legacy incremental
+	// lineage. Mirrors tier3FeatureExtrasUp (features +3) and the ADR-017
+	// deterministic signals folded into initialSchemaUp's metadata block.
+	specs := []colSpec{
+		// tier-3 feature deep-dive (consolidated migration v3 "tier3_feature_extras")
+		{"features", "implementation_status", "TEXT DEFAULT 'planned'"},
+		{"features", "feature_architecture", "TEXT"},
+		{"features", "pattern", "TEXT"},
+		// ADR-017 deterministic importance signals on metadata (legacy v8
+		// "metadata_extras"); added for pre-v8 databases, skipped for v8.
+		{"metadata", "first_commit_at", "TIMESTAMP"},
+		{"metadata", "commit_velocity_90d", "INTEGER DEFAULT 0"},
+		{"metadata", "contributor_count", "INTEGER DEFAULT 0"},
+		{"metadata", "tag_count", "INTEGER DEFAULT 0"},
+		{"metadata", "remote_url", "TEXT"},
+		{"metadata", "is_published", "INTEGER DEFAULT 0"},
+		{"metadata", "maturity_score", "INTEGER DEFAULT 0"},
+		{"metadata", "maturity_indicators", "TEXT"},
+		{"metadata", "capabilities_summary", "TEXT"},
+	}
+
+	for _, s := range specs {
+		exists, err := columnExists(tx, s.table, s.name)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		stmt := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", s.table, s.name, s.def)
+		if _, err := tx.Exec(stmt); err != nil {
+			return fmt.Errorf("failed to add %s.%s: %w", s.table, s.name, err)
+		}
+		d.logger.Info("Reconciliation: added missing column",
+			models.Field{Key: "table", Value: s.table},
+			models.Field{Key: "column", Value: s.name},
+		)
+	}
+	return nil
+}
+
+// rebuildDependenciesIfWrongShape recreates the dependencies table if it lacks
+// the consolidated `manager` column. The wrong shape originates from an
+// uncommitted pre-history bootstrap (a `type` column + TEXT primary key appear in
+// no committed migration); its exact schema varies across installs, so a
+// best-effort data copy would be fragile. Dependencies are deterministic facts
+// the engine re-extracts (DetectDependencies), so the table is dropped and
+// recreated empty — the next scan repopulates it. dependencies is referenced by
+// nothing (no foreign key points at dependencies.id), so the DROP is safe under
+// foreign_keys=on. If `manager` is already present the table is left untouched.
+func (d *Database) rebuildDependenciesIfWrongShape(tx *sql.Tx) error {
+	managerPresent, err := columnExists(tx, "dependencies", "manager")
+	if err != nil {
+		return err
+	}
+	if managerPresent {
+		return nil // already the consolidated shape
+	}
+
+	d.logger.Warn("Reconciliation: dependencies table has legacy shape; rebuilding (run a scan to repopulate)")
+
+	if _, err := tx.Exec("DROP TABLE IF EXISTS dependencies;"); err != nil {
+		return fmt.Errorf("drop legacy dependencies: %w", err)
+	}
+	if _, err := tx.Exec(dependenciesTableDef); err != nil {
+		return fmt.Errorf("recreate dependencies: %w", err)
+	}
+	if _, err := tx.Exec(`
+		CREATE INDEX IF NOT EXISTS idx_dependencies_project_id ON dependencies(project_id);
+		CREATE INDEX IF NOT EXISTS idx_dependencies_name ON dependencies(name);
+	`); err != nil {
+		return fmt.Errorf("recreate dependencies indexes: %w", err)
+	}
+	return nil
+}
+
+// resetMigrationLogToBaseline replaces schema_migrations with the embedded
+// baseline (getMigrations — v1/v2/v3) recorded with current checksums, so a
+// reconciled database verifies cleanly and GetSchemaVersion reports 3. Uses the
+// embedded set only (not loadMigrations) so any future v4+ file migration is
+// left for the apply loop to run normally. The FTS5 row is recorded with
+// calculateChecksum(fts5SearchUp), matching what recordMigration stores on the
+// skip path, so it verifies whether or not FTS5 was ever built.
+func (d *Database) resetMigrationLogToBaseline(tx *sql.Tx) error {
+	if _, err := tx.Exec("DELETE FROM schema_migrations;"); err != nil {
+		return fmt.Errorf("clear migration records: %w", err)
+	}
+	now := time.Now().UTC()
+	for _, m := range getMigrations() {
+		if _, err := tx.Exec(
+			"INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
+			m.version, m.name, now, calculateChecksum(m.up),
+		); err != nil {
+			return fmt.Errorf("record baseline migration %d: %w", m.version, err)
+		}
+	}
+	return nil
+}
+
+// columnExists reports whether a column exists on a table, via PRAGMA table_info.
+func columnExists(tx *sql.Tx, table, column string) (bool, error) {
+	rows, err := tx.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return false, fmt.Errorf("inspect %s: %w", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt interface{}
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return false, fmt.Errorf("scan pragma row for %s: %w", table, err)
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 func (d *Database) MigrateDown(targetVersion int) error {
@@ -350,6 +560,11 @@ func calculateChecksum(sql string) string {
 // and index in its final form. All statements are IF NOT EXISTS, so re-running
 // Migrate() on an already-current database is a no-op via the version check in
 // Migrate() — and even a direct re-run of this migration is harmless.
+//
+// FROZEN (ADR-022): do NOT edit this SQL. Its sha256 checksum is recorded in
+// every existing database's schema_migrations; editing it breaks forward
+// compatibility for all of them. A schema change is a new versioned migration
+// (v4, v5, …), never an edit here.
 const initialSchemaUp = `
 -- Projects table
 CREATE TABLE IF NOT EXISTS projects (
@@ -531,6 +746,26 @@ DROP TABLE IF EXISTS metadata;
 DROP TABLE IF EXISTS projects;
 `
 
+// dependenciesTableDef is the consolidated dependencies DDL, duplicated from the
+// dependencies block in initialSchemaUp. It is used by reconcileLegacyDB to
+// recreate a legacy-shape dependencies table. It is intentionally duplicated
+// rather than concatenated into initialSchemaUp so that initialSchemaUp's bytes
+// (and thus its checksum) are never put at risk. Keep this byte-identical to the
+// CREATE TABLE block in initialSchemaUp.
+const dependenciesTableDef = `CREATE TABLE IF NOT EXISTS dependencies (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	manager TEXT NOT NULL,
+	scope TEXT NOT NULL DEFAULT 'prod',
+	version TEXT NOT NULL DEFAULT '',
+	version_type TEXT NOT NULL DEFAULT '',
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	UNIQUE(project_id, name, manager)
+);`
+
+// fts5SearchUp is FROZEN (ADR-022): editing it changes its checksum and breaks
+// every database that recorded it. New schema changes are new versioned migrations.
 const fts5SearchUp = `
 CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
     content,
@@ -560,6 +795,8 @@ DROP TRIGGER IF EXISTS documents_ai;
 DROP TABLE IF EXISTS documents_fts;
 `
 
+// tier3FeatureExtrasUp is FROZEN (ADR-022): editing it changes its checksum and
+// breaks every database that recorded it. New schema changes are new versioned migrations.
 const tier3FeatureExtrasUp = `
 ALTER TABLE features ADD COLUMN implementation_status TEXT DEFAULT 'planned';
 ALTER TABLE features ADD COLUMN feature_architecture TEXT;

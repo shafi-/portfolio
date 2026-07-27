@@ -1,6 +1,7 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -326,5 +327,382 @@ func BenchmarkDocumentKindLookup(b *testing.B) {
 		row := db.db.QueryRow("SELECT COUNT(*) FROM documents WHERE kind = ?", "README")
 		var count int
 		row.Scan(&count)
+	}
+}
+
+// --- Legacy forward-compatibility (reconciliation) tests ---------------------
+
+// seedLegacyDB writes a pre-consolidation database into db: the full legacy
+// table set with legacy shapes (features without the tier-3 columns; metadata
+// without the ADR-017 columns; a wrong-shape dependencies table carrying a
+// `type` column and TEXT primary key), a schema_migrations log claiming v1..v8
+// with bogus checksums and empty names for v7/v8, plus sample rows in projects
+// and analyses (with a sentinel summary) and a dangling + duplicate dependency
+// row. This mimics the real failing database so the reconciliation path is
+// exercised end to end.
+func seedLegacyDB(t *testing.T, db *sql.DB) {
+	t.Helper()
+	const legacySchema = `
+CREATE TABLE projects (
+	id TEXT PRIMARY KEY,
+	name TEXT NOT NULL,
+	root_path TEXT NOT NULL UNIQUE,
+	repository_type TEXT NOT NULL,
+	discovered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE metadata (
+	project_id TEXT PRIMARY KEY,
+	git_head TEXT,
+	default_branch TEXT,
+	last_commit_at TIMESTAMP,
+	last_modified_at TIMESTAMP,
+	commit_count INTEGER DEFAULT 0,
+	language_summary TEXT,
+	framework_summary TEXT,
+	dependency_summary TEXT,
+	documentation_hash TEXT,
+	last_scan_at TIMESTAMP,
+	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+CREATE TABLE documents (
+	id TEXT PRIMARY KEY,
+	project_id TEXT NOT NULL,
+	path TEXT NOT NULL,
+	kind TEXT NOT NULL,
+	content TEXT,
+	content_hash TEXT,
+	indexed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+	UNIQUE(project_id, path)
+);
+CREATE TABLE analyses (
+	id TEXT PRIMARY KEY,
+	project_id TEXT NOT NULL,
+	analyzer TEXT NOT NULL,
+	analyzed_git_head TEXT NOT NULL,
+	analyzed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	summary TEXT,
+	purpose TEXT,
+	architecture TEXT,
+	notes TEXT,
+	raw_json TEXT,
+	maturity TEXT,
+	strengths TEXT,
+	weaknesses TEXT,
+	reusable_components TEXT,
+	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+CREATE TABLE features (
+	id TEXT PRIMARY KEY,
+	analysis_id TEXT NOT NULL,
+	name TEXT NOT NULL,
+	description TEXT,
+	confidence REAL,
+	FOREIGN KEY (analysis_id) REFERENCES analyses(id) ON DELETE CASCADE
+);
+CREATE TABLE technologies (
+	id TEXT PRIMARY KEY,
+	name TEXT NOT NULL UNIQUE,
+	category TEXT
+);
+CREATE TABLE project_technologies (
+	project_id TEXT NOT NULL,
+	technology_id TEXT NOT NULL,
+	PRIMARY KEY (project_id, technology_id),
+	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+	FOREIGN KEY (technology_id) REFERENCES technologies(id) ON DELETE CASCADE
+);
+CREATE TABLE relationships (
+	id TEXT PRIMARY KEY,
+	source_project TEXT NOT NULL,
+	target_project TEXT NOT NULL,
+	type TEXT NOT NULL,
+	description TEXT,
+	confidence REAL,
+	FOREIGN KEY (source_project) REFERENCES projects(id) ON DELETE CASCADE,
+	FOREIGN KEY (target_project) REFERENCES projects(id) ON DELETE CASCADE
+);
+CREATE TABLE configuration (
+	key TEXT PRIMARY KEY,
+	value TEXT,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- Wrong-shape dependencies from an uncommitted pre-history bootstrap: a "type"
+-- column and TEXT primary key, with no manager/version_type/created_at/UNIQUE/FK.
+CREATE TABLE dependencies (
+	id TEXT PRIMARY KEY,
+	project_id TEXT,
+	name TEXT,
+	version TEXT,
+	type TEXT,
+	scope TEXT DEFAULT 'prod'
+);
+CREATE TABLE schema_migrations (
+	version INTEGER PRIMARY KEY,
+	name TEXT NOT NULL,
+	applied_at TIMESTAMP NOT NULL,
+	checksum TEXT NOT NULL
+);
+`
+	mustExec := func(sql string, args ...interface{}) {
+		t.Helper()
+		if _, err := db.Exec(sql, args...); err != nil {
+			t.Fatalf("seed exec failed (%s): %v", sql, err)
+		}
+	}
+	mustExec(legacySchema)
+
+	mustExec(`INSERT INTO projects (id, name, root_path, repository_type) VALUES ('proj-a','Alpha','/tmp/alpha','git')`)
+	mustExec(`INSERT INTO projects (id, name, root_path, repository_type) VALUES ('proj-b','Beta','/tmp/beta','git')`)
+	mustExec(`INSERT INTO analyses (id, project_id, analyzer, analyzed_git_head, summary) VALUES ('an-1','proj-a','claude','deadbeef','AI-SENTINEL-SUMMARY')`)
+
+	// A real dependency row, a dangling-project_id row, and a duplicate. The
+	// rebuild drops all of them — dependencies are re-derived by detection.
+	mustExec(`INSERT INTO dependencies (id, project_id, name, version, type, scope) VALUES ('d1','proj-a','react','18.0.0','npm','prod')`)
+	mustExec(`INSERT INTO dependencies (id, project_id, name, version, type, scope) VALUES ('d2','proj-missing','lodash','4.0.0','npm','prod')`)
+	mustExec(`INSERT INTO dependencies (id, project_id, name, version, type, scope) VALUES ('d3','proj-a','react','18.0.0','npm','dev')`)
+
+	// Legacy migration log: v1..v8, bogus checksums, empty names for v7/v8
+	// (mimicking the historical backfill-switch bug).
+	for v := 1; v <= 8; v++ {
+		name := fmt.Sprintf("legacy-%d", v)
+		if v >= 7 {
+			name = ""
+		}
+		mustExec(`INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, CURRENT_TIMESTAMP, ?)`,
+			v, name, fmt.Sprintf("legacy-checksum-%d", v))
+	}
+}
+
+func newLegacyTestDB(t *testing.T) *Database {
+	t.Helper()
+	dir := t.TempDir()
+	logger, _ := logging.NewLogger("INFO", "console")
+	db, err := NewDatabase(filepath.Join(dir, "legacy.db"), logger)
+	if err != nil {
+		t.Fatalf("NewDatabase: %v", err)
+	}
+	if err := db.Connect(); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	seedLegacyDB(t, db.DB())
+	return db
+}
+
+func TestMigrate_LegacyDBUpgrade(t *testing.T) {
+	db := newLegacyTestDB(t)
+
+	if err := db.Initialize(); err != nil {
+		t.Fatalf("Initialize on legacy DB failed: %v", err)
+	}
+
+	version, err := db.GetSchemaVersion()
+	if err != nil {
+		t.Fatalf("GetSchemaVersion: %v", err)
+	}
+	if version != 3 {
+		t.Fatalf("schema version: got %d, want 3", version)
+	}
+
+	// schema_migrations is exactly {1,2,3} with current checksums.
+	rows, err := db.DB().Query("SELECT version, checksum FROM schema_migrations")
+	if err != nil {
+		t.Fatalf("query migrations: %v", err)
+	}
+	got := make(map[int]string)
+	for rows.Next() {
+		var v int
+		var c string
+		if err := rows.Scan(&v, &c); err != nil {
+			t.Fatalf("scan migration row: %v", err)
+		}
+		got[v] = c
+	}
+	if err := rows.Close(); err != nil {
+		t.Errorf("close rows: %v", err)
+	}
+	for _, m := range getMigrations() {
+		c, ok := got[m.version]
+		if !ok {
+			t.Errorf("migration %d missing from schema_migrations after reconcile", m.version)
+			continue
+		}
+		if c != calculateChecksum(m.up) {
+			t.Errorf("migration %d checksum not healed: got %s, want %s", m.version, c, calculateChecksum(m.up))
+		}
+	}
+	if len(got) != len(getMigrations()) {
+		t.Errorf("schema_migrations row count: got %d, want %d", len(got), len(getMigrations()))
+	}
+
+	// Additive columns added.
+	featCols := tableColumns(t, db, "features")
+	for _, c := range []string{"implementation_status", "feature_architecture", "pattern"} {
+		if !featCols[c] {
+			t.Errorf("features column %q missing after reconcile", c)
+		}
+	}
+	metaCols := tableColumns(t, db, "metadata")
+	for _, c := range []string{
+		"first_commit_at", "commit_velocity_90d", "contributor_count", "tag_count",
+		"remote_url", "is_published", "maturity_score", "maturity_indicators",
+		"capabilities_summary",
+	} {
+		if !metaCols[c] {
+			t.Errorf("metadata column %q missing after reconcile", c)
+		}
+	}
+
+	// dependencies rebuilt to the consolidated shape, empty.
+	depCols := tableColumns(t, db, "dependencies")
+	for _, c := range []string{"manager", "version_type", "scope", "created_at"} {
+		if !depCols[c] {
+			t.Errorf("dependencies column %q missing after rebuild", c)
+		}
+	}
+	if depCols["type"] {
+		t.Error("dependencies still has legacy `type` column after rebuild")
+	}
+	var depCount int
+	if err := db.DB().QueryRow("SELECT count(*) FROM dependencies").Scan(&depCount); err != nil {
+		t.Fatalf("count dependencies: %v", err)
+	}
+	if depCount != 0 {
+		t.Errorf("dependencies row count after rebuild: got %d, want 0 (re-derived by scan)", depCount)
+	}
+
+	// Data preserved: projects + analyses (the AI-generated knowledge).
+	var projCount int
+	if err := db.DB().QueryRow("SELECT count(*) FROM projects").Scan(&projCount); err != nil {
+		t.Fatalf("count projects: %v", err)
+	}
+	if projCount != 2 {
+		t.Errorf("projects preserved: got %d, want 2", projCount)
+	}
+	var summary string
+	if err := db.DB().QueryRow("SELECT summary FROM analyses WHERE id='an-1'").Scan(&summary); err != nil {
+		t.Fatalf("read analysis summary: %v", err)
+	}
+	if summary != "AI-SENTINEL-SUMMARY" {
+		t.Errorf("analysis summary not preserved: got %q", summary)
+	}
+
+	if err := db.ValidateSchema(); err != nil {
+		t.Errorf("ValidateSchema after reconcile: %v", err)
+	}
+}
+
+func TestMigrate_LegacyDBUpgrade_Idempotent(t *testing.T) {
+	db := newLegacyTestDB(t)
+
+	if err := db.Initialize(); err != nil {
+		t.Fatalf("first Initialize: %v", err)
+	}
+	// Re-initializing a reconciled DB must be a no-op.
+	if err := db.Initialize(); err != nil {
+		t.Fatalf("second Initialize: %v", err)
+	}
+	// A direct reconcileLegacyDB call must also be safe (every step a no-op on a
+	// reconciled DB, except resetting the baseline log to the same values).
+	if err := db.reconcileLegacyDB(); err != nil {
+		t.Fatalf("direct reconcileLegacyDB after reconcile: %v", err)
+	}
+
+	version, err := db.GetSchemaVersion()
+	if err != nil {
+		t.Fatalf("GetSchemaVersion: %v", err)
+	}
+	if version != 3 {
+		t.Fatalf("schema version: got %d, want 3", version)
+	}
+	depCols := tableColumns(t, db, "dependencies")
+	if !depCols["manager"] || depCols["type"] {
+		t.Errorf("dependencies shape not stable after repeat: manager=%v type=%v", depCols["manager"], depCols["type"])
+	}
+	var projCount int
+	if err := db.DB().QueryRow("SELECT count(*) FROM projects").Scan(&projCount); err != nil {
+		t.Fatalf("count projects: %v", err)
+	}
+	if projCount != 2 {
+		t.Errorf("projects not preserved across re-init: got %d, want 2", projCount)
+	}
+	var summary string
+	if err := db.DB().QueryRow("SELECT summary FROM analyses WHERE id='an-1'").Scan(&summary); err != nil {
+		t.Fatalf("read analysis summary: %v", err)
+	}
+	if summary != "AI-SENTINEL-SUMMARY" {
+		t.Errorf("analysis summary changed across re-init: %q", summary)
+	}
+}
+
+func TestMigrate_FreshDBUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	logger, _ := logging.NewLogger("INFO", "console")
+	db, err := NewDatabase(filepath.Join(dir, "fresh.db"), logger)
+	if err != nil {
+		t.Fatalf("NewDatabase: %v", err)
+	}
+	if err := db.Connect(); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if err := db.Initialize(); err != nil {
+		t.Fatalf("Initialize fresh DB: %v", err)
+	}
+	version, err := db.GetSchemaVersion()
+	if err != nil {
+		t.Fatalf("GetSchemaVersion: %v", err)
+	}
+	if version != 3 {
+		t.Fatalf("fresh schema version: got %d, want 3", version)
+	}
+	if !tableColumns(t, db, "dependencies")["manager"] {
+		t.Error("fresh dependencies missing manager column")
+	}
+	// The fresh path never renames; no leftover table should exist.
+	var n int
+	if err := db.DB().QueryRow("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='dependencies_legacy'").Scan(&n); err != nil {
+		t.Fatalf("query sqlite_master: %v", err)
+	}
+	if n != 0 {
+		t.Error("fresh DB should not have a dependencies_legacy table")
+	}
+}
+
+func TestMigrate_ChecksumMismatch_Heals(t *testing.T) {
+	dir := t.TempDir()
+	logger, _ := logging.NewLogger("INFO", "console")
+	db, err := NewDatabase(filepath.Join(dir, "tamper.db"), logger)
+	if err != nil {
+		t.Fatalf("NewDatabase: %v", err)
+	}
+	if err := db.Connect(); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := db.Initialize(); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+
+	// Corrupt a recorded checksum — a legacy DB that reused v1's number with
+	// different SQL is indistinguishable from this by checksum alone. Migrate
+	// must heal it rather than abort.
+	if _, err := db.DB().Exec("UPDATE schema_migrations SET checksum='bogus' WHERE version=1"); err != nil {
+		t.Fatalf("corrupt checksum: %v", err)
+	}
+	if err := db.Migrate(); err != nil {
+		t.Fatalf("Migrate after checksum corruption should heal, got: %v", err)
+	}
+
+	var got string
+	if err := db.DB().QueryRow("SELECT checksum FROM schema_migrations WHERE version=1").Scan(&got); err != nil {
+		t.Fatalf("read checksum: %v", err)
+	}
+	want := calculateChecksum(initialSchemaUp)
+	if got != want {
+		t.Errorf("checksum not healed: got %s, want %s", got, want)
 	}
 }
