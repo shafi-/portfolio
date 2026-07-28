@@ -21,6 +21,10 @@ import (
 
 func setupTestDB(t *testing.T) *database.Database {
 	t.Helper()
+
+	// Set database key for test environment
+	t.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
 	logger, _ := logging.NewLogger("INFO", "console")
 	db, err := database.NewDatabase(":memory:", logger)
 	if err != nil {

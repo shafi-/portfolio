@@ -10,7 +10,26 @@ import (
 	"project-dash/internal/logging"
 )
 
+// setupTestEnvironment sets up environment for testing
+func setupTestEnvironment(t *testing.T) func() {
+	// Set test database key for password protection
+	oldKey := os.Getenv("PORTFOLIO_DB_KEY")
+	os.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
+	return func() {
+		// Restore original value
+		if oldKey != "" {
+			os.Setenv("PORTFOLIO_DB_KEY", oldKey)
+		} else {
+			os.Unsetenv("PORTFOLIO_DB_KEY")
+		}
+	}
+}
+
 func TestNewDatabase(t *testing.T) {
+	cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	logger, _ := logging.NewLogger("INFO", "console")
@@ -30,6 +49,9 @@ func TestNewDatabase(t *testing.T) {
 }
 
 func TestDatabaseConnection(t *testing.T) {
+	cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	logger, _ := logging.NewLogger("INFO", "console")
@@ -64,6 +86,9 @@ func TestDatabaseConnection(t *testing.T) {
 }
 
 func TestDatabaseInitialization(t *testing.T) {
+	cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	logger, _ := logging.NewLogger("INFO", "console")
@@ -110,6 +135,9 @@ func TestDatabaseInitialization(t *testing.T) {
 }
 
 func TestMigrationSystem(t *testing.T) {
+	cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	logger, _ := logging.NewLogger("INFO", "console")
@@ -146,6 +174,9 @@ func TestMigrationSystem(t *testing.T) {
 }
 
 func TestSchemaValidation(t *testing.T) {
+	// Set database key for test environment
+	t.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	logger, _ := logging.NewLogger("INFO", "console")
@@ -171,6 +202,9 @@ func TestSchemaValidation(t *testing.T) {
 }
 
 func TestMigrationConsolidatedSchema(t *testing.T) {
+	// Set database key for test environment
+	t.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	logger, _ := logging.NewLogger("INFO", "console")
@@ -241,6 +275,9 @@ func tableColumns(t *testing.T, db *Database, table string) map[string]bool {
 }
 
 func TestDatabasePermissions(t *testing.T) {
+	// Set database key for test environment
+	t.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	logger, _ := logging.NewLogger("INFO", "console")
@@ -477,6 +514,10 @@ CREATE TABLE schema_migrations (
 
 func newLegacyTestDB(t *testing.T) *Database {
 	t.Helper()
+
+	// Set database key for test environment
+	t.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
 	dir := t.TempDir()
 	logger, _ := logging.NewLogger("INFO", "console")
 	db, err := NewDatabase(filepath.Join(dir, "legacy.db"), logger)
@@ -638,6 +679,9 @@ func TestMigrate_LegacyDBUpgrade_Idempotent(t *testing.T) {
 }
 
 func TestMigrate_FreshDBUnchanged(t *testing.T) {
+	// Set database key for test environment
+	t.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
 	dir := t.TempDir()
 	logger, _ := logging.NewLogger("INFO", "console")
 	db, err := NewDatabase(filepath.Join(dir, "fresh.db"), logger)
@@ -673,6 +717,9 @@ func TestMigrate_FreshDBUnchanged(t *testing.T) {
 }
 
 func TestMigrate_ChecksumMismatch_Heals(t *testing.T) {
+	// Set database key for test environment
+	t.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
 	dir := t.TempDir()
 	logger, _ := logging.NewLogger("INFO", "console")
 	db, err := NewDatabase(filepath.Join(dir, "tamper.db"), logger)
