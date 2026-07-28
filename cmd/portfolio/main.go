@@ -5,15 +5,24 @@ import (
 	"os"
 
 	"project-dash/internal/cli"
+	"project-dash/internal/errors"
 	"project-dash/internal/logging"
 	"project-dash/pkg/models"
 )
 
 func main() {
+	// Global panic handler for safe error recovery
+	defer func() {
+		if err := errors.SafePanicHandler(); err != nil {
+			fmt.Fprintf(os.Stderr, "Internal error: %v\n", err)
+			os.Exit(1)
+		}
+	}()
+
 	// Initialize logging first
 	logConfig := logging.LoadConfigFromEnv()
 	if err := logConfig.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid logging configuration: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to initialize logging: %v\n", errors.SanitizeError(err))
 		os.Exit(1)
 	}
 
@@ -39,7 +48,7 @@ func main() {
 		logger, err = logging.NewLoggerWithFile(level, logConfig.Format, logConfig.File, os.Stdout)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to initialize logging system\n")
 		os.Exit(1)
 	}
 
@@ -48,9 +57,17 @@ func main() {
 
 	// Execute CLI
 	if err := cli.Execute(); err != nil {
-		logger.Error("CLI execution failed",
-			models.Field{Key: "error", Value: err},
-		)
+		// Check if it's already a safe error
+		if safeErr, ok := err.(*errors.SafeError); ok {
+			logger.Error("CLI execution failed",
+				models.Field{Key: "error", Value: safeErr.UserMessage},
+				models.Field{Key: "request_id", Value: safeErr.RequestID},
+			)
+		} else {
+			logger.Error("CLI execution failed",
+				models.Field{Key: "error", Value: errors.SanitizeError(err)},
+			)
+		}
 		os.Exit(1)
 	}
 

@@ -1,10 +1,5 @@
 package models
 
-import (
-	"os"
-	"path/filepath"
-)
-
 // Config represents the complete Portfolio configuration
 type Config struct {
 	General   GeneralConfig   `toml:"general"`
@@ -16,6 +11,7 @@ type Config struct {
 // GeneralConfig contains system-wide configuration
 type GeneralConfig struct {
 	DatabasePath string `toml:"database_path"`
+	DatabaseKey  string `toml:"database_key,omitempty"` // Optional: can be stored in config or separate file
 }
 
 // DiscoveryConfig contains project discovery settings
@@ -40,10 +36,9 @@ type DashboardConfig struct {
 
 // GetDefaultConfig returns default configuration
 func GetDefaultConfig() *Config {
-	homeDir, _ := os.UserHomeDir()
 	return &Config{
 		General: GeneralConfig{
-			DatabasePath: filepath.Join(homeDir, ".portfolio", "portfolio.db"),
+			DatabasePath: GetDefaultDatabasePath(),
 		},
 		Discovery: DiscoveryConfig{
 			ProjectRoots: []string{},
@@ -59,7 +54,7 @@ func GetDefaultConfig() *Config {
 		},
 		Logging: LoggingConfig{
 			Level: "INFO",
-			File:  filepath.Join(homeDir, ".portfolio", "portfolio.log"),
+			File:  GetDefaultLogPath(),
 		},
 		Dashboard: DashboardConfig{
 			Host:           "localhost",
@@ -68,12 +63,6 @@ func GetDefaultConfig() *Config {
 			AllowedOrigins: []string{"http://localhost:5173", "http://localhost:3000"},
 		},
 	}
-}
-
-// GetConfigPath returns the default configuration file path
-func GetConfigPath() string {
-	homeDir, _ := os.UserHomeDir()
-	return filepath.Join(homeDir, ".portfolio", "config.toml")
 }
 
 // ValidLogLevels returns the list of valid log levels
