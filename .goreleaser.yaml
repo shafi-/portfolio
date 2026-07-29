@@ -9,16 +9,14 @@ before:
 
 builds:
   - env:
-      - CGO_ENABLED=1
-      # Ensure static linking for portability
-      - LDFLAGS=-s -w -linkmode external
+      - CGO_ENABLED=0
     goos:
       - darwin
       - linux
     goarch:
       - amd64
       - arm64
-    # Skip linux/arm64 builds if cross-compilation issues occur
+    # Skip problematic builds for testing
     ignore:
       - goos: linux
         goarch: arm64
