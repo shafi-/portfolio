@@ -53,6 +53,15 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Delete existing tag if it exists (for re-releases)
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists, deleting..."
+            git tag -d "$VERSION" || true
+            git push origin ":refs/tags/$VERSION" || true
+          fi
+
+          # Create and push new tag
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
 
