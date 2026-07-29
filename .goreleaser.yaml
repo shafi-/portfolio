@@ -73,4 +73,3 @@ brews:
       bin.install "portfolio"
     test: |
       system "#{bin}/portfolio --version"
-    skip_upload: true
