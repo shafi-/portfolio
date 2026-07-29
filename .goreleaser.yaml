@@ -9,13 +9,19 @@ before:
 
 builds:
   - env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+      # Ensure static linking for portability
+      - LDFLAGS=-s -w -linkmode external
     goos:
       - darwin
       - linux
     goarch:
       - amd64
       - arm64
+    # Skip linux/arm64 builds if cross-compilation issues occur
+    ignore:
+      - goos: linux
+        goarch: arm64
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -58,7 +64,7 @@ brews:
     folder: Formula
     tap:
       owner: shafi-
-      name: homebrew-portfolio
+      name: homebrew
       branch: main
     commit_author:
       name: goreleaser-bot
@@ -67,3 +73,4 @@ brews:
       bin.install "portfolio"
     test: |
       system "#{bin}/portfolio --version"
+    skip_upload: true
