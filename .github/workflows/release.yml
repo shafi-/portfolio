@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   release:
@@ -64,6 +63,4 @@ jobs:
           version: latest
           args: release --clean --release-notes .github/release-notes.md
         env:
-          # Use HOMEBREW_GITHUB_TOKEN for cross-repository write access
-          # Falls back to default GITHUB_TOKEN if HOMEBREW_GITHUB_TOKEN is not set
-          GITHUB_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

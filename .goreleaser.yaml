@@ -62,9 +62,10 @@ brews:
     description: "Local-first project inventory and knowledge platform"
     license: MIT
     folder: Formula
-    tap:
+    # Build formula in same repository - no cross-repo access needed
+    repository:
       owner: shafi-
-      name: homebrew
+      name: portfolio
       branch: main
     commit_author:
       name: goreleaser-bot
