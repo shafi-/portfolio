@@ -7,6 +7,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"project-dash/internal/cv"
+	"project-dash/internal/pdf"
 	"project-dash/pkg/models"
 )
 
@@ -233,6 +234,15 @@ func (s *Server) cvTools() []serverTool {
 		{
 			Tool:    mcp.NewTool("listCVTemplates"),
 			Handler: s.handleListCVTemplates,
+		},
+		// PDF Export
+		{
+			Tool: mcp.NewTool("exportCVPDF",
+				mcp.WithString("job_description", mcp.Description("Job description to tailor CV to")),
+				mcp.WithString("template", mcp.Description("Template ID: ats, professional, compact")),
+				mcp.WithString("output_path", mcp.Description("Output file path (default: cv.pdf)")),
+			),
+			Handler: s.handleExportCVPDF,
 		},
 	}
 }
@@ -916,4 +926,59 @@ func (s *Server) handleGenerateCV(ctx context.Context, req mcp.CallToolRequest) 
 func (s *Server) handleListCVTemplates(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	templates := cv.GetTemplates()
 	return mcp.NewToolResultJSON(templates)
+}
+
+func (s *Server) handleExportCVPDF(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+
+	userID := "default"
+	if uid, ok := args["user_id"].(string); ok && uid != "" {
+		userID = uid
+	}
+
+	portfolio, err := s.cv.GetOrCreatePortfolio(userID)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to get portfolio: %v", err)), nil
+	}
+
+	experiences, _ := s.cv.GetExperiences(portfolio.ID)
+	achievements, _ := s.cv.GetAchievements(portfolio.ID)
+	skills, _ := s.cv.GetSkills(portfolio.ID)
+	educations, _ := s.cv.GetEducation(portfolio.ID)
+	certs, _ := s.cv.GetCertifications(portfolio.ID)
+
+	jobDesc, _ := args["job_description"].(string)
+	templateID, _ := args["template"].(string)
+	if templateID == "" {
+		templateID = "ats"
+	}
+
+	outputPath, _ := args["output_path"].(string)
+	if outputPath == "" {
+		outputPath = "cv.pdf"
+	}
+
+	generator := cv.NewGenerator()
+	result := generator.Generate(&cv.GenerateInput{
+		Portfolio:      portfolio,
+		Experiences:    experiences,
+		Achievements:   achievements,
+		Skills:         skills,
+		Education:      educations,
+		Certifications: certs,
+		JobDescription: jobDesc,
+		TemplateID:     templateID,
+	})
+
+	renderer := pdf.NewRenderer()
+	if err := renderer.RenderCV(result.Markdown, outputPath); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to generate PDF: %v", err)), nil
+	}
+
+	return mcp.NewToolResultJSON(map[string]interface{}{
+		"success":   true,
+		"file_path": outputPath,
+		"ats_score": result.ATSScore,
+		"message":   fmt.Sprintf("CV exported to %s", outputPath),
+	})
 }
