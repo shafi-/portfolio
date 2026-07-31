@@ -56,6 +56,12 @@ func getMigrations() []migration {
 			up:      tier3FeatureExtrasUp,
 			down:    tier3FeatureExtrasDown,
 		},
+		{
+			version: 4,
+			name:    "cv_portfolio",
+			up:      cvPortfolioUp,
+			down:    cvPortfolioDown,
+		},
 	}
 }
 
@@ -804,3 +810,120 @@ ALTER TABLE features ADD COLUMN pattern TEXT;
 `
 
 const tier3FeatureExtrasDown = `-- No rollback for ALTER TABLE ADD COLUMN`
+
+// cvPortfolioUp creates tables for the CV Builder feature.
+const cvPortfolioUp = `
+CREATE TABLE IF NOT EXISTS cv_portfolios (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  user_id TEXT NOT NULL DEFAULT 'default',
+  summary TEXT,
+  target_roles TEXT,
+  industry_focus TEXT,
+  preferred_locations TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cv_experiences (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  portfolio_id TEXT NOT NULL REFERENCES cv_portfolios(id) ON DELETE CASCADE,
+  company TEXT NOT NULL,
+  position TEXT NOT NULL,
+  location TEXT,
+  start_date TEXT NOT NULL,
+  end_date TEXT,
+  employment_type TEXT,
+  description TEXT,
+  key_responsibilities TEXT,
+  technologies_used TEXT,
+  team_size INTEGER,
+  reporting_to TEXT,
+  is_current INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cv_achievements (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  portfolio_id TEXT NOT NULL REFERENCES cv_portfolios(id) ON DELETE CASCADE,
+  experience_id TEXT REFERENCES cv_experiences(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  impact TEXT,
+  metrics TEXT,
+  skills_used TEXT,
+  category TEXT,
+  relevance_score REAL DEFAULT 0.5,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cv_skills (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  portfolio_id TEXT NOT NULL REFERENCES cv_portfolios(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT,
+  proficiency TEXT,
+  years_of_experience INTEGER,
+  last_used TEXT,
+  is_highlight INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cv_education (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  portfolio_id TEXT NOT NULL REFERENCES cv_portfolios(id) ON DELETE CASCADE,
+  institution TEXT NOT NULL,
+  degree TEXT,
+  field_of_study TEXT,
+  start_date TEXT,
+  end_date TEXT,
+  gpa REAL,
+  honors TEXT,
+  relevant_coursework TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cv_certifications (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  portfolio_id TEXT NOT NULL REFERENCES cv_portfolios(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  issuer TEXT,
+  issue_date TEXT,
+  expiry_date TEXT,
+  credential_id TEXT,
+  credential_url TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cv_generated (
+  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+  portfolio_id TEXT NOT NULL REFERENCES cv_portfolios(id) ON DELETE CASCADE,
+  template_id TEXT,
+  job_description TEXT,
+  content TEXT NOT NULL,
+  markdown_content TEXT,
+  ats_score REAL,
+  tailoring_notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_cv_portfolios_user ON cv_portfolios(user_id);
+CREATE INDEX IF NOT EXISTS idx_cv_experiences_portfolio ON cv_experiences(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_cv_achievements_portfolio ON cv_achievements(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_cv_achievements_experience ON cv_achievements(experience_id);
+CREATE INDEX IF NOT EXISTS idx_cv_skills_portfolio ON cv_skills(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_cv_education_portfolio ON cv_education(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_cv_certifications_portfolio ON cv_certifications(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_cv_generated_portfolio ON cv_generated(portfolio_id);
+`
+
+const cvPortfolioDown = `
+DROP TABLE IF EXISTS cv_generated;
+DROP TABLE IF EXISTS cv_certifications;
+DROP TABLE IF EXISTS cv_education;
+DROP TABLE IF EXISTS cv_skills;
+DROP TABLE IF EXISTS cv_achievements;
+DROP TABLE IF EXISTS cv_experiences;
+DROP TABLE IF EXISTS cv_portfolios;
+`

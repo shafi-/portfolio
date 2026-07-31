@@ -28,6 +28,7 @@ type Server struct {
 	relationships *store.RelationshipStore
 	dependencies  *store.DependencyStore
 	configuration *store.ConfigurationStore
+	cv            *store.CVStore
 	db            *sql.DB
 	logger        *logging.Logger
 	osFS          fs.Filesystem
@@ -93,6 +94,11 @@ func (s *Server) registerTools() {
 
 	technologyTools := s.technologyTools()
 	for _, t := range technologyTools {
+		s.mcp.AddTool(t.Tool, t.Handler)
+	}
+
+	cvTools := s.cvTools()
+	for _, t := range cvTools {
 		s.mcp.AddTool(t.Tool, t.Handler)
 	}
 }
