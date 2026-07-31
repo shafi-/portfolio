@@ -6,38 +6,31 @@ import (
 	"runtime"
 )
 
-// GetPortfolioDataDir returns the secure data directory for Portfolio
-// Uses system-wide locations away from home folder for better security
+// GetPortfolioDataDir returns the data directory for Portfolio
 func GetPortfolioDataDir() string {
 	switch runtime.GOOS {
 	case "darwin":
-		// macOS: System-wide Application Support
-		// Requires proper permissions, more secure than user home
-		return "/Library/Application Support/com.portfolio.cli"
+		homeDir, _ := os.UserHomeDir()
+		return filepath.Join(homeDir, "Library", "Application Support", "com.portfolio.cli")
 	case "windows":
-		// Windows: ProgramData (system-wide, not user-specific)
-		// More secure than user AppData
-		return filepath.Join(os.Getenv("ProgramData"), "portfolio")
+		return filepath.Join(os.Getenv("AppData"), "portfolio")
 	default:
-		// Linux: System-wide application data
-		// More secure than user home directories
-		return "/var/lib/portfolio"
+		homeDir, _ := os.UserHomeDir()
+		return filepath.Join(homeDir, ".config", "portfolio")
 	}
 }
 
-// GetPortfolioConfigDir returns the secure config directory for Portfolio
-// Uses system-wide locations for better security
+// GetPortfolioConfigDir returns the config directory for Portfolio
 func GetPortfolioConfigDir() string {
 	switch runtime.GOOS {
 	case "darwin":
-		// macOS: System config location
-		return "/Library/Preferences/com.portfolio.cli"
+		homeDir, _ := os.UserHomeDir()
+		return filepath.Join(homeDir, "Library", "Application Support", "com.portfolio.cli")
 	case "windows":
-		// Windows: System program data
-		return filepath.Join(os.Getenv("ProgramData"), "portfolio", "config")
+		return filepath.Join(os.Getenv("AppData"), "portfolio")
 	default:
-		// Linux: System-wide config
-		return "/etc/portfolio"
+		homeDir, _ := os.UserHomeDir()
+		return filepath.Join(homeDir, ".config", "portfolio")
 	}
 }
 

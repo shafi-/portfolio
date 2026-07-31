@@ -3,8 +3,9 @@ package logging
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"project-dash/pkg/models"
 )
 
 // Config holds logging configuration
@@ -72,7 +73,5 @@ func GetLogFileFromEnv() string {
 	if path := os.Getenv("PORTFOLIO_LOG_FILE"); path != "" {
 		return path
 	}
-	// Default to ~/.portfolio/portfolio.log
-	homeDir, _ := os.UserHomeDir()
-	return filepath.Join(homeDir, ".portfolio", "portfolio.log")
+	return models.GetDefaultLogPath()
 }

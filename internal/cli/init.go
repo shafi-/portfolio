@@ -171,8 +171,7 @@ func promptProjectRoots() ([]string, error) {
 
 func promptDatabasePath() (string, error) {
 	reader := bufio.NewReader(os.Stdin)
-	homeDir, _ := os.UserHomeDir()
-	defaultPath := filepath.Join(homeDir, ".portfolio", "portfolio.db")
+	defaultPath := models.GetDefaultDatabasePath()
 
 	fmt.Printf("\nEnter database path (default: %s):\n", defaultPath)
 	fmt.Print("Database path: ")
