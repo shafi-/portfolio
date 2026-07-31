@@ -40,14 +40,13 @@
 # One-command install (recommended)
 curl -fsSL https://raw.githubusercontent.com/shafi-/portfolio/main/install.sh | bash
 
-# Homebrew (macOS)
-brew tap shafi-/portfolio && brew install portfolio
-
 # Manual download
 curl -L https://github.com/shafi-/portfolio/releases/latest/download/portfolio-darwin-arm64 -o portfolio
 chmod +x portfolio
 sudo mv portfolio /usr/local/bin/
 ```
+
+**Note:** Homebrew installation has been discontinued to simplify the release process and eliminate cross-repository complexity. Please use the curl script for installation.
 
 ### 📚 Documentation
 - Agent Integration Guide - Comprehensive MCP tool documentation
