@@ -40,39 +40,82 @@ func runInit(cmd *cobra.Command, args []string) {
 		models.Field{Key: "component", Value: "cli"},
 	)
 
+	reader := bufio.NewReader(os.Stdin)
+
 	fmt.Println("Portfolio Engine Initialization")
 	fmt.Println("==============================")
 	fmt.Println()
 
-	// Step 1: Project roots
-	projectRoots, err := promptProjectRoots()
-	if err != nil {
-		handleInitError(err, "Failed to get project roots")
-		return
+	// Check for existing configuration
+	loader := config.NewLoader("")
+	existingCfg, configErr := loader.Load()
+
+	isReinit := configErr == nil && existingCfg != nil && len(existingCfg.Discovery.ProjectRoots) > 0
+
+	var projectRoots []string
+	var databasePath string
+	var isDefaultDB bool
+	var logLevel string
+
+	if isReinit {
+		// Re-init: show existing roots, offer to add more
+		fmt.Println("Existing configuration found.")
+		fmt.Println("\nCurrent project roots:")
+		for _, root := range existingCfg.Discovery.ProjectRoots {
+			fmt.Printf("  - %s\n", root)
+		}
+
+		fmt.Print("\nAdd more project roots? (y/N): ")
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			handleInitError(err, "Failed to read input")
+			return
+		}
+		input = strings.TrimSpace(strings.ToLower(input))
+
+		if input == "y" || input == "yes" {
+			newRoots, err := promptProjectRoots(reader)
+			if err != nil {
+				handleInitError(err, "Failed to get project roots")
+				return
+			}
+			projectRoots = append(existingCfg.Discovery.ProjectRoots, newRoots...)
+		} else {
+			projectRoots = existingCfg.Discovery.ProjectRoots
+		}
+
+		databasePath = existingCfg.General.DatabasePath
+		logLevel = existingCfg.Logging.Level
+	} else {
+		// Fresh init
+		var err error
+		projectRoots, err = promptProjectRoots(reader)
+		if err != nil {
+			handleInitError(err, "Failed to get project roots")
+			return
+		}
+
+		databasePath, isDefaultDB, err = promptDatabasePath(reader)
+		if err != nil {
+			handleInitError(err, "Failed to get database path")
+			return
+		}
+
+		logLevel, err = promptLogLevel(reader)
+		if err != nil {
+			handleInitError(err, "Failed to get log level")
+			return
+		}
 	}
 
-	// Step 2: Database path
-	databasePath, err := promptDatabasePath()
-	if err != nil {
-		handleInitError(err, "Failed to get database path")
-		return
-	}
-
-	// Step 3: Log level
-	logLevel, err := promptLogLevel()
-	if err != nil {
-		handleInitError(err, "Failed to get log level")
-		return
-	}
-
-	// Step 4: Confirmation
-	if !confirmConfiguration(projectRoots, databasePath, logLevel) {
+	// Step: Confirmation
+	if !confirmConfiguration(projectRoots, databasePath, isDefaultDB, logLevel, isReinit, reader) {
 		fmt.Println("\nInitialization cancelled.")
 		return
 	}
 
-	// Step 5: Create configuration
-	fmt.Println("\nCreating configuration...")
+	// Step: Create/update configuration
+	fmt.Println("\nSaving configuration...")
 
 	cfg := &models.Config{
 		General: models.GeneralConfig{
@@ -80,51 +123,65 @@ func runInit(cmd *cobra.Command, args []string) {
 		},
 		Discovery: models.DiscoveryConfig{
 			ProjectRoots: projectRoots,
-			IgnoredPaths: []string{
-				"node_modules", ".git", "vendor", "build", "dist", "target", "bin",
-			},
+			IgnoredPaths: existingCfg.Discovery.IgnoredPaths,
 		},
 		Logging: models.LoggingConfig{
 			Level: logLevel,
+			File:  existingCfg.Logging.File,
 		},
+		Dashboard: existingCfg.Dashboard,
 	}
 
-	// Ensure config directory exists
+	if existingCfg != nil && configErr == nil {
+		cfg.Discovery.IgnoredPaths = existingCfg.Discovery.IgnoredPaths
+		cfg.Logging.File = existingCfg.Logging.File
+	} else {
+		cfg.Discovery.IgnoredPaths = models.DefaultIgnoredPaths()
+		cfg.Logging.File = models.GetDefaultLogPath()
+	}
+
 	if err := config.EnsureConfigDir(); err != nil {
 		handleInitError(err, "Failed to create config directory")
 		return
 	}
 
-	// Save configuration
-	loader := config.NewLoader("")
 	if err := loader.Save(cfg); err != nil {
 		handleInitError(err, "Failed to save configuration")
 		return
 	}
 
-	fmt.Printf("✓ Configuration created: %s\n", models.GetConfigPath())
+	fmt.Printf("✓ Configuration saved: %s\n", models.GetConfigPath())
 
-	// Step 6: Initialize database
-	fmt.Println("Initializing database...")
-
-	db, err := database.NewDatabase(cfg.General.DatabasePath, logger)
-	if err != nil {
-		handleInitError(err, "Failed to initialize database")
-		return
-	}
-	defer db.Close()
-
-	if err := db.Connect(); err != nil {
-		handleInitError(err, "Failed to connect to database")
-		return
+	// Step: Initialize database (skip if already exists)
+	dbExists := false
+	if _, err := os.Stat(cfg.General.DatabasePath); err == nil {
+		dbExists = true
 	}
 
-	if err := db.Initialize(); err != nil {
-		handleInitError(err, "Failed to initialize database schema")
-		return
-	}
+	if dbExists {
+		fmt.Printf("✓ Database already exists: %s\n", cfg.General.DatabasePath)
+	} else {
+		fmt.Println("Initializing database...")
 
-	fmt.Printf("✓ Database initialized: %s\n", cfg.General.DatabasePath)
+		db, err := database.NewDatabase(cfg.General.DatabasePath, logger)
+		if err != nil {
+			handleInitError(err, "Failed to initialize database")
+			return
+		}
+		defer db.Close()
+
+		if err := db.Connect(); err != nil {
+			handleInitError(err, "Failed to connect to database")
+			return
+		}
+
+		if err := db.Initialize(); err != nil {
+			handleInitError(err, "Failed to initialize database schema")
+			return
+		}
+
+		fmt.Printf("✓ Database initialized: %s\n", cfg.General.DatabasePath)
+	}
 
 	fmt.Println("\n✓ Portfolio Engine initialized successfully!")
 	fmt.Println("\nNext steps:")
@@ -133,8 +190,7 @@ func runInit(cmd *cobra.Command, args []string) {
 	fmt.Println("  3. Start discovering projects in your configured roots")
 }
 
-func promptProjectRoots() ([]string, error) {
-	reader := bufio.NewReader(os.Stdin)
+func promptProjectRoots(reader *bufio.Reader) ([]string, error) {
 	var roots []string
 
 	fmt.Println("Enter project root directories (one per line, empty line to finish):")
@@ -169,29 +225,25 @@ func promptProjectRoots() ([]string, error) {
 	return roots, nil
 }
 
-func promptDatabasePath() (string, error) {
-	reader := bufio.NewReader(os.Stdin)
+func promptDatabasePath(reader *bufio.Reader) (string, bool, error) {
 	defaultPath := models.GetDefaultDatabasePath()
 
-	fmt.Printf("\nEnter database path (default: %s):\n", defaultPath)
-	fmt.Print("Database path: ")
+	fmt.Print("\nEnter database path (or press Enter for default): ")
 
 	input, err := reader.ReadString('\n')
 	if err != nil {
-		return "", fmt.Errorf("failed to read input: %w", err)
+		return "", false, fmt.Errorf("failed to read input: %w", err)
 	}
 
 	input = strings.TrimSpace(input)
 	if input == "" {
-		return defaultPath, nil
+		return defaultPath, true, nil
 	}
 
-	return input, nil
+	return input, false, nil
 }
 
-func promptLogLevel() (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-
+func promptLogLevel(reader *bufio.Reader) (string, error) {
 	fmt.Println("\nEnter log level (default: INFO):")
 	fmt.Println("Options: DEBUG, INFO, WARN, ERROR")
 	fmt.Print("Log level: ")
@@ -216,18 +268,24 @@ func promptLogLevel() (string, error) {
 	return "INFO", nil // default to INFO for invalid input
 }
 
-func confirmConfiguration(roots []string, dbPath, logLevel string) bool {
+func confirmConfiguration(roots []string, dbPath string, isDefaultDB bool, logLevel string, isReinit bool, reader *bufio.Reader) bool {
 	fmt.Println("\nConfiguration Summary:")
 	fmt.Println("=======================")
+	if isReinit {
+		fmt.Println("Mode: Re-init (updating existing configuration)")
+	}
 	fmt.Println("Project Roots:")
 	for _, root := range roots {
 		fmt.Printf("  - %s\n", root)
 	}
-	fmt.Printf("\nDatabase: %s\n", dbPath)
+	if isDefaultDB {
+		fmt.Printf("\nDatabase: default\n")
+	} else {
+		fmt.Printf("\nDatabase: %s\n", dbPath)
+	}
 	fmt.Printf("Log Level: %s\n", logLevel)
 
 	fmt.Print("\nProceed with initialization? (y/N): ")
-	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		return false
