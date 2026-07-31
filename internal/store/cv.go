@@ -27,10 +27,10 @@ func (s *CVStore) GetOrCreatePortfolio(userID string) (*models.CVPortfolio, erro
 		FROM cv_portfolios WHERE user_id = ?
 	`
 	p := &models.CVPortfolio{}
-	var targetRoles, industryFocus, preferredLocations sql.NullString
+	var summary, targetRoles, industryFocus, preferredLocations sql.NullString
 
 	err := s.db.QueryRow(query, userID).Scan(
-		&p.ID, &p.UserID, &p.Summary, &targetRoles, &industryFocus, &preferredLocations,
+		&p.ID, &p.UserID, &summary, &targetRoles, &industryFocus, &preferredLocations,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -40,6 +40,9 @@ func (s *CVStore) GetOrCreatePortfolio(userID string) (*models.CVPortfolio, erro
 		return nil, fmt.Errorf("failed to get portfolio: %w", err)
 	}
 
+	if summary.Valid {
+		p.Summary = summary.String
+	}
 	p.TargetRoles = parseStringSlice(targetRoles.String)
 	p.IndustryFocus = parseStringSlice(industryFocus.String)
 	p.PreferredLocations = parseStringSlice(preferredLocations.String)
@@ -49,11 +52,11 @@ func (s *CVStore) GetOrCreatePortfolio(userID string) (*models.CVPortfolio, erro
 func (s *CVStore) createPortfolio(userID string) (*models.CVPortfolio, error) {
 	query := `
 		INSERT INTO cv_portfolios (user_id) VALUES (?)
-		RETURNING id, user_id, summary, created_at, updated_at
+		RETURNING id, user_id, created_at, updated_at
 	`
 	p := &models.CVPortfolio{UserID: userID}
 	err := s.db.QueryRow(query, userID).Scan(
-		&p.ID, &p.UserID, &p.Summary, &p.CreatedAt, &p.UpdatedAt,
+		&p.ID, &p.UserID, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create portfolio: %w", err)
