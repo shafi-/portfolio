@@ -8,6 +8,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"project-dash/internal/errors"
 	"project-dash/internal/logging"
 	"project-dash/pkg/models"
 )
@@ -25,7 +26,7 @@ func NewDatabase(dbPath string, logger *logging.Logger) (*Database, error) {
 	// Ensure directory exists
 	dir := filepath.Dir(dbPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create database directory: %w", err)
+		return nil, errors.FileSystem("create directory").Wrap(err, "Failed to initialize database storage")
 	}
 
 	return &Database{
@@ -36,17 +37,33 @@ func NewDatabase(dbPath string, logger *logging.Logger) (*Database, error) {
 
 // Connect establishes database connection
 func (d *Database) Connect() error {
+	// Add panic handler for safe error recovery
+	defer func() {
+		if r := recover(); r != nil {
+			d.logger.Error("Database connection panic occurred",
+				models.Field{Key: "panic", Value: fmt.Sprintf("%v", r)},
+			)
+		}
+	}()
+
 	d.logger.Info("Connecting to database",
 		models.Field{Key: "path", Value: d.dbPath},
 	)
 
-	// Build connection string
-	connString := fmt.Sprintf("file:%s?_foreign_keys=on", d.dbPath)
+	// Get database key for password protection
+	dbKey, err := GetDatabaseKey()
+	if err != nil {
+		return errors.Database("get key").Wrap(err, "Failed to initialize database connection")
+	}
+
+	// Build connection string with password protection
+	// Using SQLite PRAGMA key for password protection
+	connString := fmt.Sprintf("file:%s?_pragma_key=%s&_foreign_keys=on", d.dbPath, dbKey)
 
 	// Open database connection
 	db, err := sql.Open("sqlite3", connString)
 	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
+		return errors.Database("open").Wrap(err, "Failed to establish database connection")
 	}
 
 	// Configure connection settings
@@ -58,19 +75,19 @@ func (d *Database) Connect() error {
 	// Enable WAL mode for better concurrency
 	if _, err := db.Exec("PRAGMA journal_mode=WAL;"); err != nil {
 		db.Close()
-		return fmt.Errorf("failed to enable WAL mode: %w", err)
+		return errors.Database("configure").Wrap(err, "Failed to configure database")
 	}
 
 	// Set busy timeout for concurrent access
 	if _, err := db.Exec("PRAGMA busy_timeout=5000;"); err != nil {
 		db.Close()
-		return fmt.Errorf("failed to set busy timeout: %w", err)
+		return errors.Database("configure").Wrap(err, "Failed to set database timeout")
 	}
 
 	// Test connection
 	if err := db.Ping(); err != nil {
 		db.Close()
-		return fmt.Errorf("failed to ping database: %w", err)
+		return errors.Database("connect").Wrap(err, "Failed to establish database connection")
 	}
 
 	d.db = db
@@ -94,7 +111,7 @@ func (d *Database) Close() error {
 	)
 
 	if err := d.db.Close(); err != nil {
-		return fmt.Errorf("failed to close database: %w", err)
+		return errors.Database("close").Wrap(err, "Failed to close database connection")
 	}
 
 	d.connected = false
@@ -114,9 +131,14 @@ func (d *Database) IsConnected() bool {
 // Ping tests database connectivity
 func (d *Database) Ping() error {
 	if !d.connected {
-		return fmt.Errorf("database not connected")
+		return errors.Database("ping").Error("Database connection not established")
 	}
-	return d.db.Ping()
+
+	if err := d.db.Ping(); err != nil {
+		return errors.Database("ping").Wrap(err, "Database connection test failed")
+	}
+
+	return nil
 }
 
 // Initialize creates the database schema
@@ -127,12 +149,12 @@ func (d *Database) Initialize() error {
 
 	// Run migrations
 	if err := d.Migrate(); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+		return errors.Database("migrate").Wrap(err, "Failed to initialize database schema")
 	}
 
 	// Validate schema
 	if err := d.ValidateSchema(); err != nil {
-		return fmt.Errorf("schema validation failed: %w", err)
+		return errors.Database("validate").Wrap(err, "Database schema validation failed")
 	}
 
 	d.logger.Info("Database initialized successfully")
@@ -155,11 +177,11 @@ func (d *Database) ValidateSchema() error {
 		).Scan(&count)
 
 		if err != nil {
-			return fmt.Errorf("failed to check table %s: %w", table, err)
+			return errors.Database("validate").Wrap(err, "Failed to validate database schema")
 		}
 
 		if count == 0 {
-			return fmt.Errorf("required table missing: %s", table)
+			return errors.Database("validate").Error("Database schema is incomplete or corrupted")
 		}
 	}
 
@@ -181,7 +203,7 @@ func (d *Database) GetSchemaVersion() (int, error) {
 	).Scan(&tableCount)
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to check schema_migrations table: %w", err)
+		return 0, errors.Database("schema version").Wrap(err, "Failed to retrieve database schema information")
 	}
 
 	if tableCount == 0 {
@@ -195,7 +217,7 @@ func (d *Database) GetSchemaVersion() (int, error) {
 	).Scan(&version)
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to get schema version: %w", err)
+		return 0, errors.Database("schema version").Wrap(err, "Failed to retrieve database schema information")
 	}
 
 	return version, nil
@@ -209,7 +231,7 @@ func (d *Database) GetTableCount() (int, error) {
 	).Scan(&count)
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to get table count: %w", err)
+		return 0, errors.Database("query").Wrap(err, "Failed to retrieve database information")
 	}
 
 	return count, nil
@@ -220,7 +242,7 @@ func (d *Database) GetProjectCount() (int, error) {
 	var count int
 	err := d.db.QueryRow("SELECT count(*) FROM projects").Scan(&count)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get project count: %w", err)
+		return 0, errors.Database("query").Wrap(err, "Failed to retrieve project information")
 	}
 	return count, nil
 }
@@ -236,7 +258,7 @@ func (d *Database) GetProject(id string) (*models.Project, error) {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to get project: %w", err)
+		return nil, errors.Database("query").Wrap(err, "Failed to retrieve project information")
 	}
 	return &p, nil
 }
@@ -247,7 +269,7 @@ func (d *Database) ListProjects() ([]*models.Project, error) {
 		"SELECT id, name, root_path, repository_type, discovered_at, updated_at FROM projects ORDER BY name",
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list projects: %w", err)
+		return nil, errors.Database("query").Wrap(err, "Failed to retrieve project list")
 	}
 	defer rows.Close()
 
@@ -255,7 +277,7 @@ func (d *Database) ListProjects() ([]*models.Project, error) {
 	for rows.Next() {
 		p := &models.Project{}
 		if err := rows.Scan(&p.ID, &p.Name, &p.RootPath, &p.RepositoryType, &p.DiscoveredAt, &p.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("failed to scan project: %w", err)
+			return nil, errors.Database("scan").Wrap(err, "Failed to process project data")
 		}
 		projects = append(projects, p)
 	}
@@ -270,7 +292,7 @@ func (d *Database) GetLastDiscoveryTime() (time.Time, error) {
 	).Scan(&lastScan)
 
 	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to get last discovery time: %w", err)
+		return time.Time{}, errors.Database("query").Wrap(err, "Failed to retrieve discovery information")
 	}
 
 	return lastScan, nil

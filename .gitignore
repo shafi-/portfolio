@@ -70,3 +70,7 @@ supabase/
 
 # Pipeline artifacts (archive directory itself tracked, contents dynamic)
 # .pipeline/
+
+# Homebrew tap formulas (now maintained in same repository)
+# homebrew/
+# Formula

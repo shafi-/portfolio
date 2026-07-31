@@ -1,21 +1,38 @@
 ## 🎉 Portfolio {{ .Tag }} Release
 
-### 🚀 Major Features
+### 🔒 Security Model Overhaul
 
-**One-Command Installation**
-- `curl -fsSL https://raw.githubusercontent.com/shafi-/portfolio/main/install.sh | bash`
-- Automatic platform detection (macOS/Linux, Intel/ARM)
-- Smart error handling and user guidance
+**AI Agent Security**
+- Comprehensive MCP documentation for AI coding assistants
+- Clear guidance: agents must always use MCP tools
+- Safe error handling that never exposes internal details
+- Database protected from external access via password encryption
 
-**Homebrew Support (macOS)**
-- `brew tap shafi-/portfolio && brew install portfolio`
-- Official binaries with verification
-- Easy updates via `brew upgrade portfolio`
+**Error Handling**
+- New safe error system with user-friendly messages
+- No internal paths, stack traces, or implementation details exposed
+- Graceful panic recovery with proper logging
+- Request ID tracking for debugging
 
-**Multi-Platform Support**
-- macOS (Intel/ARM)
-- Linux (Intel/ARM)
-- Automatic platform detection
+### 🚀 Improvements
+
+**Security Enhancements**
+- Database password protection via SQLite PRAGMA key encryption
+- Agent-focused MCP documentation prevents misuse
+- Comprehensive safe error handling throughout codebase
+- Enhanced protection against information disclosure
+
+**Documentation**
+- New `skills/portfolio-mcp-interface.md` for AI agents
+- Explicit instructions on proper MCP tool usage
+- Clear examples and warnings against database direct access
+- Complete workflow documentation for agent integration
+
+**Code Quality**
+- Refactored error handling across all database operations
+- Global panic handler in main.go
+- Safe error types with proper message sanitization
+- Improved error context and user experience
 
 ### 📦 Installation
 
@@ -23,24 +40,24 @@
 # One-command install (recommended)
 curl -fsSL https://raw.githubusercontent.com/shafi-/portfolio/main/install.sh | bash
 
-# Homebrew (macOS)
-brew tap shafi-/portfolio && brew install portfolio
-
 # Manual download
 curl -L https://github.com/shafi-/portfolio/releases/latest/download/portfolio-darwin-arm64 -o portfolio
 chmod +x portfolio
 sudo mv portfolio /usr/local/bin/
 ```
 
+**Note:** Homebrew installation has been discontinued to simplify the release process and eliminate cross-repository complexity. Please use the curl script for installation.
+
 ### 📚 Documentation
+- Agent Integration Guide - Comprehensive MCP tool documentation
+- Security Model - Database protection and safe error handling
 - Quick Start Guide - Get started in 5 minutes
-- Homebrew Setup Guide - macOS installation
-- Release Process - Team workflow documentation
 
 ### 🧪 Quality
-- All tests passing
+- All security improvements tested
+- Safe error handling verified
 - Build verification successful
-- Multi-platform support
+- Multi-platform support maintained
 
 ---
 

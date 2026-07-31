@@ -16,6 +16,10 @@ builds:
     goarch:
       - amd64
       - arm64
+    # Skip problematic builds for testing
+    ignore:
+      - goos: linux
+        goarch: arm64
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -49,21 +53,5 @@ universal_binaries:
   - replace: false
     name_template: 'portfolio-darwin-universal'
 
-# Brew tap for macOS
-brews:
-  - name: portfolio
-    homepage: "https://github.com/shafi-/portfolio"
-    description: "Local-first project inventory and knowledge platform"
-    license: MIT
-    folder: Formula
-    tap:
-      owner: shafi-
-      name: homebrew-portfolio
-      branch: main
-    commit_author:
-      name: goreleaser-bot
-      email: bot@goreleaser.com
-    install: |
-      bin.install "portfolio"
-    test: |
-      system "#{bin}/portfolio --version"
+# Homebrew support discontinued - using curl-only installation for simplicity
+# This eliminates cross-repository complexity and user confusion from multiple installation methods

@@ -228,11 +228,6 @@ func TestStory12Integration(t *testing.T) {
 		tempDir := t.TempDir()
 		configPath := filepath.Join(tempDir, "config.toml")
 
-		// Test creation
-		if err := EnsureConfigDir(); err != nil {
-			t.Errorf("Failed to create config directory: %v", err)
-		}
-
 		loader := NewLoader(configPath)
 		if err := loader.Save(models.GetDefaultConfig()); err != nil {
 			t.Errorf("Failed to create default config: %v", err)

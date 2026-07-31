@@ -12,6 +12,21 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}🚀 Installing Portfolio...${NC}"
 
+# Check for existing Homebrew installation
+if command -v brew >/dev/null 2>&1 && brew list portfolio 2>/dev/null; then
+    echo -e "${YELLOW}⚠️  Warning: Portfolio is already installed via Homebrew${NC}"
+    echo -e "${YELLOW}   This may cause version conflicts. Consider removing:${NC}"
+    echo -e "${YELLOW}   brew uninstall portfolio && brew untap shafi-/portfolio${NC}"
+    echo ""
+    read -p "Continue with installation? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${RED}Installation cancelled${NC}"
+        exit 1
+    fi
+    echo ""
+fi
+
 # Detect OS and architecture
 OS="$(uname -s)"
 ARCH="$(uname -m)"
@@ -79,9 +94,6 @@ if portfolio --version &>/dev/null; then
     echo -e "${YELLOW}📖 For more information:${NC}"
     echo "  Documentation: https://github.com/shafi-/portfolio"
     echo "  User Manual:   ${GREEN}portfolio manual${NC}"
-    echo ""
-    echo -e "${YELLOW}🍺 Alternative installation (macOS):${NC}"
-    echo "  ${GREEN}brew tap shafi-/portfolio && brew install portfolio${GREEN}"
 else
     echo -e "${RED}Error: Installation verification failed${NC}"
     exit 1

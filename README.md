@@ -34,14 +34,7 @@ sudo mv portfolio /usr/local/bin/
 portfolio --version
 ```
 
-### Method 3: Homebrew (macOS)
-
-```bash
-brew tap shafi-/portfolio
-brew install portfolio
-```
-
-### Method 4: Build from Source
+### Method 3: Build from Source
 
 ```bash
 # Clone the repository
