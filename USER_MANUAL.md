@@ -1,6 +1,6 @@
 # Portfolio User Manual
 
-Version: v0.3.10v0.3.9v0.3.8v0.3.1v0.2.0  
+Version: v0.3.11v0.3.10v0.3.9v0.3.8v0.3.1v0.2.0  
 Last Updated: July 26, 2026
 
 ---
