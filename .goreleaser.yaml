@@ -1,5 +1,6 @@
 # Goreleaser configuration for Portfolio
 # Builds single binary releases for multiple platforms
+version: 2
 
 project_name: portfolio
 before:
@@ -8,16 +9,27 @@ before:
     - go generate ./...
 
 builds:
-  - goos:
+  - id: portfolio-macos
+    env:
+      - CGO_ENABLED=1
+    goos:
       - darwin
-      - linux
     goarch:
       - amd64
       - arm64
-    # Skip problematic builds for testing
-    ignore:
-      - goos: linux
-        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    main: ./cmd/portfolio
+  - id: portfolio-linux
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
     ldflags:
       - -s -w
       - -X main.version={{.Version}}

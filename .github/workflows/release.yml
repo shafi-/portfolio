@@ -65,7 +65,7 @@ jobs:
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
 
-      - name: Run GoReleaser with CGO cross-compilation
+      - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
@@ -73,5 +73,3 @@ jobs:
           args: release --clean --release-notes .github/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Use goreleaser-cross for CGO cross-compilation
-          GORELEASER_GO_IMAGE: ghcr.io/goreleaser/goreleaser-cross:v1.21.7
