@@ -87,13 +87,13 @@ if portfolio --version &>/dev/null; then
     echo -e "${GREEN}Version: $VERSION${NC}"
     echo ""
     echo -e "${YELLOW}🎯 Quick Start:${NC}"
-    echo "  1. Initialize Portfolio:  ${GREEN}portfolio init${NC}"
-    echo "  2. Discover projects:    ${GREEN}portfolio discover${NC}"
-    echo "  3. Check status:         ${GREEN}portfolio status${NC}"
+    echo -e "  1. Initialize Portfolio:  ${GREEN}portfolio init${NC}"
+    echo -e "  2. Discover projects:    ${GREEN}portfolio discover${NC}"
+    echo -e "  3. Check status:         ${GREEN}portfolio status${NC}"
     echo ""
     echo -e "${YELLOW}📖 For more information:${NC}"
     echo "  Documentation: https://github.com/shafi-/portfolio"
-    echo "  User Manual:   ${GREEN}portfolio manual${NC}"
+    echo -e "  User Manual:   ${GREEN}portfolio manual${NC}"
 else
     echo -e "${RED}Error: Installation verification failed${NC}"
     exit 1
