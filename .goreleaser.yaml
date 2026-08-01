@@ -2,8 +2,6 @@
 # Builds single binary releases for multiple platforms
 # Uses modernc.org/sqlite (pure Go) — no CGO required
 
-version: 2
-
 project_name: portfolio
 before:
   hooks:
@@ -30,7 +28,7 @@ builds:
     main: ./cmd/portfolio
 
 archives:
-  - formats: ['binary']
+  - format: binary
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
 
 checksum:
