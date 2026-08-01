@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"project-dash/pkg/models"
 )
 
 const (
-	defaultInstallPath = ".portfolio/integrations"
 	integrationMetaKey = "integration:%s:meta"
 )
 
@@ -66,7 +66,7 @@ func (m *Manager) Install(ctx context.Context, name string, opts InstallOptions)
 
 	installPath := opts.InstallPath
 	if installPath == "" {
-		installPath = filepath.Join(defaultInstallPath, name)
+		installPath = filepath.Join(models.GetDefaultIntegrationsDir(), name)
 	}
 
 	m.logger.Info("Installing integration", zap.String("name", name), zap.String("path", installPath))

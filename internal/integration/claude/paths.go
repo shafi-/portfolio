@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+
+	"project-dash/pkg/models"
 )
 
 func detectPaths() (ClaudeConfig, error) {
@@ -79,7 +81,7 @@ func detectBinaryPath() (string, error) {
 }
 
 func detectInstallPath() string {
-	return filepath.Join(".portfolio", "integrations", "claude")
+	return filepath.Join(models.GetDefaultIntegrationsDir(), "claude")
 }
 
 func isClaudeInstalled() bool {

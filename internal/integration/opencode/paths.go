@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"project-dash/pkg/models"
 )
 
 func detectPaths() (OpenCodeConfig, error) {
@@ -66,7 +68,7 @@ func detectBinaryPath() (string, error) {
 }
 
 func detectInstallPath() string {
-	return filepath.Join(".portfolio", "integrations", "opencode")
+	return filepath.Join(models.GetDefaultIntegrationsDir(), "opencode")
 }
 
 func isOpenCodeInstalled() bool {

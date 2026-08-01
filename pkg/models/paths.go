@@ -3,35 +3,22 @@ package models
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 )
 
-// GetPortfolioDataDir returns the data directory for Portfolio
+// GetPortfolioDataDir returns the data directory for Portfolio.
+// Uses os.UserConfigDir() which respects platform conventions:
+//   - macOS:   ~/Library/Application Support
+//   - Windows: %AppData%
+//   - Linux:   $XDG_CONFIG_HOME or ~/.config
 func GetPortfolioDataDir() string {
-	switch runtime.GOOS {
-	case "darwin":
-		homeDir, _ := os.UserHomeDir()
-		return filepath.Join(homeDir, "Library", "Application Support", "com.portfolio.cli")
-	case "windows":
-		return filepath.Join(os.Getenv("AppData"), "portfolio")
-	default:
-		homeDir, _ := os.UserHomeDir()
-		return filepath.Join(homeDir, ".config", "portfolio")
-	}
+	configDir, _ := os.UserConfigDir()
+	return filepath.Join(configDir, "com.portfolio.cli")
 }
 
-// GetPortfolioConfigDir returns the config directory for Portfolio
+// GetPortfolioConfigDir returns the config directory for Portfolio.
+// Same as GetPortfolioDataDir on all platforms.
 func GetPortfolioConfigDir() string {
-	switch runtime.GOOS {
-	case "darwin":
-		homeDir, _ := os.UserHomeDir()
-		return filepath.Join(homeDir, "Library", "Application Support", "com.portfolio.cli")
-	case "windows":
-		return filepath.Join(os.Getenv("AppData"), "portfolio")
-	default:
-		homeDir, _ := os.UserHomeDir()
-		return filepath.Join(homeDir, ".config", "portfolio")
-	}
+	return GetPortfolioDataDir()
 }
 
 // GetDefaultDatabasePath returns the secure database path
@@ -48,6 +35,11 @@ func GetDefaultConfigPath() string {
 // GetDefaultLogPath returns the secure log file path
 func GetDefaultLogPath() string {
 	return filepath.Join(GetPortfolioDataDir(), "portfolio.log")
+}
+
+// GetDefaultIntegrationsDir returns the default directory for integration files
+func GetDefaultIntegrationsDir() string {
+	return filepath.Join(GetPortfolioDataDir(), "integrations")
 }
 
 // GetDatabaseKeyPath returns the secure database key file path
