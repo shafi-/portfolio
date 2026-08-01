@@ -75,15 +75,17 @@ func runUninstallIntegration(cmd *cobra.Command, name string) {
 
 	im, err := setupIntegrationManager(logger)
 	if err != nil {
-		logger.Error(err.Error(), models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: %v\n", err)
+		logger.LogErrorToFile("Failed to setup integration manager", err)
+		fmt.Fprintf(os.Stderr, "Error: could not initialize integration manager\n\nRun 'portfolio doctor' for diagnostics\n")
 		os.Exit(1)
 	}
 	defer im.db.Close()
 
 	if err := im.manager.Remove(ctx, name); err != nil {
-		logger.Error("uninstallation failed", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: uninstallation failed: %v\n", err)
+		logger.LogErrorToFile("Uninstallation failed", err,
+			models.Field{Key: "integration", Value: name})
+		display := integrationDisplayName(name)
+		fmt.Fprintf(os.Stderr, "Error: failed to uninstall %s integration\n\nRun 'portfolio doctor %s' for diagnostics\n", display, name)
 		os.Exit(1)
 	}
 

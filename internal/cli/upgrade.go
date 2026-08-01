@@ -77,16 +77,18 @@ func runUpgradeIntegration(cmd *cobra.Command, name string) {
 
 	im, err := setupIntegrationManager(logger)
 	if err != nil {
-		logger.Error(err.Error(), models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: %v\n", err)
+		logger.LogErrorToFile("Failed to setup integration manager", err)
+		fmt.Fprintf(os.Stderr, "Error: could not initialize integration manager\n\nRun 'portfolio doctor' for diagnostics\n")
 		os.Exit(1)
 	}
 	defer im.db.Close()
 
 	previousMeta, err := im.manager.Get(ctx, name)
 	if err != nil {
-		logger.Error("failed to get current integration", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: failed to get current integration: %v\n", err)
+		logger.LogErrorToFile("Failed to get current integration", err,
+			models.Field{Key: "integration", Value: name})
+		display := integrationDisplayName(name)
+		fmt.Fprintf(os.Stderr, "Error: could not read %s integration status\n\nRun 'portfolio doctor %s' for diagnostics\n", display, name)
 		os.Exit(1)
 	}
 
@@ -105,8 +107,9 @@ func runUpgradeIntegration(cmd *cobra.Command, name string) {
 
 	result, err := im.manager.Upgrade(ctx, name, opts)
 	if err != nil {
-		logger.Error("upgrade failed", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: upgrade failed: %v\n\nTo fix: Check integration status with 'portfolio doctor %s'\n", err, name)
+		logger.LogErrorToFile("Upgrade failed", err,
+			models.Field{Key: "integration", Value: name})
+		fmt.Fprintf(os.Stderr, "Error: upgrade failed\n\nTo fix: Check integration status with 'portfolio doctor %s'\n", name)
 		os.Exit(1)
 	}
 

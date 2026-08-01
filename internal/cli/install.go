@@ -91,8 +91,8 @@ func runInstallIntegration(cmd *cobra.Command, name string) {
 
 	im, err := setupIntegrationManager(logger)
 	if err != nil {
-		logger.Error(err.Error(), models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: %v\n", err)
+		logger.LogErrorToFile("Failed to setup integration manager", err)
+		fmt.Fprintf(os.Stderr, "Error: could not initialize integration manager\n\nRun 'portfolio doctor' for diagnostics\n")
 		os.Exit(1)
 	}
 	defer im.db.Close()
@@ -103,8 +103,10 @@ func runInstallIntegration(cmd *cobra.Command, name string) {
 
 	result, err := im.manager.Install(ctx, name, opts)
 	if err != nil {
-		logger.Error("installation failed", models.Field{Key: "error", Value: err})
-		fmt.Printf("Error: installation failed: %v\n", err)
+		logger.LogErrorToFile("Installation failed", err,
+			models.Field{Key: "integration", Value: name})
+		display := integrationDisplayName(name)
+		fmt.Fprintf(os.Stderr, "Error: failed to install %s integration\n\nRun 'portfolio doctor %s' for diagnostics\n", display, name)
 		os.Exit(1)
 	}
 

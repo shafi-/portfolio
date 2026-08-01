@@ -441,12 +441,13 @@ func containsRoot(roots []string, path string) bool {
 // handleConfigError handles configuration command errors
 func handleConfigError(err error, message string) {
 	logger := logging.GetGlobalLogger()
-	logger.Error("Config command failed",
-		models.Field{Key: "error", Value: err},
-		models.Field{Key: "message", Value: message},
-	)
 
-	fmt.Fprintf(os.Stderr, "\nError: %s: %v\n", message, err)
+	// Log detailed error to error.log
+	logger.LogErrorToFile("Config command failed", err,
+		models.Field{Key: "message", Value: message})
+
+	// Show user-friendly message on stderr
+	fmt.Fprintf(os.Stderr, "\nError: %s\n", message)
 	fmt.Fprintln(os.Stderr, "\nRun 'portfolio doctor' for diagnostics")
 }
 

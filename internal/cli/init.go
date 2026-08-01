@@ -312,11 +312,12 @@ func validatePath(path string) error {
 
 func handleInitError(err error, message string) {
 	logger := logging.GetGlobalLogger()
-	logger.Error("Initialization failed",
-		models.Field{Key: "error", Value: err},
-		models.Field{Key: "message", Value: message},
-	)
 
-	fmt.Fprintf(os.Stderr, "\nError: %s: %v\n", message, err)
+	// Log detailed error to error.log
+	logger.LogErrorToFile("Initialization failed", err,
+		models.Field{Key: "message", Value: message})
+
+	// Show user-friendly message on stderr
+	fmt.Fprintf(os.Stderr, "\nError: %s\n", message)
 	fmt.Fprintln(os.Stderr, "\nRun 'portfolio doctor' for diagnostics")
 }

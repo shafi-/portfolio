@@ -52,7 +52,7 @@ func runManual(cmd *cobra.Command, args []string) {
 	}
 
 	if err := os.WriteFile(manualWritePath, []byte(out), 0644); err != nil {
-		fmt.Printf("Error: failed to write manual: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: failed to write manual to %s\n\nCheck that the directory exists and you have write permissions.\n", manualWritePath)
 		os.Exit(1)
 	}
 	fmt.Printf("✓ Agent-integration manual written to %s\n", manualWritePath)
