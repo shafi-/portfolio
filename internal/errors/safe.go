@@ -2,7 +2,9 @@ package errors
 
 import (
 	"fmt"
-	"runtime/debug"
+	"os"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -75,28 +77,6 @@ func Wrapf(err error, format string, args ...interface{}) *SafeError {
 
 	message := fmt.Sprintf(format, args...)
 	return Wrap(err, message)
-}
-
-// SafePanicHandler recovers from panics and returns safe errors
-func SafePanicHandler() error {
-	if r := recover(); r != nil {
-		// Log the panic internally but don't expose details to user
-		logInternalPanic(r)
-
-		return NewSafe("An internal error occurred. Please check logs for details.")
-	}
-	return nil
-}
-
-// SafePanicHandlerWithMessage recovers from panics with a custom safe message
-func SafePanicHandlerWithMessage(message string) error {
-	if r := recover(); r != nil {
-		// Log the panic internally but don't expose details to user
-		logInternalPanic(r)
-
-		return NewSafe(message)
-	}
-	return nil
 }
 
 // SafeContext provides context for safe error handling
@@ -192,14 +172,6 @@ func GetRequestID(err error) string {
 	return ""
 }
 
-// logInternalPanic logs internal panic details for debugging
-func logInternalPanic(r interface{}) {
-	timestamp := time.Now().Format(time.RFC3339)
-
-	fmt.Printf("[%s] INTERNAL PANIC: %v\n", timestamp, r)
-	fmt.Printf("[%s] STACK TRACE:\n%s\n", timestamp, debug.Stack())
-}
-
 // generateRequestID generates a unique request ID for error tracking
 func generateRequestID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
@@ -213,8 +185,8 @@ func SanitizeFilePath(path string) string {
 
 	// Check if path contains home directory
 	homeDir := getHomeDir()
-	if homeDir != "" && containsPath(path, homeDir) {
-		return "~/" + getRelativePath(path, homeDir)
+	if homeDir != "" && strings.HasPrefix(path, homeDir) {
+		return "~" + path[len(homeDir):]
 	}
 
 	// For system paths, just return the filename
@@ -229,50 +201,38 @@ func SanitizeError(err error) string {
 
 	errMsg := err.Error()
 
-	// Remove common internal paths
-	sanitized := removeInternalPaths(errMsg)
-
-	// Remove file extensions that might reveal implementation
-	sanitized = removeTechnicalDetails(sanitized)
-
-	return sanitized
-}
-
-// Helper functions
-func getHomeDir() string {
-	// Simple implementation - in real code would use os.UserHomeDir()
-	return "" // Placeholder
-}
-
-func containsPath(path, contains string) bool {
-	return len(path) >= len(contains) && path[:len(contains)] == contains
-}
-
-func getRelativePath(path, base string) string {
-	if len(path) > len(base) && path[len(base)] == '/' {
-		return path[len(base)+1:]
+	// Replace home directory with ~
+	homeDir := getHomeDir()
+	if homeDir != "" {
+		errMsg = strings.ReplaceAll(errMsg, homeDir, "~")
 	}
-	return path[len(base):]
+
+	// Strip memory addresses (0x followed by hex digits)
+	errMsg = stripMemoryAddresses(errMsg)
+
+	return errMsg
 }
 
+// getHomeDir returns the user's home directory
+func getHomeDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return home
+}
+
+// getFileName extracts the filename from a path
 func getFileName(path string) string {
-	// Simple implementation - extract filename from path
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' {
-			return path[i+1:]
-		}
+	if idx := strings.LastIndex(path, "/"); idx >= 0 {
+		return path[idx+1:]
 	}
 	return path
 }
 
-func removeInternalPaths(message string) string {
-	// Remove common system paths that might be in error messages
-	// This is a simplified implementation
-	return message
-}
+// stripMemoryAddresses removes memory addresses like 0xc000123456 from error messages
+var memoryAddrRegex = regexp.MustCompile(`0x[0-9a-fA-F]+`)
 
-func removeTechnicalDetails(message string) string {
-	// Remove technical details like stack traces, memory addresses, etc.
-	// This is a simplified implementation
-	return message
+func stripMemoryAddresses(message string) string {
+	return memoryAddrRegex.ReplaceAllString(message, "0x...")
 }
