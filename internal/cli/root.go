@@ -1,14 +1,13 @@
 package cli
 
 import (
-	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
 	"project-dash/internal/version"
+	"project-dash/pkg/models"
 )
 
 var (
@@ -42,7 +41,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.portfolio/config.toml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: <data-dir>/config.toml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "show diagnostic logging (hidden by default; honors the configured [logging] level)")
 	rootCmd.Flags().Bool("toggle", false, "Help message for toggle")
 }
@@ -55,12 +54,8 @@ func initConfig() {
 	if cfgFile != "" {
 		// Config file from flag
 	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory
-		cfgFile = fmt.Sprintf("%s/.portfolio/config.toml", home)
+		// Use the canonical config path from models package
+		cfgFile = models.GetConfigPath()
 	}
 
 	// Note: Verbose logging is handled by individual commands

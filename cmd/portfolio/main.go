@@ -44,7 +44,7 @@ func main() {
 		}
 
 		// Log file always captures INFO level for debugging (issue attachment).
-		// File path comes from config (default ~/.portfolio/portfolio.log).
+		// File path comes from config (default: <data-dir>/portfolio.log).
 		logger, err = logging.NewLoggerWithFile(level, logConfig.Format, logConfig.File, os.Stdout)
 	}
 	if err != nil {
