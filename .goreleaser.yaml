@@ -8,7 +8,8 @@ before:
     - go generate ./...
 
 builds:
-  - env:
+  - id: portfolio-macos
+    env:
       - CGO_ENABLED=1
     goos:
       - darwin
@@ -20,7 +21,8 @@ builds:
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
     main: ./cmd/portfolio
-  - env:
+  - id: portfolio-linux
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
