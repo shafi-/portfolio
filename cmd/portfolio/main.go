@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"project-dash/internal/cli"
 	"project-dash/internal/errors"
@@ -13,8 +14,14 @@ import (
 func main() {
 	// Global panic handler for safe error recovery
 	defer func() {
-		if err := errors.SafePanicHandler(); err != nil {
-			fmt.Fprintf(os.Stderr, "Internal error: %v\n", err)
+		if r := recover(); r != nil {
+			// Log panic to error file for debugging
+			logger := logging.GetGlobalLogger()
+			if logger != nil {
+				logger.LogErrorToFile("Panic recovered", fmt.Errorf("%v", r),
+					models.Field{Key: "stack_trace", Value: string(getStackTrace())})
+			}
+			fmt.Fprintf(os.Stderr, "An internal error occurred.\n\nRun 'portfolio doctor' for diagnostics, or check error.log for details.\n")
 			os.Exit(1)
 		}
 	}()
@@ -45,7 +52,8 @@ func main() {
 
 		// Log file always captures INFO level for debugging (issue attachment).
 		// File path comes from config (default: <data-dir>/portfolio.log).
-		logger, err = logging.NewLoggerWithFile(level, logConfig.Format, logConfig.File, os.Stdout)
+		// Error file captures ERROR+ level with full stack traces.
+		logger, err = logging.NewLoggerWithFiles(level, logConfig.Format, logConfig.File, logConfig.ErrorFile, os.Stderr)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logging system\n")
@@ -57,20 +65,38 @@ func main() {
 
 	// Execute CLI
 	if err := cli.Execute(); err != nil {
-		// Check if it's already a safe error
+		// Log detailed error to error.log
+		logger.LogErrorToFile("CLI execution failed", err,
+			models.Field{Key: "command", Value: os.Args})
+
+		// Show user-friendly message on stderr with guidance
 		if safeErr, ok := err.(*errors.SafeError); ok {
-			logger.Error("CLI execution failed",
-				models.Field{Key: "error", Value: safeErr.UserMessage},
-				models.Field{Key: "request_id", Value: safeErr.RequestID},
-			)
+			fmt.Fprintf(os.Stderr, "%s\n\nRun 'portfolio doctor' for diagnostics\n", safeErr.UserMessage)
 		} else {
-			logger.Error("CLI execution failed",
-				models.Field{Key: "error", Value: errors.SanitizeError(err)},
-			)
+			// For non-safe errors, show sanitized message
+			sanitized := errors.SanitizeError(err)
+			if sanitized == "An error occurred" {
+				fmt.Fprintf(os.Stderr, "An unexpected error occurred.\n\nRun 'portfolio doctor' for diagnostics\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "%s\n\nRun 'portfolio doctor' for diagnostics\n", sanitized)
+			}
 		}
 		os.Exit(1)
 	}
 
 	// Ensure logs are flushed
 	_ = logger.Sync()
+}
+
+// getStackTrace returns the current stack trace for panic logging
+func getStackTrace() []byte {
+	// Use runtime to get stack trace
+	buf := make([]byte, 1024)
+	for {
+		n := runtime.Stack(buf, false)
+		if n < len(buf) {
+			return buf[:n]
+		}
+		buf = make([]byte, 2*len(buf))
+	}
 }
