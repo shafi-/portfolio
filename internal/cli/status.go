@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -58,7 +59,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 
 	// Determine overall status
 	overallStatus := "Running"
-	if configStatus != "✓ Accessible" || dbStatus != "✓ Accessible" {
+	if !strings.HasPrefix(configStatus, "✓") || !strings.HasPrefix(dbStatus, "✓") {
 		overallStatus = "Degraded"
 	}
 
@@ -66,18 +67,17 @@ func runStatus(cmd *cobra.Command, args []string) {
 }
 
 func checkConfiguration(logger *logging.Logger) string {
-	configPath := models.GetConfigPath()
+	provider := config.NewProvider("")
 
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+	if _, err := os.Stat(provider.ConfigPath()); os.IsNotExist(err) {
 		logger.Warn("Configuration file not found",
-			models.Field{Key: "path", Value: configPath},
+			models.Field{Key: "path", Value: provider.ConfigPath()},
 		)
 		return "✗ Not found (run 'portfolio init')"
 	}
 
 	// Try to load configuration
-	loader := config.NewLoader(configPath)
-	cfg, err := loader.Load()
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("Failed to load configuration",
 			models.Field{Key: "error", Value: err},
@@ -94,17 +94,16 @@ func checkConfiguration(logger *logging.Logger) string {
 	}
 
 	logger.Info("Configuration loaded successfully",
-		models.Field{Key: "path", Value: configPath},
+		models.Field{Key: "path", Value: provider.ConfigPath()},
 		models.Field{Key: "project_roots", Value: len(cfg.Discovery.ProjectRoots)},
 	)
 
-	return fmt.Sprintf("✓ Accessible (%s)", configPath)
+	return fmt.Sprintf("✓ Accessible (%s)", provider.ConfigPath())
 }
 
 func checkDatabaseStatus(logger *logging.Logger) (string, int, time.Time) {
-	// Load configuration to get database path
-	loader := config.NewLoader("")
-	cfg, err := loader.Load()
+	provider := config.NewProvider("")
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("Failed to load configuration for database check",
 			models.Field{Key: "error", Value: err},
