@@ -10,17 +10,19 @@ import (
 
 // Config holds logging configuration
 type Config struct {
-	Level  string
-	Format string // "json" or "console"
-	File   string // Path to log file; empty disables file logging
+	Level     string
+	Format    string // "json" or "console"
+	File      string // Path to log file; empty disables file logging
+	ErrorFile string // Path to error log file for detailed error logging
 }
 
 // LoadConfigFromEnv loads logging configuration from environment
 func LoadConfigFromEnv() *Config {
 	return &Config{
-		Level:  GetLogLevelFromEnv(),
-		Format: GetLogFormatFromEnv(),
-		File:   GetLogFileFromEnv(),
+		Level:     GetLogLevelFromEnv(),
+		Format:    GetLogFormatFromEnv(),
+		File:      GetLogFileFromEnv(),
+		ErrorFile: GetErrorLogFileFromEnv(),
 	}
 }
 
@@ -74,4 +76,12 @@ func GetLogFileFromEnv() string {
 		return path
 	}
 	return models.GetDefaultLogPath()
+}
+
+// GetErrorLogFileFromEnv returns error log file path from environment variable or default
+func GetErrorLogFileFromEnv() string {
+	if path := os.Getenv("PORTFOLIO_ERROR_LOG_FILE"); path != "" {
+		return path
+	}
+	return models.GetDefaultErrorLogPath()
 }

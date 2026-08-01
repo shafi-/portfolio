@@ -16,8 +16,9 @@ import (
 
 // Logger provides structured logging capabilities
 type Logger struct {
-	zapLogger *zap.Logger
-	component string
+	zapLogger   *zap.Logger
+	errorLogger *zap.Logger
+	component   string
 }
 
 // global logger instance
@@ -25,7 +26,7 @@ var globalLogger *Logger
 
 // NewLogger creates a new structured logger
 func NewLogger(level string, format string) (*Logger, error) {
-	return newLoggerWithFile(level, format, "", os.Stdout)
+	return NewLoggerWithFile(level, format, "", os.Stdout)
 }
 
 // NewLoggerWithFile creates a logger that writes to both file and console.
@@ -33,11 +34,13 @@ func NewLogger(level string, format string) (*Logger, error) {
 // console output respects the provided level (typically ERROR by default,
 // INFO with --verbose). If filePath is empty, file logging is disabled.
 func NewLoggerWithFile(level string, format string, filePath string, consoleWriter io.Writer) (*Logger, error) {
-	return newLoggerWithFile(level, format, filePath, consoleWriter)
+	return NewLoggerWithFiles(level, format, filePath, "", consoleWriter)
 }
 
-// newLoggerWithFile is the internal constructor that implements file+console tee logging.
-func newLoggerWithFile(level string, format string, filePath string, consoleWriter io.Writer) (*Logger, error) {
+// NewLoggerWithFiles creates a logger that writes to console, regular log file,
+// and optionally an error log file. The error log captures ERROR+ level with
+// full stack traces for debugging.
+func NewLoggerWithFiles(level string, format string, filePath string, errorFilePath string, consoleWriter io.Writer) (*Logger, error) {
 	// Parse the console log level (user-facing, may be ERROR or INFO)
 	consoleLevel, err := parseLogLevel(level)
 	if err != nil {
@@ -143,7 +146,52 @@ func newLoggerWithFile(level string, format string, filePath string, consoleWrit
 		zap.Fields(zap.String("version", version.Version())),
 	)
 
-	return &Logger{zapLogger: zapLogger}, nil
+	// Create error-specific logger if errorFilePath is provided
+	var errorLogger *zap.Logger
+	if errorFilePath != "" {
+		errorLogFile := &lumberjack.Logger{
+			Filename:   errorFilePath,
+			MaxSize:    50, // megabytes
+			MaxBackups: 5,  // keep last 5 rotated files
+			MaxAge:     90, // days - keep error logs longer
+			Compress:   true,
+		}
+
+		// Error log always captures ERROR+ with full stack traces
+		errorEncoderConfig := zapcore.EncoderConfig{
+			TimeKey:        "timestamp",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			MessageKey:     "message",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+		}
+
+		var errorEncoder zapcore.Encoder
+		if format == "json" {
+			errorEncoder = zapcore.NewJSONEncoder(errorEncoderConfig)
+		} else {
+			errorEncoder = zapcore.NewConsoleEncoder(errorEncoderConfig)
+		}
+
+		errorFileCore := zapcore.NewCore(
+			errorEncoder,
+			zapcore.AddSync(errorLogFile),
+			zapcore.ErrorLevel,
+		)
+
+		errorLogger = zap.New(errorFileCore,
+			zap.AddCaller(),
+			zap.AddStacktrace(zapcore.ErrorLevel),
+			zap.Fields(zap.String("version", version.Version())),
+		)
+	}
+
+	return &Logger{zapLogger: zapLogger, errorLogger: errorLogger}, nil
 }
 
 // NewStderrLogger creates a logger that writes to stderr
@@ -286,6 +334,28 @@ func (l *Logger) Warn(msg string, fields ...models.Field) {
 // Error logs an error message
 func (l *Logger) Error(msg string, fields ...models.Field) {
 	l.log(models.ERROR, msg, fields...)
+}
+
+// LogErrorToFile logs an error with full details to the error log file
+// This includes stack traces and internal details that should not be shown to users
+func (l *Logger) LogErrorToFile(msg string, err error, fields ...models.Field) {
+	if l.errorLogger == nil {
+		return
+	}
+
+	// Add error field
+	allFields := make([]models.Field, 0, len(fields)+1)
+	allFields = append(allFields, models.Field{Key: "error", Value: err.Error()})
+	allFields = append(allFields, fields...)
+
+	// Convert to zap fields
+	zapFields := make([]zap.Field, 0, len(allFields))
+	for _, field := range allFields {
+		zapFields = append(zapFields, zap.Any(field.Key, field.Value))
+	}
+
+	// Log to error file with full details
+	l.errorLogger.Error(msg, zapFields...)
 }
 
 // log performs the actual logging

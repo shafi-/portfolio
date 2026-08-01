@@ -37,6 +37,11 @@ func GetDefaultLogPath() string {
 	return filepath.Join(GetPortfolioDataDir(), "portfolio.log")
 }
 
+// GetDefaultErrorLogPath returns the error log file path for detailed error logging
+func GetDefaultErrorLogPath() string {
+	return filepath.Join(GetPortfolioDataDir(), "error.log")
+}
+
 // GetDefaultIntegrationsDir returns the default directory for integration files
 func GetDefaultIntegrationsDir() string {
 	return filepath.Join(GetPortfolioDataDir(), "integrations")
