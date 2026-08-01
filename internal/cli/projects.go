@@ -71,8 +71,8 @@ func init() {
 func runListProjects(cmd *cobra.Command, args []string) {
 	logger := logging.GetGlobalLogger()
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	provider := config.NewProvider(cfgFile)
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("Failed to load config", models.Field{Key: "error", Value: err})
 		os.Exit(1)
@@ -118,8 +118,8 @@ func runSearchProjects(cmd *cobra.Command, args []string) {
 	logger := logging.GetGlobalLogger()
 	query := args[0]
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	provider := config.NewProvider(cfgFile)
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("Failed to load config", models.Field{Key: "error", Value: err})
 		os.Exit(1)
@@ -151,9 +151,14 @@ func runSearchProjects(cmd *cobra.Command, args []string) {
 	for rows.Next() {
 		p := &models.Project{}
 		if err := rows.Scan(&p.ID, &p.Name, &p.RootPath, &p.RepositoryType); err != nil {
+			logger.Warn("Failed to scan project row", models.Field{Key: "error", Value: err})
 			continue
 		}
 		results = append(results, p)
+	}
+
+	if err := rows.Err(); err != nil {
+		logger.Error("Error iterating project rows", models.Field{Key: "error", Value: err})
 	}
 
 	if len(results) == 0 {
@@ -175,8 +180,8 @@ func runGetProject(cmd *cobra.Command, args []string) {
 	logger := logging.GetGlobalLogger()
 	projectID := args[0]
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	provider := config.NewProvider(cfgFile)
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("Failed to load config", models.Field{Key: "error", Value: err})
 		os.Exit(1)
@@ -253,8 +258,8 @@ func runGetProject(cmd *cobra.Command, args []string) {
 func runDiscoverProjects(cmd *cobra.Command, args []string) {
 	logger := logging.GetGlobalLogger()
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	provider := config.NewProvider(cfgFile)
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("Failed to load config", models.Field{Key: "error", Value: err})
 		os.Exit(1)
@@ -292,9 +297,9 @@ func runDiscoverProjects(cmd *cobra.Command, args []string) {
 	discLogger := logger.With("discovery")
 
 	adapter := &discoveryStoreAdapter{store: projectsStore}
-	provider := &rootsConfigProvider{roots: cfg.Discovery.ProjectRoots}
+	provider2 := &rootsConfigProvider{roots: cfg.Discovery.ProjectRoots}
 
-	discoverer := discovery.NewDiscoverer(osFS, provider, adapter, discLogger, 10)
+	discoverer := discovery.NewDiscoverer(osFS, provider2, adapter, discLogger, 10)
 	result, err := discoverer.DiscoverProjects(cmd.Context())
 	if err != nil {
 		logger.Error("Discovery failed", models.Field{Key: "error", Value: err})

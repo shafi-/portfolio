@@ -128,35 +128,34 @@ func runDoctor(cmd *cobra.Command, args []string) {
 func checkConfigFile(logger *logging.Logger) bool {
 	fmt.Println("Configuration Check:")
 
-	configPath := models.GetConfigPath()
+	provider := config.NewProvider("")
 
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		fmt.Printf("  ✗ Config file not found: %s\n", configPath)
+	if _, err := os.Stat(provider.ConfigPath()); os.IsNotExist(err) {
+		fmt.Printf("  ✗ Config file not found: %s\n", provider.ConfigPath())
 		fmt.Printf("    Action: Run 'portfolio init' to create configuration\n")
 		return false
 	}
 
-	if _, err := os.ReadFile(configPath); err != nil {
-		fmt.Printf("  ✗ Config file not readable: %s\n", configPath)
+	if _, err := os.ReadFile(provider.ConfigPath()); err != nil {
+		fmt.Printf("  ✗ Config file not readable: %s\n", provider.ConfigPath())
 		fmt.Printf("    Action: Check file permissions\n")
 		return false
 	}
 
-	loader := config.NewLoader(configPath)
-	cfg, err := loader.Load()
+	cfg, err := provider.Load()
 	if err != nil {
-		fmt.Printf("  ✗ Config file invalid: %s\n", configPath)
+		fmt.Printf("  ✗ Config file invalid: %s\n", provider.ConfigPath())
 		fmt.Printf("    Error: %v\n", err)
 		return false
 	}
 
 	if err := config.Validate(cfg); err != nil {
-		fmt.Printf("  ✗ Config validation failed: %s\n", configPath)
+		fmt.Printf("  ✗ Config validation failed: %s\n", provider.ConfigPath())
 		fmt.Printf("    Error: %v\n", err)
 		return false
 	}
 
-	fmt.Printf("  ✓ Config file accessible: %s\n", configPath)
+	fmt.Printf("  ✓ Config file accessible: %s\n", provider.ConfigPath())
 	fmt.Printf("  ✓ Config file valid: TOML parses correctly\n")
 	fmt.Printf("  ✓ Project roots configured: %d\n", len(cfg.Discovery.ProjectRoots))
 
@@ -166,8 +165,8 @@ func checkConfigFile(logger *logging.Logger) bool {
 func checkDatabase(logger *logging.Logger) bool {
 	fmt.Println("\nDatabase Check:")
 
-	loader := config.NewLoader("")
-	cfg, err := loader.Load()
+	provider := config.NewProvider("")
+	cfg, err := provider.Load()
 	if err != nil {
 		fmt.Printf("  ✗ Cannot load configuration to get database path\n")
 		return false
@@ -217,8 +216,8 @@ func checkDatabase(logger *logging.Logger) bool {
 func checkProjectRoots(logger *logging.Logger) bool {
 	fmt.Println("\nProject Roots Check:")
 
-	loader := config.NewLoader("")
-	cfg, err := loader.Load()
+	provider := config.NewProvider("")
+	cfg, err := provider.Load()
 	if err != nil {
 		fmt.Printf("  ✗ Cannot load configuration to check project roots\n")
 		return false
@@ -251,9 +250,9 @@ func checkProjectRoots(logger *logging.Logger) bool {
 func checkFilePermissions(logger *logging.Logger) bool {
 	fmt.Println("\nFile Permissions Check:")
 
-	configPath := models.GetConfigPath()
+	provider := config.NewProvider("")
 
-	info, err := os.Stat(configPath)
+	info, err := os.Stat(provider.ConfigPath())
 	if err != nil {
 		fmt.Printf("  ✗ Cannot check config file permissions\n")
 		return false
@@ -262,7 +261,7 @@ func checkFilePermissions(logger *logging.Logger) bool {
 	mode := info.Mode().Perm()
 	if mode&0077 != 0 {
 		fmt.Printf("  ⚠ Config file has loose permissions: %o\n", mode)
-		fmt.Printf("    Action: chmod 600 %s\n", configPath)
+		fmt.Printf("    Action: chmod 600 %s\n", provider.ConfigPath())
 		return false
 	}
 

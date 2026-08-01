@@ -26,8 +26,8 @@ type integrationManager struct {
 // install/uninstall/upgrade/doctor otherwise duplicate. Callers must defer
 // im.db.Close().
 func setupIntegrationManager(logger *logging.Logger) (*integrationManager, error) {
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	provider := config.NewProvider(cfgFile)
+	cfg, err := provider.Load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}

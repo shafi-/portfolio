@@ -47,8 +47,8 @@ func runInit(cmd *cobra.Command, args []string) {
 	fmt.Println()
 
 	// Check for existing configuration
-	loader := config.NewLoader("")
-	existingCfg, configErr := loader.Load()
+	provider := config.NewProvider("")
+	existingCfg, configErr := provider.Load()
 
 	isReinit := configErr == nil && existingCfg != nil && len(existingCfg.Discovery.ProjectRoots) > 0
 
@@ -140,12 +140,7 @@ func runInit(cmd *cobra.Command, args []string) {
 		cfg.Logging.File = models.GetDefaultLogPath()
 	}
 
-	if err := config.EnsureConfigDir(); err != nil {
-		handleInitError(err, "Failed to create config directory")
-		return
-	}
-
-	if err := loader.Save(cfg); err != nil {
+	if err := provider.Save(cfg); err != nil {
 		handleInitError(err, "Failed to save configuration")
 		return
 	}

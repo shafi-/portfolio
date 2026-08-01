@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -36,8 +37,8 @@ func init() {
 func runServe(cmd *cobra.Command, args []string) {
 	logger := logging.GetGlobalLogger()
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	provider := config.NewProvider(cfgFile)
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("failed to load config", models.Field{Key: "error", Value: err})
 		os.Exit(1)
@@ -82,4 +83,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	<-quit
 	logger.Info("shutting down server")
+	if err := httpServer.Shutdown(context.Background()); err != nil {
+		logger.Error("shutdown error", models.Field{Key: "error", Value: err})
+	}
 }

@@ -41,8 +41,8 @@ func init() {
 func runScan(cmd *cobra.Command, args []string) {
 	logger := logging.GetGlobalLogger()
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	provider := config.NewProvider(cfgFile)
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("Failed to load config", models.Field{Key: "error", Value: err})
 		os.Exit(1)

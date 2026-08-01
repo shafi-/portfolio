@@ -40,8 +40,8 @@ func runMCP(cmd *cobra.Command, args []string) {
 	// Set global logger to stderr logger for any components that use GetGlobalLogger
 	logging.SetGlobalLogger(logger)
 
-	loader := config.NewLoader(cfgFile)
-	cfg, err := loader.Load()
+	provider := config.NewProvider(cfgFile)
+	cfg, err := provider.Load()
 	if err != nil {
 		logger.Error("failed to load config", models.Field{Key: "error", Value: err})
 		os.Exit(1)

@@ -235,29 +235,25 @@ func runSetRoot(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	// Load current configuration
-	loader := config.NewLoader("")
-	cfg, err := loader.Load()
+	provider := config.NewProvider("")
+
+	err = provider.Update(func(cfg *models.Config) error {
+		if containsRoot(cfg.Discovery.ProjectRoots, path) {
+			return fmt.Errorf("already configured")
+		}
+		cfg.Discovery.ProjectRoots = append(cfg.Discovery.ProjectRoots, path)
+		return nil
+	})
 	if err != nil {
-		handleConfigError(err, "failed to load configuration")
-		return
-	}
-
-	// Check if path already exists in roots
-	if containsRoot(cfg.Discovery.ProjectRoots, path) {
-		fmt.Printf("Path already configured as project root: %s\n", path)
-		return
-	}
-
-	// Add the path
-	cfg.Discovery.ProjectRoots = append(cfg.Discovery.ProjectRoots, path)
-
-	// Save configuration
-	if err := loader.Save(cfg); err != nil {
+		if err.Error() == "already configured" {
+			fmt.Printf("Path already configured as project root: %s\n", path)
+			return
+		}
 		handleConfigError(err, "failed to save configuration")
 		return
 	}
 
+	cfg, _ := provider.Load()
 	logger.Info("Project root added",
 		models.Field{Key: "action", Value: "set-root"},
 		models.Field{Key: "path", Value: path},
@@ -281,9 +277,8 @@ func runRemoveRoot(cmd *cobra.Command, args []string) {
 	}
 	path = normalizedPath
 
-	// Load current configuration
-	loader := config.NewLoader("")
-	cfg, err := loader.Load()
+	provider := config.NewProvider("")
+	cfg, err := provider.Load()
 	if err != nil {
 		handleConfigError(err, "failed to load configuration")
 		return
@@ -318,7 +313,7 @@ func runRemoveRoot(cmd *cobra.Command, args []string) {
 	cfg.Discovery.ProjectRoots = newRoots
 
 	// Save configuration
-	if err := loader.Save(cfg); err != nil {
+	if err := provider.Save(cfg); err != nil {
 		handleConfigError(err, "failed to save configuration")
 		return
 	}
@@ -336,9 +331,8 @@ func runRemoveRoot(cmd *cobra.Command, args []string) {
 func runListRoots(cmd *cobra.Command, args []string) {
 	logger := logging.GetGlobalLogger().With("config")
 
-	// Load configuration
-	loader := config.NewLoader("")
-	cfg, err := loader.Load()
+	provider := config.NewProvider("")
+	cfg, err := provider.Load()
 	if err != nil {
 		handleConfigError(err, "failed to load configuration")
 		return
