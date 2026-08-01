@@ -8,8 +8,7 @@ before:
     - go generate ./...
 
 builds:
-  - env:
-    goos:
+  - goos:
       - darwin
       - linux
     goarch:
