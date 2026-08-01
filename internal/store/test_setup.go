@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
+	_ "modernc.org/sqlite"
 )
 
 type testStore struct {
@@ -25,7 +25,7 @@ func setupTestStore(t *testing.T) *testStore {
 	t.Helper()
 
 	tempFile := t.TempDir() + "/test.db"
-	db, err := sql.Open("sqlite3", tempFile)
+	db, err := sql.Open("sqlite", tempFile)
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}

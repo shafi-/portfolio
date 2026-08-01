@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"project-dash/internal/errors"
 	"project-dash/internal/logging"
 	"project-dash/pkg/models"
@@ -65,7 +65,7 @@ func (d *Database) Connect() error {
 	connString := fmt.Sprintf("file:%s?_foreign_keys=on", d.dbPath)
 
 	// Open database connection
-	db, err := sql.Open("sqlite3", connString)
+	db, err := sql.Open("sqlite", connString)
 	if err != nil {
 		return errors.Database("open").Wrap(err, "Failed to establish database connection")
 	}

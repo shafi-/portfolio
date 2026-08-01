@@ -1,5 +1,8 @@
 # Goreleaser configuration for Portfolio
 # Builds single binary releases for multiple platforms
+# Uses modernc.org/sqlite (pure Go) — no CGO required
+
+version: 2
 
 project_name: portfolio
 before:
@@ -8,26 +11,17 @@ before:
     - go generate ./...
 
 builds:
-  - id: portfolio-macos
-    env:
-      - CGO_ENABLED=1
-    goos:
-      - darwin
-    goarch:
-      - arm64
-    ldflags:
-      - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
-    main: ./cmd/portfolio
-  - id: portfolio-linux
-    env:
+  - env:
       - CGO_ENABLED=0
     goos:
+      - darwin
       - linux
     goarch:
       - amd64
+      - arm64
+    ignore:
+      - goos: linux
+        goarch: arm64
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -36,7 +30,7 @@ builds:
     main: ./cmd/portfolio
 
 archives:
-  - format: binary
+  - formats: ['binary']
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
 
 checksum:
@@ -56,10 +50,6 @@ changelog:
       - '^chore:'
       - '^build:'
 
-# Universal binaries for macOS
 universal_binaries:
   - replace: false
     name_template: 'portfolio-darwin-universal'
-
-# Homebrew support discontinued - using curl-only installation for simplicity
-# This eliminates cross-repository complexity and user confusion from multiple installation methods

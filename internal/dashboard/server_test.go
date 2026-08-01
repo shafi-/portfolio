@@ -8,12 +8,12 @@ import (
 	"project-dash/pkg/models"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func TestServer_Start(t *testing.T) {
 	// Create in-memory database
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestServer_Start(t *testing.T) {
 
 func TestServer_HealthEndpoint(t *testing.T) {
 	// Create in-memory database
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestServer_HealthEndpoint(t *testing.T) {
 
 func TestServer_CORSHeaders(t *testing.T) {
 	// Create in-memory database
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestServer_CORSHeaders(t *testing.T) {
 
 func TestServer_ProjectsEndpoint(t *testing.T) {
 	// Create in-memory database
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
