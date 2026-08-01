@@ -51,14 +51,18 @@ func (d *Database) Connect() error {
 	)
 
 	// Get database key for password protection
-	dbKey, err := GetDatabaseKey()
-	if err != nil {
-		return errors.Database("get key").Wrap(err, "Failed to initialize database connection")
-	}
+	// TODO: Re-enable SQLCipher encryption when proper build is available
+	/*
+		dbKey, err := GetDatabaseKey()
+		if err != nil {
+			return errors.Database("get key").Wrap(err, "Failed to initialize database connection")
+		}
+	*/
 
 	// Build connection string with password protection
 	// Using SQLite PRAGMA key for password protection
-	connString := fmt.Sprintf("file:%s?_pragma_key=%s&_foreign_keys=on", d.dbPath, dbKey)
+	// TODO: Re-enable SQLCipher encryption when proper build is available
+	connString := fmt.Sprintf("file:%s?_foreign_keys=on", d.dbPath)
 
 	// Open database connection
 	db, err := sql.Open("sqlite3", connString)
