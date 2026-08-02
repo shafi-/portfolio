@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strings"
 	"time"
@@ -10,9 +11,13 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"project-dash/internal/discovery"
+	"project-dash/internal/indexer"
 	"project-dash/internal/store"
 	"project-dash/pkg/models"
 )
+
+//go:embed prompts/analysis.md
+var analysisPrompt string
 
 func (s *Server) discoveryTools() []serverTool {
 	return []serverTool{
@@ -83,6 +88,10 @@ func (s *Server) analysisTools() []serverTool {
 			Tool:    mcp.NewTool("listProjectsNeedingAnalysis"),
 			Handler: s.handleListProjectsNeedingAnalysis,
 		},
+		{
+			Tool:    mcp.NewTool("getProjectAnalyzerPrompt"),
+			Handler: s.handleGetProjectAnalyzerPrompt,
+		},
 	}
 }
 
@@ -130,8 +139,10 @@ func (s *Server) handleHealth(ctx context.Context, req mcp.CallToolRequest) (*mc
 	}
 
 	projectCount := 0
+	metadataCount := 0
 	if dbOK {
 		s.db.QueryRow("SELECT COUNT(*) FROM projects").Scan(&projectCount)
+		s.db.QueryRow("SELECT COUNT(*) FROM metadata").Scan(&metadataCount)
 	}
 
 	status := "healthy"
@@ -139,10 +150,14 @@ func (s *Server) handleHealth(ctx context.Context, req mcp.CallToolRequest) (*mc
 		status = "unhealthy"
 	}
 
+	needsScan := dbOK && projectCount > 0 && metadataCount == 0
+
 	result := map[string]interface{}{
 		"status":             status,
 		"database_connected": dbOK,
 		"project_count":      projectCount,
+		"metadata_count":     metadataCount,
+		"needs_scan":         needsScan,
 	}
 	return mcp.NewToolResultJSON(result)
 }
@@ -166,10 +181,19 @@ func (s *Server) handleDiscoverProjects(ctx context.Context, req mcp.CallToolReq
 		return mcp.NewToolResultErrorFromErr("discovery failed", err), nil
 	}
 
+	// Scan all projects after discovery to populate metadata.
+	idx := indexer.NewIndexer(s.db, s.logger.Zap()).WithProjectLister(s.projects)
+	scanResults, scanErr := idx.IndexAll(ctx)
+	scanCount := len(scanResults)
+	if scanErr != nil {
+		discLogger.Warn("scan after discovery failed", models.Field{Key: "error", Value: scanErr})
+	}
+
 	resultMap := map[string]interface{}{
 		"discovered":    result.Discovered,
 		"error_count":   len(result.Errors),
 		"roots_checked": len(s.roots),
+		"scanned":       scanCount,
 	}
 	return mcp.NewToolResultJSON(resultMap)
 }
@@ -416,17 +440,14 @@ func (s *Server) handleListProjectsNeedingAnalysis(ctx context.Context, req mcp.
 		}
 
 		meta, err := s.metadata.GetMetadata(p.ID)
-		if err != nil || meta == nil {
-			noAnalysis = append(noAnalysis, map[string]interface{}{
-				"id":   p.ID,
-				"name": p.Name,
-				"path": p.RootPath,
-			})
+		if err != nil || meta == nil || meta.GitHead == "" {
+			// Has analysis but no metadata to compare staleness against.
+			// Treat as up-to-date — can't prove it's stale.
 			continue
 		}
 
 		latest := analyses[0]
-		if meta.GitHead != "" && latest.AnalyzedGitHead != meta.GitHead {
+		if latest.AnalyzedGitHead != meta.GitHead {
 			staleAnalysis = append(staleAnalysis, map[string]interface{}{
 				"id":                p.ID,
 				"name":              p.Name,
@@ -448,6 +469,10 @@ func (s *Server) handleListProjectsNeedingAnalysis(ctx context.Context, req mcp.
 		},
 	}
 	return mcp.NewToolResultJSON(result)
+}
+
+func (s *Server) handleGetProjectAnalyzerPrompt(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return mcp.NewToolResultText(analysisPrompt), nil
 }
 
 func (s *Server) handleGetConfiguration(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

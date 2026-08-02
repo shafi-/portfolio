@@ -2006,3 +2006,148 @@ func TestHandleListProjectsNeedingAnalysis(t *testing.T) {
 		}
 	})
 }
+
+func TestHandleGetProjectAnalyzerPrompt(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	logger, _ := logging.NewLogger("INFO", "console")
+	cfg := &Config{
+		DB:     db.DB(),
+		Logger: logger,
+		Roots:  []string{},
+	}
+
+	server := New(cfg)
+
+	t.Run("returns prompt content", func(t *testing.T) {
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleGetProjectAnalyzerPrompt(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleGetProjectAnalyzerPrompt failed: %v", err)
+		}
+
+		if result == nil {
+			t.Fatal("expected non-nil result")
+		}
+
+		if result.IsError {
+			t.Fatal("expected non-error result")
+		}
+
+		if len(result.Content) != 1 {
+			t.Fatalf("expected 1 content item, got %d", len(result.Content))
+		}
+
+		textContent, ok := result.Content[0].(mcp.TextContent)
+		if !ok {
+			t.Fatalf("expected TextContent, got %T", result.Content[0])
+		}
+
+		if textContent.Text == "" {
+			t.Fatal("expected non-empty prompt content")
+		}
+	})
+
+	t.Run("prompt contains investigation order", func(t *testing.T) {
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleGetProjectAnalyzerPrompt(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleGetProjectAnalyzerPrompt failed: %v", err)
+		}
+
+		textContent, ok := result.Content[0].(mcp.TextContent)
+		if !ok {
+			t.Fatalf("expected TextContent, got %T", result.Content[0])
+		}
+
+		expectedSections := []string{
+			"Investigation Order",
+			"storeAnalysis",
+			"storeFeature",
+			"getProject",
+			"searchDocumentation",
+			"getProjectStructure",
+			"getDependencies",
+			"searchFiles",
+		}
+
+		for _, section := range expectedSections {
+			if !strings.Contains(textContent.Text, section) {
+				t.Errorf("prompt missing expected section: %s", section)
+			}
+		}
+	})
+
+	t.Run("prompt contains storeAnalysis schema", func(t *testing.T) {
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleGetProjectAnalyzerPrompt(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleGetProjectAnalyzerPrompt failed: %v", err)
+		}
+
+		textContent, ok := result.Content[0].(mcp.TextContent)
+		if !ok {
+			t.Fatalf("expected TextContent, got %T", result.Content[0])
+		}
+
+		schemaFields := []string{
+			"project_id",
+			"analyzer",
+			"summary",
+			"purpose",
+			"architecture",
+			"maturity",
+			"strengths",
+			"weaknesses",
+			"reusable_components",
+			"notes",
+		}
+
+		for _, field := range schemaFields {
+			if !strings.Contains(textContent.Text, field) {
+				t.Errorf("prompt missing schema field: %s", field)
+			}
+		}
+	})
+
+	t.Run("prompt contains maturity guidelines", func(t *testing.T) {
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleGetProjectAnalyzerPrompt(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleGetProjectAnalyzerPrompt failed: %v", err)
+		}
+
+		textContent, ok := result.Content[0].(mcp.TextContent)
+		if !ok {
+			t.Fatalf("expected TextContent, got %T", result.Content[0])
+		}
+
+		maturityLevels := []string{
+			"prototype",
+			"alpha",
+			"beta",
+			"stable",
+			"mature",
+			"deprecated",
+		}
+
+		for _, level := range maturityLevels {
+			if !strings.Contains(textContent.Text, level) {
+				t.Errorf("prompt missing maturity level: %s", level)
+			}
+		}
+	})
+}

@@ -7,8 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"project-dash/internal/integration"
-	"project-dash/internal/integration/claude"
-	"project-dash/internal/integration/opencode"
 	"project-dash/internal/logging"
 	"project-dash/internal/version"
 	"project-dash/pkg/models"
@@ -94,11 +92,7 @@ func runUpgradeIntegration(cmd *cobra.Command, name string) {
 
 	previousVersion := previousMeta.Version
 
-	// Target the integration's own latest version constant.
-	targetVersion := claude.Version
-	if name == opencode.Name {
-		targetVersion = opencode.Version
-	}
+	targetVersion := version.Version()
 
 	opts := integration.UpgradeOptions{
 		TargetVersion: targetVersion,

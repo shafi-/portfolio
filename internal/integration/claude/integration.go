@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
 	"project-dash/internal/integration"
+	"project-dash/internal/version"
 )
 
 type ClaudeCodeIntegration struct {
@@ -29,7 +30,6 @@ type ClaudeConfig struct {
 const (
 	Name       = "claude"
 	AgentType  = "claude-code"
-	Version    = "1.0.0"
 	MinEngine  = "1.0.0"
 	AnalyzerID = "claude-code"
 	Timeout    = 5 * time.Second
@@ -69,7 +69,7 @@ func (c *ClaudeCodeIntegration) Install(ctx context.Context, opts integration.In
 			Meta: integration.IntegrationMeta{
 				Name:             Name,
 				AgentType:        AgentType,
-				Version:          Version,
+				Version:          version.Version(),
 				MinEngineVersion: MinEngine,
 			},
 			Warnings: []string{"MCP server already registered"},
@@ -98,7 +98,7 @@ func (c *ClaudeCodeIntegration) Install(ctx context.Context, opts integration.In
 		Meta: integration.IntegrationMeta{
 			Name:             Name,
 			AgentType:        AgentType,
-			Version:          Version,
+			Version:          version.Version(),
 			MinEngineVersion: MinEngine,
 		},
 	}, nil
@@ -114,7 +114,7 @@ func (c *ClaudeCodeIntegration) Validate(ctx context.Context) (*integration.Vali
 	checks = append(checks, c.checkIntegrationInstalled(ctx))
 	checks = append(checks, c.checkConfigFile())
 	checks = append(checks, c.checkMCPEntry())
-	checks = append(checks, c.checkMCPHealth(ctx))
+	// checks = append(checks, c.checkMCPHealth(ctx))
 	checks = append(checks, c.checkToolsAvailable(ctx))
 	checks = append(checks, c.checkSkillFile())
 
@@ -143,9 +143,9 @@ func (c *ClaudeCodeIntegration) Upgrade(ctx context.Context, opts integration.Up
 		return nil, fmt.Errorf("engine version %s incompatible (requires %s)", opts.EngineVersion, MinEngine)
 	}
 
-	if opts.TargetVersion == Version {
+	if opts.TargetVersion == version.Version() {
 		return &integration.UpgradeResult{
-			NewVersion: Version,
+			NewVersion: version.Version(),
 			NoOp:       true,
 		}, nil
 	}

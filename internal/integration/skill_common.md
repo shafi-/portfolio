@@ -52,6 +52,10 @@ Params: projectId, analyzer, summary, purpose, architecture, maturity, strengths
 ### listProjectsNeedingAnalysis
 Find projects missing or with outdated analysis.
 
+### getProjectAnalyzerPrompt
+Get the analysis prompt with investigation workflow and storeAnalysis schema.
+Call `getProjectAnalyzerPrompt()` — no parameters required.
+
 ### storeFeature
 Store a feature (Tier 2 or 3). Upserts by (project, analyzer, name): re-calling
 with the same name updates the existing feature instead of creating a duplicate.
@@ -97,12 +101,7 @@ One investigation pass produces both an analysis and a feature list.
 
 **Rule:** investigate only through Portfolio's MCP file tools — never read the project directory on disk. Use `project_id` with: `getProject`, `searchDocumentation`, `getProjectStructure`, `getDependencies`, `searchFiles`, `getFileContent`.
 
-**Investigation order:**
-1. `getProject(id)` — existing state
-2. `searchDocumentation("overview")` then `searchDocumentation("architecture")` — purpose
-3. `getProjectStructure(project_id, include_content: true)` — file tree
-4. `getDependencies(project_id)` — stack
-5. `searchFiles(project_id, pattern)` per feature → `getFileContent` to confirm
+**How:** Call `getProjectAnalyzerPrompt()` for the full investigation workflow and `storeAnalysis` schema. Then follow the workflow, calling `getProject`, `searchDocumentation`, `getProjectStructure`, `getDependencies`, and `searchFiles`/`getFileContent` as instructed.
 
 **Required outputs (BOTH):**
 - `storeAnalysis` — purpose, architecture, maturity, strengths, weaknesses, reusable_components
@@ -144,7 +143,7 @@ For features that warrant deeper understanding, update with:
    → `listProjects()`
 
 2. "Analyze this project"
-   → `getProject(id)` → investigate code → `storeAnalysis(...)` → `storeFeature(...)` for each feature
+   → `getProjectAnalyzerPrompt()` → follow workflow → `storeAnalysis(...)` → `storeFeature(...)` for each feature
 
 3. "Find projects using React"
    → `searchProjects(query: "react")`

@@ -59,13 +59,17 @@ func runScan(cmd *cobra.Command, args []string) {
 	}
 	defer db.Close()
 
-	// Ensure schema: runs pending migrations (including the metadata-extras v8
-	// migration) before extraction writes to the new columns.
 	if err := db.Initialize(); err != nil {
 		logger.Error("Failed to initialize database", models.Field{Key: "error", Value: err})
 		os.Exit(1)
 	}
 
+	runScanOnDB(db, logger, scanProjectID)
+}
+
+// runScanOnDB runs the scan (metadata extraction + doc indexing) on the given
+// database. If projectID is empty, all projects are scanned.
+func runScanOnDB(db *database.Database, logger *logging.Logger, projectID string) {
 	projectsStore := store.NewProjectStore(db.DB(), logger.Zap())
 	metaStore := store.NewMetadataStore(db.DB(), logger.Zap())
 
@@ -73,22 +77,22 @@ func runScan(cmd *cobra.Command, args []string) {
 
 	ctx := context.Background()
 
-	if scanProjectID != "" {
-		project, err := projectsStore.GetProject(scanProjectID)
+	if projectID != "" {
+		project, err := projectsStore.GetProject(projectID)
 		if err != nil {
 			logger.Error("Failed to get project", models.Field{Key: "error", Value: err})
-			os.Exit(1)
+			return
 		}
 		if project == nil {
-			fmt.Printf("Project not found: %s\n", scanProjectID)
-			os.Exit(1)
+			fmt.Printf("Project not found: %s\n", projectID)
+			return
 		}
 		res, err := idx.IndexProject(ctx, project.ID, project.RootPath)
 		if err != nil {
 			logger.Error("Scan failed",
 				models.Field{Key: "project", Value: project.ID},
 				models.Field{Key: "error", Value: err})
-			os.Exit(1)
+			return
 		}
 		printScanSummary(metaStore, res)
 		return
@@ -98,10 +102,9 @@ func runScan(cmd *cobra.Command, args []string) {
 	results, err := idx.IndexAll(ctx)
 	if err != nil {
 		logger.Error("Scan failed", models.Field{Key: "error", Value: err})
-		os.Exit(1)
+		return
 	}
 
-	// Deterministic ordering for stable output.
 	ids := make([]string, 0, len(results))
 	for id := range results {
 		ids = append(ids, id)

@@ -208,7 +208,7 @@ func checkDatabase(logger *logging.Logger) bool {
 
 	fmt.Printf("  ✓ Database accessible: %s\n", dbPath)
 	fmt.Printf("  ✓ Schema version: %d\n", version)
-	fmt.Printf("  ✓ Tables present: %d/10\n", tableCount)
+	fmt.Printf("  ✓ Tables present: %d\n", tableCount)
 
 	return true
 }

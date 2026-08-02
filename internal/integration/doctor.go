@@ -23,7 +23,7 @@ func (m *Manager) Validate(ctx context.Context, name string) (*ValidationResult,
 					{
 						Name:    "integration_installed",
 						Passed:  false,
-						Message: fmt.Sprintf("Integration '%s' is not installed. Run `portfolio integration install %s` first.", name, name),
+						Message: fmt.Sprintf("Integration '%s' is not installed. Run `portfolio install %s` first.", name, name),
 					},
 				},
 			}, nil
@@ -175,7 +175,7 @@ func (m *Manager) tryRecreateConfig(ctx context.Context, name string) (bool, Val
 			Name:        "config_file_exists",
 			Passed:      false,
 			Message:     "Failed to load integration metadata: " + err.Error(),
-			Remediation: "Reinstall integration: `portfolio integration install " + name + " --force`",
+			Remediation: "Reinstall integration: `portfolio install " + name + " --force`",
 		}
 	}
 
@@ -185,7 +185,7 @@ func (m *Manager) tryRecreateConfig(ctx context.Context, name string) (bool, Val
 			Name:        "config_file_exists",
 			Passed:      false,
 			Message:     "Failed to create config directory: " + err.Error(),
-			Remediation: "Reinstall integration: `portfolio integration install " + name + " --force`",
+			Remediation: "Reinstall integration: `portfolio install " + name + " --force`",
 		}
 	}
 
@@ -195,7 +195,7 @@ func (m *Manager) tryRecreateConfig(ctx context.Context, name string) (bool, Val
 			Name:        "config_file_exists",
 			Passed:      false,
 			Message:     "Failed to serialize config: " + err.Error(),
-			Remediation: "Reinstall integration: `portfolio integration install " + name + " --force`",
+			Remediation: "Reinstall integration: `portfolio install " + name + " --force`",
 		}
 	}
 
@@ -204,7 +204,7 @@ func (m *Manager) tryRecreateConfig(ctx context.Context, name string) (bool, Val
 			Name:        "config_file_exists",
 			Passed:      false,
 			Message:     "Failed to write config file: " + err.Error(),
-			Remediation: "Reinstall integration: `portfolio integration install " + name + " --force`",
+			Remediation: "Reinstall integration: `portfolio install " + name + " --force`",
 		}
 	}
 
@@ -224,7 +224,7 @@ func (m *Manager) tryRecreateDirectory(ctx context.Context, name string) (bool, 
 			Name:        "integration_directory_exists",
 			Passed:      false,
 			Message:     "Failed to load integration metadata: " + err.Error(),
-			Remediation: "Reinstall integration: `portfolio integration install " + name + " --force`",
+			Remediation: "Reinstall integration: `portfolio install " + name + " --force`",
 		}
 	}
 
@@ -233,7 +233,7 @@ func (m *Manager) tryRecreateDirectory(ctx context.Context, name string) (bool, 
 			Name:        "integration_directory_exists",
 			Passed:      false,
 			Message:     "Failed to create directory: " + err.Error(),
-			Remediation: "Reinstall integration: `portfolio integration install " + name + " --force`",
+			Remediation: "Reinstall integration: `portfolio install " + name + " --force`",
 		}
 	}
 
@@ -275,7 +275,7 @@ func CheckMCPTools(ctx context.Context, mcp MCPClient, requiredTools []string) V
 			Name:        "mcp_tools_available",
 			Passed:      false,
 			Message:     fmt.Sprintf("Missing MCP tools: %s", strings.Join(missingTools, ", ")),
-			Remediation: "Reinstall integration: `portfolio integration install <name> --force`",
+			Remediation: "Reinstall integration: `portfolio install <name> --force`",
 		}
 	}
 
@@ -319,7 +319,7 @@ func CheckDirectoryExists(path string) ValidationCheck {
 			Name:         "integration_directory_exists",
 			Passed:       false,
 			Message:      "Integration path not configured",
-			Remediation:  "Configure install path: `portfolio integration install <name> --path <path>`",
+			Remediation:  "Configure install path: `portfolio install <name> --path <path>`",
 			SelfHealable: true,
 		}
 	}
@@ -331,7 +331,7 @@ func CheckDirectoryExists(path string) ValidationCheck {
 				Name:         "integration_directory_exists",
 				Passed:       false,
 				Message:      fmt.Sprintf("Integration directory does not exist: %s", path),
-				Remediation:  fmt.Sprintf("Create directory or reinstall: `portfolio integration install <name> --force`"),
+				Remediation:  fmt.Sprintf("Create directory or reinstall: `portfolio install <name> --force`"),
 				SelfHealable: true,
 			}
 		}
@@ -348,7 +348,7 @@ func CheckDirectoryExists(path string) ValidationCheck {
 			Name:        "integration_directory_exists",
 			Passed:      false,
 			Message:     fmt.Sprintf("Path exists but is not a directory: %s", path),
-			Remediation: fmt.Sprintf("Remove the file and reinstall: `portfolio integration install <name> --force`"),
+			Remediation: fmt.Sprintf("Remove the file and reinstall: `portfolio install <name> --force`"),
 		}
 	}
 
@@ -365,7 +365,7 @@ func CheckConfigFileExists(configPath string) ValidationCheck {
 			Name:         "config_file_exists",
 			Passed:       false,
 			Message:      "Config file path not configured",
-			Remediation:  "Reinstall integration: `portfolio integration install <name> --force`",
+			Remediation:  "Reinstall integration: `portfolio install <name> --force`",
 			SelfHealable: true,
 		}
 	}
@@ -377,7 +377,7 @@ func CheckConfigFileExists(configPath string) ValidationCheck {
 				Name:         "config_file_exists",
 				Passed:       false,
 				Message:      fmt.Sprintf("Config file does not exist: %s", configPath),
-				Remediation:  fmt.Sprintf("Recreate or reinstall: `portfolio integration install <name> --force`"),
+				Remediation:  fmt.Sprintf("Recreate or reinstall: `portfolio install <name> --force`"),
 				SelfHealable: true,
 			}
 		}
@@ -394,7 +394,7 @@ func CheckConfigFileExists(configPath string) ValidationCheck {
 			Name:        "config_file_exists",
 			Passed:      false,
 			Message:     fmt.Sprintf("Config path exists but is a directory: %s", configPath),
-			Remediation: fmt.Sprintf("Remove the directory and reinstall: `portfolio integration install <name> --force`"),
+			Remediation: fmt.Sprintf("Remove the directory and reinstall: `portfolio install <name> --force`"),
 		}
 	}
 

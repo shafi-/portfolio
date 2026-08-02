@@ -49,9 +49,27 @@ func (c *TCPMCPClient) Health(ctx context.Context) error {
 		return fmt.Errorf("failed to read health response: %w", err)
 	}
 
-	if result, ok := healthResponse["result"].(map[string]interface{}); ok {
-		if status, ok := result["status"].(string); ok && status == "ok" {
+	result, ok := healthResponse["result"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("health check failed: MCP server not healthy")
+	}
+
+	if sc, ok := result["structuredContent"].(map[string]interface{}); ok {
+		if status, ok := sc["status"].(string); ok && (status == "ok" || status == "healthy") {
 			return nil
+		}
+	}
+
+	if content, ok := result["content"].([]interface{}); ok && len(content) > 0 {
+		if textObj, ok := content[0].(map[string]interface{}); ok {
+			if text, ok := textObj["text"].(string); ok {
+				var inner map[string]interface{}
+				if err := json.Unmarshal([]byte(text), &inner); err == nil {
+					if status, ok := inner["status"].(string); ok && (status == "ok" || status == "healthy") {
+						return nil
+					}
+				}
+			}
 		}
 	}
 
@@ -192,9 +210,28 @@ func (c *StdioMCPClient) Health(ctx context.Context) error {
 		return fmt.Errorf("failed to read health response: %w", err)
 	}
 
-	if result, ok := healthResponse["result"].(map[string]interface{}); ok {
-		if status, ok := result["status"].(string); ok && status == "ok" {
+	result, ok := healthResponse["result"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("health check failed: MCP server not healthy")
+	}
+
+	// Check structuredContent first (MCP 2025), fall back to content text
+	if sc, ok := result["structuredContent"].(map[string]interface{}); ok {
+		if status, ok := sc["status"].(string); ok && (status == "ok" || status == "healthy") {
 			return nil
+		}
+	}
+
+	if content, ok := result["content"].([]interface{}); ok && len(content) > 0 {
+		if textObj, ok := content[0].(map[string]interface{}); ok {
+			if text, ok := textObj["text"].(string); ok {
+				var inner map[string]interface{}
+				if err := json.Unmarshal([]byte(text), &inner); err == nil {
+					if status, ok := inner["status"].(string); ok && (status == "ok" || status == "healthy") {
+						return nil
+					}
+				}
+			}
 		}
 	}
 
@@ -344,9 +381,27 @@ func (c *IOReaderWriterMCPClient) Health(ctx context.Context) error {
 		return fmt.Errorf("failed to read health response: %w", err)
 	}
 
-	if result, ok := healthResponse["result"].(map[string]interface{}); ok {
-		if status, ok := result["status"].(string); ok && status == "ok" {
+	result, ok := healthResponse["result"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("health check failed: MCP server not healthy")
+	}
+
+	if sc, ok := result["structuredContent"].(map[string]interface{}); ok {
+		if status, ok := sc["status"].(string); ok && (status == "ok" || status == "healthy") {
 			return nil
+		}
+	}
+
+	if content, ok := result["content"].([]interface{}); ok && len(content) > 0 {
+		if textObj, ok := content[0].(map[string]interface{}); ok {
+			if text, ok := textObj["text"].(string); ok {
+				var inner map[string]interface{}
+				if err := json.Unmarshal([]byte(text), &inner); err == nil {
+					if status, ok := inner["status"].(string); ok && (status == "ok" || status == "healthy") {
+						return nil
+					}
+				}
+			}
 		}
 	}
 

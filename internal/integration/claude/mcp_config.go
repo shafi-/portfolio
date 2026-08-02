@@ -21,6 +21,9 @@ type MCPServerConfig struct {
 
 // ensureMCPConfig registers the Portfolio MCP server using the official Claude Code CLI
 func (c *ClaudeCodeIntegration) ensureMCPConfig() error {
+	// Always remove first to handle stale entries with wrong paths
+	_ = c.removeMCPConfig()
+
 	// Use official Claude Code CLI command: claude mcp add portfolio /path/to/portfolio mcp
 	args := []string{"mcp", "add", "portfolio", c.config.BinaryPath, "mcp"}
 
