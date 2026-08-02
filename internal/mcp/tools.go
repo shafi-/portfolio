@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strings"
 	"time"
@@ -14,6 +15,9 @@ import (
 	"project-dash/internal/store"
 	"project-dash/pkg/models"
 )
+
+//go:embed prompts/analysis.md
+var analysisPrompt string
 
 func (s *Server) discoveryTools() []serverTool {
 	return []serverTool{
@@ -83,6 +87,10 @@ func (s *Server) analysisTools() []serverTool {
 		{
 			Tool:    mcp.NewTool("listProjectsNeedingAnalysis"),
 			Handler: s.handleListProjectsNeedingAnalysis,
+		},
+		{
+			Tool:    mcp.NewTool("getProjectAnalyzerPrompt"),
+			Handler: s.handleGetProjectAnalyzerPrompt,
 		},
 	}
 }
@@ -461,6 +469,10 @@ func (s *Server) handleListProjectsNeedingAnalysis(ctx context.Context, req mcp.
 		},
 	}
 	return mcp.NewToolResultJSON(result)
+}
+
+func (s *Server) handleGetProjectAnalyzerPrompt(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return mcp.NewToolResultText(analysisPrompt), nil
 }
 
 func (s *Server) handleGetConfiguration(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
