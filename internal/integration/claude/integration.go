@@ -114,7 +114,7 @@ func (c *ClaudeCodeIntegration) Validate(ctx context.Context) (*integration.Vali
 	checks = append(checks, c.checkIntegrationInstalled(ctx))
 	checks = append(checks, c.checkConfigFile())
 	checks = append(checks, c.checkMCPEntry())
-	// checks = append(checks, c.checkMCPHealth(ctx))
+	checks = append(checks, c.checkMCPHealth(ctx))
 	checks = append(checks, c.checkToolsAvailable(ctx))
 	checks = append(checks, c.checkSkillFile())
 

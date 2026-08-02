@@ -115,7 +115,7 @@ func (o *OpenCodeIntegration) Validate(ctx context.Context) (*integration.Valida
 	checks = append(checks, o.checkIntegrationInstalled(ctx))
 	checks = append(checks, o.checkConfigFile())
 	checks = append(checks, o.checkMCPEntry())
-	// checks = append(checks, o.checkMCPHealth(ctx))
+	checks = append(checks, o.checkMCPHealth(ctx))
 	checks = append(checks, o.checkToolsAvailable(ctx))
 	checks = append(checks, o.checkSkillFile())
 
