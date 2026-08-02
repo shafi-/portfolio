@@ -301,6 +301,93 @@ func TestListProjectsNeedingAnalysis_Integration(t *testing.T) {
 		}
 	})
 
+	t.Run("analysis without metadata not in noAnalysis", func(t *testing.T) {
+		db.DB().Exec("DELETE FROM projects")
+		db.DB().Exec("DELETE FROM metadata")
+		db.DB().Exec("DELETE FROM analyses")
+
+		// Project with analysis but no metadata row
+		analyzedAt := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
+		projectWithAnalysis := createTestProject(t, db)
+		createTestAnalysis(t, db, projectWithAnalysis.ID, "abc123", analyzedAt)
+
+		// Project with no analysis and no metadata
+		_ = createTestProject(t, db)
+
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		var response map[string]interface{}
+		if content, ok := result.Content[0].(mcp.TextContent); ok {
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("failed to parse JSON: %v", err)
+			}
+		}
+
+		noAnalysis := response["no_analysis"].([]interface{})
+		counts := response["counts"].(map[string]interface{})
+		noAnalysisCount := int(counts["no_analysis"].(float64))
+
+		// Only the project with no analysis AND no metadata should be in noAnalysis.
+		// The project with analysis but no metadata should be excluded (treated as up-to-date).
+		if noAnalysisCount != 1 {
+			t.Errorf("expected 1 no_analysis, got %d", noAnalysisCount)
+		}
+
+		// Verify the excluded project is not in noAnalysis
+		for _, entry := range noAnalysis {
+			p := entry.(map[string]interface{})
+			if p["id"].(string) == projectWithAnalysis.ID {
+				t.Errorf("project with analysis should not be in noAnalysis")
+			}
+		}
+	})
+
+	t.Run("analysis with empty git_head metadata not in noAnalysis", func(t *testing.T) {
+		db.DB().Exec("DELETE FROM projects")
+		db.DB().Exec("DELETE FROM metadata")
+		db.DB().Exec("DELETE FROM analyses")
+
+		// Project with analysis and metadata row, but empty git_head
+		analyzedAt := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
+		projectWithAnalysis := createTestProject(t, db)
+		createTestAnalysis(t, db, projectWithAnalysis.ID, "abc123", analyzedAt)
+		createTestMetadata(t, db, projectWithAnalysis.ID, "")
+
+		req := mcp.CallToolRequest{
+			Params: mcp.CallToolParams{},
+		}
+
+		result, err := server.handleListProjectsNeedingAnalysis(context.Background(), req)
+		if err != nil {
+			t.Fatalf("handleListProjectsNeedingAnalysis failed: %v", err)
+		}
+
+		var response map[string]interface{}
+		if content, ok := result.Content[0].(mcp.TextContent); ok {
+			if err := json.Unmarshal([]byte(content.Text), &response); err != nil {
+				t.Fatalf("failed to parse JSON: %v", err)
+			}
+		}
+
+		noAnalysis := response["no_analysis"].([]interface{})
+		staleAnalysis := response["stale_analysis"].([]interface{})
+
+		// Should not be in noAnalysis (has analysis) and not in staleAnalysis (can't compare)
+		if len(noAnalysis) != 0 {
+			t.Errorf("expected 0 no_analysis, got %d", len(noAnalysis))
+		}
+		if len(staleAnalysis) != 0 {
+			t.Errorf("expected 0 stale_analysis, got %d", len(staleAnalysis))
+		}
+	})
+
 	t.Run("correctness: git head comparison", func(t *testing.T) {
 		db.DB().Exec("DELETE FROM projects")
 		db.DB().Exec("DELETE FROM metadata")
