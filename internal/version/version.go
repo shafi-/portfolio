@@ -5,7 +5,7 @@ package version
 
 var (
 	// version is the engine release version.
-	version = "v0.3.3"
+	version = "v0.3.4"
 	// commit is the VCS commit the binary was built from ("dev" when unset).
 	commit = "dev"
 	// date is the build timestamp ("unknown" when unset).
