@@ -310,16 +310,16 @@ func runDiscoverProjects(cmd *cobra.Command, args []string) {
 	fmt.Printf("  Discovered: %d new projects\n", result.Discovered)
 	fmt.Printf("  Errors: %d\n", len(result.Errors))
 
-	if result.Discovered > 0 {
-		fmt.Printf("\nRun 'portfolio projects list' to see discovered projects.\n")
-	}
-
 	if len(result.Errors) > 0 {
 		fmt.Printf("\nErrors:\n")
 		for _, e := range result.Errors {
 			fmt.Printf("  - %s: %v\n", e.DirPath, e.Err)
 		}
 	}
+
+	// Scan all projects after discovery to populate metadata.
+	fmt.Println("\nScanning projects for metadata...")
+	runScanOnDB(db, logger, "")
 }
 
 type discoveryStoreAdapter struct {

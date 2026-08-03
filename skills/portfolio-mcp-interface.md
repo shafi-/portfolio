@@ -83,6 +83,17 @@ User: "What do you know about the architecture of my api-service?"
 You: [Uses get-project-analysis for api-service] "The api-service follows a microservices architecture with 3 main services: authentication, data processing, and API gateway. It uses Redis for caching..."
 ```
 
+### getProjectAnalyzerPrompt
+Gets the analysis prompt with investigation workflow and storeAnalysis schema.
+
+**When to use:** Before analyzing a project — provides the complete workflow and output schema.
+
+**Example:**
+```
+User: "Analyze my api-service project"
+You: [Uses getProjectAnalyzerPrompt] → follows workflow → stores analysis and features
+```
+
 ## Why MCP Tools Matter
 
 The MCP interface provides:

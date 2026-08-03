@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 
 	"github.com/spf13/cobra"
 
@@ -74,8 +76,15 @@ func runMCP(cmd *cobra.Command, args []string) {
 
 	logger.Info("MCP server starting on stdio")
 
-	if err := srv.Serve(context.Background()); err != nil {
-		logger.Error("MCP server error", models.Field{Key: "error", Value: err})
-		os.Exit(1)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	if err := srv.Serve(ctx); err != nil {
+		if errors.Is(err, context.Canceled) {
+			logger.Info("MCP server stopped")
+		} else {
+			logger.Error("MCP server error", models.Field{Key: "error", Value: err})
+			os.Exit(1)
+		}
 	}
 }

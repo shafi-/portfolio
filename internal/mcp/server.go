@@ -8,9 +8,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"project-dash/internal/fs"
+	"project-dash/internal/indexer"
 	"project-dash/internal/logging"
 	"project-dash/internal/store"
 	"project-dash/internal/version"
+	"project-dash/pkg/models"
 )
 
 type serverTool struct {
@@ -52,6 +54,21 @@ func New(cfg *Config) *Server {
 
 func (s *Server) Serve(ctx context.Context) error {
 	s.logger.Info("starting MCP server on stdio")
+
+	// Auto-scan on startup if projects exist but metadata is empty.
+	// This handles the case where projects were discovered but scan was never run.
+	var projectCount, metadataCount int
+	s.db.QueryRow("SELECT COUNT(*) FROM projects").Scan(&projectCount)
+	s.db.QueryRow("SELECT COUNT(*) FROM metadata").Scan(&metadataCount)
+
+	if projectCount > 0 && metadataCount == 0 {
+		s.logger.Info("projects exist but metadata is empty, running initial scan")
+		idx := indexer.NewIndexer(s.db, s.logger.Zap()).WithProjectLister(s.projects)
+		if _, err := idx.IndexAll(ctx); err != nil {
+			s.logger.Error("auto-scan on startup failed", models.Field{Key: "error", Value: err})
+		}
+	}
+
 	return server.ServeStdio(s.mcp)
 }
 

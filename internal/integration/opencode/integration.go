@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
 	"project-dash/internal/integration"
+	"project-dash/internal/version"
 )
 
 // OpenCodeIntegration installs Portfolio into OpenCode. Unlike Claude Code
@@ -35,7 +36,6 @@ type OpenCodeConfig struct {
 const (
 	Name       = "opencode"
 	AgentType  = "opencode"
-	Version    = "1.0.0"
 	MinEngine  = "0.1.0"
 	AnalyzerID = "opencode"
 	Timeout    = 5 * time.Second
@@ -70,7 +70,7 @@ func (o *OpenCodeIntegration) Install(ctx context.Context, opts integration.Inst
 			Meta: integration.IntegrationMeta{
 				Name:             Name,
 				AgentType:        AgentType,
-				Version:          Version,
+				Version:          version.Version(),
 				MinEngineVersion: MinEngine,
 			},
 			Warnings: []string{"MCP server already registered"},
@@ -99,7 +99,7 @@ func (o *OpenCodeIntegration) Install(ctx context.Context, opts integration.Inst
 		Meta: integration.IntegrationMeta{
 			Name:             Name,
 			AgentType:        AgentType,
-			Version:          Version,
+			Version:          version.Version(),
 			MinEngineVersion: MinEngine,
 		},
 	}, nil
@@ -144,9 +144,9 @@ func (o *OpenCodeIntegration) Upgrade(ctx context.Context, opts integration.Upgr
 		return nil, fmt.Errorf("engine version %s incompatible (requires %s)", opts.EngineVersion, MinEngine)
 	}
 
-	if opts.TargetVersion == Version {
+	if opts.TargetVersion == version.Version() {
 		return &integration.UpgradeResult{
-			NewVersion: Version,
+			NewVersion: version.Version(),
 			NoOp:       true,
 		}, nil
 	}
