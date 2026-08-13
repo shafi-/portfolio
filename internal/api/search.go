@@ -26,12 +26,49 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	// Empty query is allowed - will return all projects
 
+	// Get technology and framework filters
+	technologies := r.URL.Query()["technology"]
+	frameworks := r.URL.Query()["framework"]
+
 	var results []searchResult
 
-	projectRows, err := s.db.Query(
-		"SELECT id, name FROM projects WHERE name LIKE ? ORDER BY name LIMIT 50",
-		"%"+q+"%",
-	)
+	// Build base query for projects
+	var projectQuery string
+	var args []interface{}
+
+	// Start with name filter
+	projectQuery = "SELECT id, name FROM projects WHERE name LIKE ?"
+	args = append(args, "%"+q+"%")
+
+	// Add technology filter if provided
+	if len(technologies) > 0 {
+		// Get projects with matching technologies
+		var techConditions []string
+		for _, tech := range technologies {
+			techConditions = append(techConditions, "language_summary LIKE ?")
+			args = append(args, "%"+tech+"%")
+		}
+		if len(techConditions) > 0 {
+			projectQuery += " AND (" + strings.Join(techConditions, " OR ") + ")"
+		}
+	}
+
+	// Add framework filter if provided
+	if len(frameworks) > 0 {
+		// Get projects with matching frameworks
+		var frameworkConditions []string
+		for _, framework := range frameworks {
+			frameworkConditions = append(frameworkConditions, "framework_summary LIKE ?")
+			args = append(args, "%"+framework+"%")
+		}
+		if len(frameworkConditions) > 0 {
+			projectQuery += " AND (" + strings.Join(frameworkConditions, " OR ") + ")"
+		}
+	}
+
+	projectQuery += " ORDER BY name LIMIT 50"
+
+	projectRows, err := s.db.Query(projectQuery, args...)
 	if err == nil {
 		defer projectRows.Close()
 		for projectRows.Next() {
