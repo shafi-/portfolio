@@ -31,65 +31,81 @@ export default function FilterDropdown({ filters, onChange }: FilterDropdownProp
     onChange({ ...filters, frameworks: newFrameworks })
   }
 
+  const activeFilterCount = filters.technologies.length + filters.frameworks.length
+
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600"
+        className="btn btn-secondary inline-flex items-center space-x-2"
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        Filters {filters.technologies.length + filters.frameworks.length > 0 && `(${filters.technologies.length + filters.frameworks.length})`}
+        <span>🔧</span>
+        <span>Filters</span>
+        {activeFilterCount > 0 && (
+          <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
+            {activeFilterCount}
+          </span>
+        )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg z-10 p-4">
-          <div className="mb-4">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Technologies</h3>
-            <div className="flex flex-wrap gap-2">
-              {commonTechs.map(tech => (
-                <button
-                  key={tech}
-                  onClick={() => toggleTech(tech)}
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    filters.technologies.includes(tech)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                  }`}
-                >
-                  {tech}
-                </button>
-              ))}
+        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-10 animate-fade-in">
+          <div className="p-4">
+            <div className="mb-4">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center space-x-2">
+                <span>⚙️</span>
+                <span>Technologies</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {commonTechs.map(tech => (
+                  <button
+                    key={tech}
+                    onClick={() => toggleTech(tech)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      filters.technologies.includes(tech)
+                        ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {tech}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Frameworks</h3>
-            <div className="flex flex-wrap gap-2">
-              {commonFrameworks.map(framework => (
-                <button
-                  key={framework}
-                  onClick={() => toggleFramework(framework)}
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    filters.frameworks.includes(framework)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                  }`}
-                >
-                  {framework}
-                </button>
-              ))}
+            <div className="mb-4">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center space-x-2">
+                <span>🏗️</span>
+                <span>Frameworks</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {commonFrameworks.map(framework => (
+                  <button
+                    key={framework}
+                    onClick={() => toggleFramework(framework)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      filters.frameworks.includes(framework)
+                        ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {framework}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {(filters.technologies.length > 0 || filters.frameworks.length > 0) && (
-            <button
-              onClick={() => onChange({ technologies: [], frameworks: [], repositoryType: 'all' })}
-              className="mt-4 w-full px-3 py-2 text-sm text-red-600 hover:text-red-800 dark:hover:text-red-400"
-            >
-              Clear all filters
-            </button>
-          )}
+            {(filters.technologies.length > 0 || filters.frameworks.length > 0) && (
+              <button
+                onClick={() => onChange({ technologies: [], frameworks: [], repositoryType: 'all' })}
+                className="w-full px-3 py-2 text-sm text-red-600 hover:text-red-800 dark:hover:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                ✕ Clear all filters
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
