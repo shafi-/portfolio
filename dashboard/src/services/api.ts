@@ -104,21 +104,6 @@ export class ApiClient {
     return this.get<Project>(`/projects/${id}`)
   }
 
-  async getProjectDocuments(id: string): Promise<Document[]> {
-    return this.get<Document[]>(`/projects/${id}/documents`)
-  }
-
-  async getProjectAnalysis(id: string): Promise<Analysis | null> {
-    try {
-      return await this.get<Analysis>(`/projects/${id}/analysis`)
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        return null
-      }
-      throw error
-    }
-  }
-
   async searchProjects(request: SearchRequest): Promise<SearchResponse> {
     const params = new URLSearchParams()
     params.append('q', request.query)

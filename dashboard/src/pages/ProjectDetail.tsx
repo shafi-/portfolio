@@ -37,42 +37,18 @@ export default function ProjectDetail() {
       if (!id) return
 
       try {
-        setLoading(prev => ({ ...prev, project: true }))
+        setLoading(prev => ({ ...prev, project: true, documents: true, analysis: true }))
         const projectData = await api.getProject(id)
         setProject(projectData)
+
+        // Documents and analyses are included in the project response
+        setDocuments(projectData.documents || [])
+        setAnalysis(projectData.analyses?.[0] || null)
+
       } catch (err) {
         setErrors(prev => ({ ...prev, project: err as Error }))
       } finally {
-        setLoading(prev => ({ ...prev, project: false }))
-      }
-    }
-
-    async function loadDocuments() {
-      if (!id) return
-
-      try {
-        setLoading(prev => ({ ...prev, documents: true }))
-        const docs = await api.getProjectDocuments(id)
-        setDocuments(docs)
-      } catch (err) {
-        setErrors(prev => ({ ...prev, documents: err as Error }))
-      } finally {
-        setLoading(prev => ({ ...prev, documents: false }))
-      }
-    }
-
-    async function loadAnalysis() {
-      if (!id) return
-
-      try {
-        setLoading(prev => ({ ...prev, analysis: true }))
-        const analysisData = await api.getProjectAnalysis(id)
-        setAnalysis(analysisData)
-      } catch (err) {
-        // Analysis not found is acceptable (progressive enhancement)
-        setAnalysis(null)
-      } finally {
-        setLoading(prev => ({ ...prev, analysis: false }))
+        setLoading(prev => ({ ...prev, project: false, documents: false, analysis: false }))
       }
     }
 
@@ -91,8 +67,6 @@ export default function ProjectDetail() {
     }
 
     loadProject()
-    loadDocuments()
-    loadAnalysis()
     loadRelationships()
   }, [id])
 

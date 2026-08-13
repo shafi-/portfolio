@@ -6,7 +6,10 @@ export interface Project {
   root_path: string
   repository_type: string
   discovered_at: string
-  metadata: Metadata
+  updated_at: string
+  metadata?: Metadata
+  documents?: Document[]
+  analyses?: Analysis[]
 }
 
 export interface Metadata {
