@@ -49,8 +49,9 @@ export interface Activity {
  * Convert API statistics response to frontend format
  */
 export function parseStatistics(apiStats: ApiStatisticsResponse): Statistics {
-  // Handle malformed technology counts by parsing comma-separated values
-  const technologyDistribution: TechnologyStats[] = parseAndFlattenCounts(apiStats.technology_counts)
+  // Convert technology counts to array format for frontend consumption
+  const technologyDistribution: TechnologyStats[] = Object.entries(apiStats.technology_counts)
+    .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
 
   const topTechnologies = technologyDistribution.slice(0, 10)
@@ -78,27 +79,8 @@ export function parseStatistics(apiStats: ApiStatisticsResponse): Statistics {
 }
 
 /**
- * Parse and flatten counts that might contain comma-separated values
- * Handles both individual items and comma-separated lists
+ * Convert counts record to TechnologyStats array
  */
-function parseAndFlattenCounts(counts: Record<string, number>): TechnologyStats[] {
-  const flattened: Record<string, number> = {}
-
-  for (const [key, value] of Object.entries(counts)) {
-    if (key.includes(',')) {
-      // Split comma-separated values and distribute the count
-      const items = key.split(',').map(item => item.trim())
-      const countPerItem = Math.ceil(value / items.length) // Distribute count evenly
-
-      for (const item of items) {
-        if (item) {
-          flattened[item] = (flattened[item] || 0) + countPerItem
-        }
-      }
-    } else {
-      flattened[key] = (flattened[key] || 0) + value
-    }
-  }
-
-  return Object.entries(flattened).map(([name, count]) => ({ name, count }))
+function countsToStats(counts: Record<string, number>): TechnologyStats[] {
+  return Object.entries(counts).map(([name, count]) => ({ name, count }))
 }
