@@ -90,6 +90,14 @@ export default function RelationshipExplorer() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Relationship Explorer
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">
+            {relationships.length} connections between projects
+          </p>
+        </div>
         <div className="flex flex-col md:flex-row gap-4">
           <TypeFilter
             value={filterType}
@@ -97,7 +105,7 @@ export default function RelationshipExplorer() {
           />
           <button
             onClick={() => setViewMode(viewMode === 'graph' ? 'list' : 'graph')}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             aria-label={`Switch to ${viewMode === 'graph' ? 'list' : 'graph'} view`}
           >
             {viewMode === 'graph' ? '📋 View as List' : '🕸️ View as Graph'}
