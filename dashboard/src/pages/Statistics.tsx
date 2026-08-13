@@ -40,12 +40,23 @@ export default function StatisticsPage() {
   if (loading) {
     return (
       <div className="space-y-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Portfolio Statistics
-        </h1>
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading statistics...</p>
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <span className="text-white font-bold text-lg">📊</span>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+              Portfolio Statistics
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 text-sm">Detailed metrics and insights</p>
+          </div>
+        </div>
+        <div className="text-center py-16">
+          <div className="inline-block relative">
+            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+            <div className="absolute inset-0 w-16 h-16 border-4 border-purple-200 border-r-purple-600 rounded-full animate-spin" style={{ animationDuration: '1.5s' }}></div>
+          </div>
+          <p className="mt-6 text-slate-600 dark:text-slate-400 font-medium">Loading statistics...</p>
         </div>
       </div>
     )
@@ -54,9 +65,17 @@ export default function StatisticsPage() {
   if (error) {
     return (
       <div className="space-y-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Portfolio Statistics
-        </h1>
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <span className="text-white font-bold text-lg">📊</span>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+              Portfolio Statistics
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 text-sm">Detailed metrics and insights</p>
+          </div>
+        </div>
         <ErrorState error={error} onRetry={() => window.location.reload()} />
       </div>
     )
@@ -170,56 +189,92 @@ export default function StatisticsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-        Portfolio Statistics
-      </h1>
+      {/* Header */}
+      <div className="flex items-center space-x-4">
+        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+          <span className="text-white font-bold text-lg">📊</span>
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+            Portfolio Statistics
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Detailed metrics and insights</p>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Technology Distribution */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            Technology Distribution
-          </h2>
-          <div style={{ height: '300px' }}>
-            <Bar data={techDistributionData} options={chartOptions} />
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+              <span>⚙️</span>
+              <span>Technology Distribution</span>
+            </h2>
+          </div>
+          <div className="card-body">
+            <div style={{ height: '300px' }}>
+              <Bar data={techDistributionData} options={chartOptions} />
+            </div>
           </div>
         </div>
 
         {/* Maturity Distribution */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            Project Maturity
-          </h2>
-          <div style={{ height: '300px' }}>
-            <Doughnut data={maturityDistributionData} options={doughnutOptions} />
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+              <span>📈</span>
+              <span>Project Maturity</span>
+            </h2>
+          </div>
+          <div className="card-body">
+            <div style={{ height: '300px' }}>
+              <Doughnut data={maturityDistributionData} options={doughnutOptions} />
+            </div>
           </div>
         </div>
 
         {/* Analysis Coverage */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            Analysis Coverage
-          </h2>
-          <div style={{ height: '300px' }}>
-            <Doughnut data={analysisCoverageData} options={doughnutOptions} />
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+              <span>🔍</span>
+              <span>Analysis Coverage</span>
+            </h2>
+          </div>
+          <div className="card-body">
+            <div style={{ height: '300px' }}>
+              <Doughnut data={analysisCoverageData} options={doughnutOptions} />
+            </div>
           </div>
         </div>
 
         {/* Top Technologies */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            Top Technologies
-          </h2>
-          <ul className="space-y-2">
-            {stats?.topTechnologies.slice(0, 10).map((tech, index) => (
-              <li key={index} className="flex justify-between items-center">
-                <span className="text-gray-700 dark:text-gray-300">{tech.name}</span>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  {tech.count} projects
-                </span>
-              </li>
-            ))}
-          </ul>
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+              <span>🏆</span>
+              <span>Top Technologies</span>
+            </h2>
+          </div>
+          <div className="card-body">
+            <ul className="space-y-3">
+              {stats?.topTechnologies.slice(0, 10).map((tech, index) => (
+                <li key={index} className="flex justify-between items-center group">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-slate-700 dark:to-slate-600 rounded-lg flex items-center justify-center">
+                      <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                        {index + 1}
+                      </span>
+                    </div>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">{tech.name}</span>
+                  </div>
+                  <span className="font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full text-sm">
+                    {tech.count} projects
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </div>
