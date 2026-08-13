@@ -99,7 +99,6 @@ export class ApiClient {
     const response = await this.get<{ projects: Project[] }>('/projects')
     return response.projects
   }
-  }
 
   async getProject(id: string): Promise<Project> {
     return this.get<Project>(`/projects/${id}`)
