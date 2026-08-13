@@ -98,7 +98,7 @@ export default function RelationshipsSection({ relationships, loading, error, on
                     onClick={() => onProjectClick(rel.source_project)}
                     className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
                   >
-                    {rel.source_project}
+                    {rel.source_project_name}
                   </button>
                   <div className="flex items-center text-slate-400 dark:text-slate-500">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,6 +107,10 @@ export default function RelationshipsSection({ relationships, loading, error, on
                   </div>
                   <button
                     onClick={() => onProjectClick(rel.target_project)}
+                    className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
+                  >
+                    {rel.target_project_name}
+                  </button>
                     className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
                   >
                     {rel.target_project}

@@ -55,7 +55,9 @@ export interface Analysis {
 export interface Relationship {
   id: string
   source_project: string
+  source_project_name: string
   target_project: string
+  target_project_name: string
   type: string
   description: string
   confidence: number

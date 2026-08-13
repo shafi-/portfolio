@@ -104,14 +104,18 @@ describe('API Response Contract Tests', () => {
       const apiResponse = [
         {
           source_project: 'proj-1',
+          source_project_name: 'Portfolio Tool',
           target_project: 'proj-2',
+          target_project_name: 'Dashboard App',
           type: 'Evolution',
           description: 'Test evolution relationship',
           confidence: 0.85,
         },
         {
           source_project: 'proj-2',
+          source_project_name: 'Dashboard App',
           target_project: 'proj-3',
+          target_project_name: 'Mobile App',
           type: 'Shared Technology',
           description: 'Both use React',
           confidence: 0.90,
@@ -124,7 +128,9 @@ describe('API Response Contract Tests', () => {
       expect(result[0]).toMatchObject({
         id: expect.any(String),
         source_project: 'proj-1',
+        source_project_name: 'Portfolio Tool',
         target_project: 'proj-2',
+        target_project_name: 'Dashboard App',
         type: 'Evolution',
         description: 'Test evolution relationship',
         confidence: 0.85,
@@ -141,7 +147,9 @@ describe('API Response Contract Tests', () => {
       const response = [
         {
           source_project: 'proj-1',
+          source_project_name: 'Project 1',
           target_project: 'proj-2',
+          target_project_name: 'Project 2',
           type: 'Similar',
           description: 'Test',
           confidence: 0.8,

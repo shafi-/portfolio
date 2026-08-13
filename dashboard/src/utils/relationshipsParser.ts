@@ -4,7 +4,9 @@
 
 export interface ApiRelationshipResponse {
   source_project: string
+  source_project_name: string
   target_project: string
+  target_project_name: string
   type: string
   description: string
   confidence: number
@@ -13,7 +15,9 @@ export interface ApiRelationshipResponse {
 export interface Relationship {
   id: string
   source_project: string
+  source_project_name: string
   target_project: string
+  target_project_name: string
   type: string
   description: string
   confidence: number
@@ -31,7 +35,9 @@ export function parseRelationship(apiRel: ApiRelationshipResponse): Relationship
   return {
     id: syntheticId,
     source_project: apiRel.source_project,
+    source_project_name: apiRel.source_project_name || apiRel.source_project,
     target_project: apiRel.target_project,
+    target_project_name: apiRel.target_project_name || apiRel.target_project,
     type: apiRel.type,
     description: apiRel.description,
     confidence: apiRel.confidence,

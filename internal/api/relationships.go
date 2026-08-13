@@ -9,11 +9,13 @@ import (
 )
 
 type relationshipResponse struct {
-	SourceProject string  `json:"source_project"`
-	TargetProject string  `json:"target_project"`
-	Type          string  `json:"type"`
-	Description   string  `json:"description"`
-	Confidence    float64 `json:"confidence"`
+	SourceProject     string  `json:"source_project"`
+	SourceProjectName string  `json:"source_project_name"`
+	TargetProject     string  `json:"target_project"`
+	TargetProjectName string  `json:"target_project_name"`
+	Type              string  `json:"type"`
+	Description       string  `json:"description"`
+	Confidence        float64 `json:"confidence"`
 }
 
 type storeRelationshipRequest struct {
@@ -32,12 +34,27 @@ func (s *Server) handleListAllRelationships(w http.ResponseWriter, r *http.Reque
 
 	var resp []relationshipResponse
 	for _, rel := range rels {
+		// Fetch project names for both source and target
+		sourceProj, _ := s.projects.GetProject(rel.SourceProject)
+		targetProj, _ := s.projects.GetProject(rel.TargetProject)
+
+		sourceName := rel.SourceProject
+		targetName := rel.TargetProject
+		if sourceProj != nil {
+			sourceName = sourceProj.Name
+		}
+		if targetProj != nil {
+			targetName = targetProj.Name
+		}
+
 		resp = append(resp, relationshipResponse{
-			SourceProject: rel.SourceProject,
-			TargetProject: rel.TargetProject,
-			Type:          rel.Type,
-			Description:   rel.Description,
-			Confidence:    rel.Confidence,
+			SourceProject:     rel.SourceProject,
+			SourceProjectName: sourceName,
+			TargetProject:     rel.TargetProject,
+			TargetProjectName: targetName,
+			Type:              rel.Type,
+			Description:       rel.Description,
+			Confidence:        rel.Confidence,
 		})
 	}
 	if resp == nil {
@@ -68,12 +85,27 @@ func (s *Server) handleListRelationships(w http.ResponseWriter, r *http.Request)
 
 	var resp []relationshipResponse
 	for _, rel := range rels {
+		// Fetch project names for both source and target
+		sourceProj, _ := s.projects.GetProject(rel.SourceProject)
+		targetProj, _ := s.projects.GetProject(rel.TargetProject)
+
+		sourceName := rel.SourceProject
+		targetName := rel.TargetProject
+		if sourceProj != nil {
+			sourceName = sourceProj.Name
+		}
+		if targetProj != nil {
+			targetName = targetProj.Name
+		}
+
 		resp = append(resp, relationshipResponse{
-			SourceProject: rel.SourceProject,
-			TargetProject: rel.TargetProject,
-			Type:          rel.Type,
-			Description:   rel.Description,
-			Confidence:    rel.Confidence,
+			SourceProject:     rel.SourceProject,
+			SourceProjectName: sourceName,
+			TargetProject:     rel.TargetProject,
+			TargetProjectName: targetName,
+			Type:              rel.Type,
+			Description:       rel.Description,
+			Confidence:        rel.Confidence,
 		})
 	}
 	if resp == nil {

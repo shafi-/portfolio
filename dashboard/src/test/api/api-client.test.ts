@@ -135,7 +135,9 @@ describe('API Client Contract Tests', () => {
       const mockResponse = [
         {
           source_project: 'proj-1',
+          source_project_name: 'Portfolio Tool',
           target_project: 'proj-2',
+          target_project_name: 'Dashboard App',
           type: 'Evolution',
           description: 'Test relationship',
           confidence: 0.85,
@@ -153,7 +155,9 @@ describe('API Client Contract Tests', () => {
       expect(result).toHaveLength(1)
       expect(result[0]).toMatchObject({
         source_project: 'proj-1',
+        source_project_name: 'Portfolio Tool',
         target_project: 'proj-2',
+        target_project_name: 'Dashboard App',
         type: 'Evolution',
         confidence: 0.85,
       })
