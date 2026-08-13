@@ -8,8 +8,10 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col">
       <SkipNav />
       <NavBar />
-      <main id="main-content" className="flex-1 container mx-auto px-4 py-8" tabIndex={-1}>
-        <Outlet />
+      <main id="main-content" className="flex-1 container mx-auto px-4 py-12 max-w-7xl" tabIndex={-1}>
+        <div className="animate-fade-in">
+          <Outlet />
+        </div>
       </main>
       <Footer />
     </div>
