@@ -111,10 +111,6 @@ export default function RelationshipsSection({ relationships, loading, error, on
                   >
                     {rel.target_project_name}
                   </button>
-                    className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
-                  >
-                    {rel.target_project}
-                  </button>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 mb-3">
                   <span className="px-3 py-1.5 text-xs font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full capitalize shadow-sm shadow-purple-500/20">
