@@ -85,34 +85,34 @@ export default function RelationshipsSection({ relationships, loading, error, on
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         {relationships.map(rel => (
           <div
             key={rel.id}
-            className="p-5 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 group"
+            className="p-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 group"
           >
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <div className="flex items-center space-x-3 mb-3">
+                <div className="flex items-center space-x-4 mb-4">
                   <button
                     onClick={() => onProjectClick(rel.source_project)}
-                    className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
+                    className="text-base font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
                   >
                     {rel.source_project_name}
                   </button>
-                  <div className="flex items-center text-slate-400 dark:text-slate-500">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center text-slate-400 dark:text-slate-500 px-2">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>
                   </div>
                   <button
                     onClick={() => onProjectClick(rel.target_project)}
-                    className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
+                    className="text-base font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition-colors"
                   >
                     {rel.target_project_name}
                   </button>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 mb-3">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
                   <span className="px-3 py-1.5 text-xs font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full capitalize shadow-sm shadow-purple-500/20">
                     {rel.type}
                   </span>
@@ -124,7 +124,7 @@ export default function RelationshipsSection({ relationships, loading, error, on
                   )}
                 </div>
                 {rel.description && (
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-2">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                     {rel.description}
                   </p>
                 )}
