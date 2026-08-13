@@ -96,7 +96,9 @@ export class ApiClient {
 
   // Dashboard-specific endpoints
   async getProjects(): Promise<Project[]> {
-    return this.get<Project[]>('/projects')
+    const response = await this.get<{ projects: Project[] }>('/projects')
+    return response.projects
+  }
   }
 
   async getProject(id: string): Promise<Project> {
