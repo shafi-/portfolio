@@ -185,7 +185,7 @@ export default function AnalysisSection({ analysis, loading, error }: AnalysisSe
           </div>
           <p className="text-sm text-slate-600 dark:text-slate-400 flex items-center">
             <span className="mr-2">📌</span>
-            Git HEAD: <code className="ml-1 text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-mono">{analysis.analyzed_git_head.substring(0, 8)}</code>
+            Git HEAD: <code className="ml-1 text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-mono">{analysis.analyzed_git_head?.substring(0, 8) || 'N/A'}</code>
           </p>
         </div>
       </div>
