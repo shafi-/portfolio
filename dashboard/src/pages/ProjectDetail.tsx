@@ -102,16 +102,20 @@ export default function ProjectDetail() {
 
   if (errors.project && !project) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-red-600 mb-4">
+      <div className="card text-center py-16">
+        <div className="w-20 h-20 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <span className="text-4xl">❌</span>
+        </div>
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
           Error loading project
         </h2>
-        <p className="text-gray-600 mb-4">{errors.project?.message}</p>
+        <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto">{errors.project?.message}</p>
         <button
           onClick={() => navigate('/projects')}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="btn btn-primary inline-flex items-center space-x-2"
         >
-          Back to Projects
+          <span>←</span>
+          <span>Back to Projects</span>
         </button>
       </div>
     )
@@ -122,9 +126,10 @@ export default function ProjectDetail() {
       {/* Back Navigation */}
       <button
         onClick={() => navigate('/projects')}
-        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+        className="btn btn-secondary inline-flex items-center space-x-2"
       >
-        ← Back to Projects
+        <span>←</span>
+        <span>Back to Projects</span>
       </button>
 
       {/* Identity Header */}
