@@ -162,9 +162,7 @@ export class ApiClient {
   }
 }
 
-// Determine base URL based on environment
-const baseUrl = import.meta.env.DEV
-  ? 'http://localhost:3000'
-  : '' // Production: same-origin
+// Use empty base URL to leverage Vite proxy in dev and same-origin in production
+const baseUrl = ''
 
 export const api = new ApiClient(baseUrl)
