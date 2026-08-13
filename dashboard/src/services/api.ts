@@ -51,16 +51,40 @@ export class ApiClient {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+      let errorMessage = 'Request failed'
+      let errorCode = 'UNKNOWN'
+      let errorDetails: any
+
+      try {
+        const error = await response.json()
+        errorMessage = error.message || errorMessage
+        errorCode = error.code || errorCode
+        errorDetails = error.details
+      } catch {
+        // If JSON parsing fails, use status text
+        errorMessage = response.statusText || errorMessage
+        errorCode = response.status.toString()
+      }
+
       throw new ApiError(
         response.status,
-        error.code || 'UNKNOWN',
-        error.message || 'Request failed',
-        error.details
+        errorCode,
+        `${errorMessage} (${response.status})`,
+        errorDetails
       )
     }
 
-    const data = await response.json()
+    let data: any
+    try {
+      data = await response.json()
+    } catch (parseError) {
+      throw new ApiError(
+        500,
+        'PARSE_ERROR',
+        'Failed to parse API response',
+        { originalError: parseError }
+      )
+    }
 
     // Cache successful responses
     if (useCache) {
@@ -140,7 +164,7 @@ export class ApiClient {
 
 // Determine base URL based on environment
 const baseUrl = import.meta.env.DEV
-  ? 'http://localhost:8080'
+  ? 'http://localhost:3000'
   : '' // Production: same-origin
 
 export const api = new ApiClient(baseUrl)
