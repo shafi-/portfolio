@@ -23,6 +23,30 @@ type storeRelationshipRequest struct {
 	Confidence    float64 `json:"confidence"`
 }
 
+func (s *Server) handleListAllRelationships(w http.ResponseWriter, r *http.Request) {
+	rels, err := s.relationships.ListAllRelationships()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "failed to list all relationships")
+		return
+	}
+
+	var resp []relationshipResponse
+	for _, rel := range rels {
+		resp = append(resp, relationshipResponse{
+			SourceProject: rel.SourceProject,
+			TargetProject: rel.TargetProject,
+			Type:          rel.Type,
+			Description:   rel.Description,
+			Confidence:    rel.Confidence,
+		})
+	}
+	if resp == nil {
+		resp = []relationshipResponse{}
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) handleListRelationships(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 

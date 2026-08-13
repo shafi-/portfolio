@@ -16,22 +16,23 @@ import (
 
 // SearchRequest represents a search request
 type SearchRequest struct {
-	Query      string
-	Technology string
-	Framework  string
-	FromDate   string
-	ToDate     string
-	Page       int
-	PageSize   int
+	Query        string
+	Technologies []string
+	Frameworks   []string
+	FromDate     string
+	ToDate       string
+	Page         int
+	PageSize     int
 }
 
 // SearchResponse represents a search response
 type SearchResponse struct {
-	TotalResults int          `json:"total_results"`
-	Page         int          `json:"page"`
-	PageSize     int          `json:"page_size"`
-	TotalPages   int          `json:"total_pages"`
-	Results      []ResultItem `json:"results"`
+	TotalResults        int               `json:"total_results"`
+	Page                int               `json:"page"`
+	PageSize            int               `json:"page_size"`
+	TotalPages          int               `json:"total_pages"`
+	Results             []ResultItem      `json:"results"`
+	HighlightedSnippets map[string]string `json:"highlighted_snippets,omitempty"`
 }
 
 // ResultItem represents a single search result
@@ -98,6 +99,9 @@ func (h *SearchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Add highlighted snippets
+	response.HighlightedSnippets = h.generateHighlightedSnippets(response.Results, req.Query)
+
 	// Write response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -110,16 +114,24 @@ func (h *SearchHandler) parseRequest(q url.Values) (*SearchRequest, error) {
 		PageSize: 20,
 	}
 
-	// Get query parameter (required)
+	// Get query parameter (optional - empty returns all projects)
 	query := q.Get("q")
-	if query == "" {
-		return nil, fmt.Errorf("query parameter 'q' is required")
-	}
 	req.Query = query
 
 	// Parse optional filters
-	req.Technology = q.Get("technology")
-	req.Framework = q.Get("framework")
+	// Support both single and multiple technology/framework parameters
+	if tech := q.Get("technology"); tech != "" {
+		req.Technologies = []string{tech}
+	} else if techs := q["technology"]; len(techs) > 0 {
+		req.Technologies = techs
+	}
+
+	if framework := q.Get("framework"); framework != "" {
+		req.Frameworks = []string{framework}
+	} else if frameworks := q["framework"]; len(frameworks) > 0 {
+		req.Frameworks = frameworks
+	}
+
 	req.FromDate = q.Get("from")
 	req.ToDate = q.Get("to")
 
@@ -250,14 +262,24 @@ func (h *SearchHandler) searchProjects(req *SearchRequest) ([]ResultItem, error)
 	query := `SELECT id, name FROM projects WHERE name LIKE ?`
 	args := []interface{}{"%" + req.Query + "%"}
 
-	// Apply filters
-	if req.Technology != "" {
-		query += " AND id IN (SELECT project_id FROM project_technologies WHERE technology = ?)"
-		args = append(args, req.Technology)
+	// Apply filters for multiple technologies
+	if len(req.Technologies) > 0 {
+		placeholders := make([]string, len(req.Technologies))
+		for i, tech := range req.Technologies {
+			placeholders[i] = "?"
+			args = append(args, tech)
+		}
+		query += fmt.Sprintf(" AND id IN (SELECT DISTINCT project_id FROM project_technologies WHERE technology IN (%s))", strings.Join(placeholders, ","))
 	}
-	if req.Framework != "" {
-		query += " AND id IN (SELECT project_id FROM project_frameworks WHERE framework = ?)"
-		args = append(args, req.Framework)
+
+	// Apply filters for multiple frameworks
+	if len(req.Frameworks) > 0 {
+		placeholders := make([]string, len(req.Frameworks))
+		for i, fw := range req.Frameworks {
+			placeholders[i] = "?"
+			args = append(args, fw)
+		}
+		query += fmt.Sprintf(" AND id IN (SELECT DISTINCT project_id FROM project_frameworks WHERE framework IN (%s))", strings.Join(placeholders, ","))
 	}
 	if req.FromDate != "" {
 		query += " AND discovered_at >= ?"
@@ -311,14 +333,24 @@ func (h *SearchHandler) searchDocuments(req *SearchRequest) ([]ResultItem, error
 		args = append(args, req.ToDate)
 	}
 
-	// Apply project-level filters
-	if req.Technology != "" {
-		query += " AND d.project_id IN (SELECT project_id FROM project_technologies WHERE technology = ?)"
-		args = append(args, req.Technology)
+	// Apply project-level filters for multiple technologies
+	if len(req.Technologies) > 0 {
+		placeholders := make([]string, len(req.Technologies))
+		for i, tech := range req.Technologies {
+			placeholders[i] = "?"
+			args = append(args, tech)
+		}
+		query += fmt.Sprintf(" AND d.project_id IN (SELECT DISTINCT project_id FROM project_technologies WHERE technology IN (%s))", strings.Join(placeholders, ","))
 	}
-	if req.Framework != "" {
-		query += " AND d.project_id IN (SELECT project_id FROM project_frameworks WHERE framework = ?)"
-		args = append(args, req.Framework)
+
+	// Apply project-level filters for multiple frameworks
+	if len(req.Frameworks) > 0 {
+		placeholders := make([]string, len(req.Frameworks))
+		for i, fw := range req.Frameworks {
+			placeholders[i] = "?"
+			args = append(args, fw)
+		}
+		query += fmt.Sprintf(" AND d.project_id IN (SELECT DISTINCT project_id FROM project_frameworks WHERE framework IN (%s))", strings.Join(placeholders, ","))
 	}
 
 	query += " ORDER BY d.kind LIMIT 100"
@@ -394,6 +426,35 @@ func (h *SearchHandler) generateSnippet(content, query string) string {
 
 	// Highlight the query term
 	return h.highlightText(snippet, query)
+}
+
+// generateHighlightedSnippets creates a map of highlighted snippets for all results
+func (h *SearchHandler) generateHighlightedSnippets(results []ResultItem, query string) map[string]string {
+	snippets := make(map[string]string)
+
+	for _, result := range results {
+		var key string
+		var content string
+
+		if result.Type == "project" {
+			key = "project:" + result.ID
+			content = result.Name
+		} else if result.Type == "document" {
+			key = "document:" + result.ID
+			content = result.Snippet // Already has snippet from search
+		} else {
+			continue
+		}
+
+		// Only generate snippet if we don't already have one
+		if result.Snippet == "" && content != "" {
+			snippets[key] = h.generateSnippet(content, query)
+		} else if result.Snippet != "" {
+			snippets[key] = result.Snippet
+		}
+	}
+
+	return snippets
 }
 
 // The WriteError and errorCodeForStatus functions are defined in configuration.go

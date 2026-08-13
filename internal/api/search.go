@@ -24,10 +24,7 @@ type searchProj struct {
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	if q == "" {
-		s.writeError(w, http.StatusBadRequest, "query parameter 'q' is required")
-		return
-	}
+	// Empty query is allowed - will return all projects
 
 	var results []searchResult
 

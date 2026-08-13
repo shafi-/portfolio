@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    @apply border-gray-200 dark:border-gray-700;
+  }
+  body {
+    @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  }
+}
+
+/* System preference theme detection */
+@media (prefers-color-scheme: dark) {
+  body {
+    @apply bg-gray-900 text-gray-100;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  body {
+    @apply bg-white text-gray-900;
+  }
+}

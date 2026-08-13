@@ -58,6 +58,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /statistics", s.handleStatistics)
 
+	mux.HandleFunc("GET /relationships", s.handleListAllRelationships)
 	mux.HandleFunc("GET /relationships/{id}", s.handleListRelationships)
 	mux.HandleFunc("POST /relationships/{id}", s.handleStoreRelationship)
 
