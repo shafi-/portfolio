@@ -9,12 +9,21 @@ interface AnalysisSectionProps {
 export default function AnalysisSection({ analysis, loading, error }: AnalysisSectionProps) {
   if (loading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-          AI Analysis
-        </h2>
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      <div className="card animate-fade-in">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-lg">🤖</span>
+          </div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+            AI Analysis
+          </h2>
+        </div>
+        <div className="text-center py-12">
+          <div className="inline-block relative">
+            <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+            <div className="absolute inset-0 w-12 h-12 border-4 border-pink-200 border-r-pink-600 rounded-full animate-spin" style={{ animationDuration: '1.5s' }}></div>
+          </div>
+          <p className="mt-4 text-slate-600 dark:text-slate-400 font-medium">Loading AI analysis...</p>
         </div>
       </div>
     )
@@ -22,28 +31,39 @@ export default function AnalysisSection({ analysis, loading, error }: AnalysisSe
 
   if (error) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-          AI Analysis
-        </h2>
-        <p className="text-red-600 dark:text-red-400">Failed to load analysis</p>
+      <div className="card animate-fade-in">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-lg">⚠️</span>
+          </div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+            AI Analysis
+          </h2>
+        </div>
+        <div className="text-center py-8">
+          <p className="text-red-600 dark:text-red-400 font-medium">Failed to load analysis</p>
+        </div>
       </div>
     )
   }
 
   if (!analysis) {
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg shadow p-6">
-        <div className="text-center">
-          <div className="text-4xl mb-4">🤖</div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="card animate-fade-in bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+        <div className="text-center py-12">
+          <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-500/10">
+            <span className="text-5xl">🤖</span>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
             No AI Analysis Available
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-lg mx-auto">
             This project hasn't been analyzed by an AI agent yet. Analysis provides deeper insights into architecture, patterns, and relationships.
           </p>
-          <div className="text-sm text-gray-500 dark:text-gray-500">
-            <p>Analysis requires an AI agent integration with Portfolio.</p>
+          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-100 dark:bg-purple-900/30 rounded-full">
+            <span className="text-purple-700 dark:text-purple-300 text-sm font-medium">
+              💡 Analysis requires an AI agent integration with Portfolio
+            </span>
           </div>
         </div>
       </div>
@@ -51,88 +71,121 @@ export default function AnalysisSection({ analysis, loading, error }: AnalysisSe
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-          AI Analysis
-        </h2>
-        <span className="text-sm text-gray-500 dark:text-gray-400">
-          Analyzed {new Date(analysis.analyzed_at).toLocaleDateString()}
-        </span>
+    <div className="card animate-fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-lg">🤖</span>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+              AI Analysis
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 flex items-center">
+              <span className="mr-1">🕐</span>
+              Analyzed {new Date(analysis.analyzed_at).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-6">
         {analysis.purpose && (
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <div className="p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
+              <span className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-md flex items-center justify-center mr-2">
+                <span className="text-white text-xs">🎯</span>
+              </span>
               Purpose
             </h3>
-            <p className="text-gray-600 dark:text-gray-400">{analysis.purpose}</p>
+            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{analysis.purpose}</p>
           </div>
         )}
 
         {analysis.architecture && (
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <div className="p-5 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
+              <span className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-md flex items-center justify-center mr-2">
+                <span className="text-white text-xs">🏗️</span>
+              </span>
               Architecture
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{analysis.architecture}</p>
+            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{analysis.architecture}</p>
           </div>
         )}
 
         {analysis.summary && (
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <div className="p-5 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
+              <span className="w-6 h-6 bg-gradient-to-br from-slate-500 to-slate-600 rounded-md flex items-center justify-center mr-2">
+                <span className="text-white text-xs">📋</span>
+              </span>
               Summary
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{analysis.summary}</p>
+            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{analysis.summary}</p>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {analysis.strengths && (
-            <div>
-              <h3 className="text-lg font-medium text-green-700 dark:text-green-300 mb-2">
+            <div className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl">
+              <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 mb-3 flex items-center">
+                <span className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-500 rounded-md flex items-center justify-center mr-2">
+                  <span className="text-white text-xs">💪</span>
+                </span>
                 Strengths
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{analysis.strengths}</p>
+              <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{analysis.strengths}</p>
             </div>
           )}
 
           {analysis.weaknesses && (
-            <div>
-              <h3 className="text-lg font-medium text-red-700 dark:text-red-300 mb-2">
+            <div className="p-5 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl">
+              <h3 className="text-lg font-semibold text-orange-700 dark:text-orange-300 mb-3 flex items-center">
+                <span className="w-6 h-6 bg-gradient-to-br from-orange-500 to-red-500 rounded-md flex items-center justify-center mr-2">
+                  <span className="text-white text-xs">🎯</span>
+                </span>
                 Areas for Improvement
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{analysis.weaknesses}</p>
+              <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{analysis.weaknesses}</p>
             </div>
           )}
         </div>
 
         {analysis.reusable_components && (
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <div className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
+              <span className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-md flex items-center justify-center mr-2">
+                <span className="text-white text-xs">🔄</span>
+              </span>
               Reusable Components
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{analysis.reusable_components}</p>
+            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{analysis.reusable_components}</p>
           </div>
         )}
 
         {analysis.notes && (
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <div className="p-5 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
+              <span className="w-6 h-6 bg-gradient-to-br from-slate-500 to-slate-600 rounded-md flex items-center justify-center mr-2">
+                <span className="text-white text-xs">📝</span>
+              </span>
               Additional Notes
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{analysis.notes}</p>
+            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{analysis.notes}</p>
           </div>
         )}
 
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Analyzed by: <span className="font-medium">{analysis.analyzer}</span>
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Git HEAD: <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">{analysis.analyzed_git_head.substring(0, 8)}</code>
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex items-center space-x-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400 flex items-center">
+              <span className="mr-2">🔬</span>
+              Analyzed by: <span className="font-semibold text-slate-900 dark:text-white ml-1">{analysis.analyzer}</span>
+            </p>
+          </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400 flex items-center">
+            <span className="mr-2">📌</span>
+            Git HEAD: <code className="ml-1 text-xs bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded font-mono">{analysis.analyzed_git_head.substring(0, 8)}</code>
           </p>
         </div>
       </div>
