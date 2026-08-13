@@ -69,43 +69,19 @@ export default function RelationshipExplorer() {
 
   if (loading) {
     return (
-      <div className="space-y-8">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-lg">🔗</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-              Relationship Explorer
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">Visualize project connections</p>
-          </div>
+      <div className="text-center py-16">
+        <div className="inline-block relative">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 w-16 h-16 border-4 border-purple-200 border-r-purple-600 rounded-full animate-spin" style={{ animationDuration: '1.5s' }}></div>
         </div>
-        <div className="text-center py-16">
-          <div className="inline-block relative">
-            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-            <div className="absolute inset-0 w-16 h-16 border-4 border-purple-200 border-r-purple-600 rounded-full animate-spin" style={{ animationDuration: '1.5s' }}></div>
-          </div>
-          <p className="mt-6 text-slate-600 dark:text-slate-400 font-medium">Loading relationships...</p>
-        </div>
+        <p className="mt-6 text-slate-600 dark:text-slate-400 font-medium">Loading relationships...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="space-y-8">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-lg">🔗</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-              Relationship Explorer
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">Visualize project connections</p>
-          </div>
-        </div>
+      <div>
         <ErrorState error={error} onRetry={() => window.location.reload()} />
       </div>
     )
@@ -114,17 +90,6 @@ export default function RelationshipExplorer() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-lg">🔗</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-              Relationship Explorer
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">Visualize project connections ({relationships.length} relationships)</p>
-          </div>
-        </div>
         <div className="flex flex-col md:flex-row gap-4">
           <TypeFilter
             value={filterType}

@@ -90,43 +90,19 @@ export default function ProjectList() {
 
   if (loading) {
     return (
-      <div className="space-y-8">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-lg">📁</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-              Projects
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">Browse and manage your portfolio</p>
-          </div>
+      <div className="text-center py-16">
+        <div className="inline-block relative">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 w-16 h-16 border-4 border-purple-200 border-r-purple-600 rounded-full animate-spin" style={{ animationDuration: '1.5s' }}></div>
         </div>
-        <div className="text-center py-16">
-          <div className="inline-block relative">
-            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-            <div className="absolute inset-0 w-16 h-16 border-4 border-purple-200 border-r-purple-600 rounded-full animate-spin" style={{ animationDuration: '1.5s' }}></div>
-          </div>
-          <p className="mt-6 text-slate-600 dark:text-slate-400 font-medium">Loading projects...</p>
-        </div>
+        <p className="mt-6 text-slate-600 dark:text-slate-400 font-medium">Loading projects...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="space-y-8">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-lg">📁</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-              Projects
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">Browse and manage your portfolio</p>
-          </div>
-        </div>
+      <div>
         <ErrorState error={error} onRetry={() => window.location.reload()} />
       </div>
     )
@@ -134,18 +110,7 @@ export default function ProjectList() {
 
   if (projects.length === 0) {
     return (
-      <div className="space-y-8">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-lg">📁</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-              Projects
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">Browse and manage your portfolio</p>
-          </div>
-        </div>
+      <div>
         <EmptyState
           message="No projects found matching your filters"
           onClearFilters={() => setFilters({ technologies: [], frameworks: [], repositoryType: 'all' })}
@@ -156,20 +121,6 @@ export default function ProjectList() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-lg">📁</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-              Projects
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-sm">Browse and manage your portfolio ({pagination.totalCount} total)</p>
-          </div>
-        </div>
-      </div>
-
       {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <SearchBar
