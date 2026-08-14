@@ -24,7 +24,16 @@ type searchProj struct {
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	// Empty query is allowed - will return all projects
+
+	// Get technology and framework filters first
+	technologies := r.URL.Query()["technology"]
+	frameworks := r.URL.Query()["framework"]
+
+	// Return 400 if query is missing and no filters are provided
+	if q == "" && len(technologies) == 0 && len(frameworks) == 0 {
+		s.writeError(w, http.StatusBadRequest, "query parameter is required")
+		return
+	}
 
 	// Get pagination parameters
 	page := r.URL.Query().Get("page")
@@ -35,10 +44,6 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	if pageSize == "" {
 		pageSize = "20"
 	}
-
-	// Get technology and framework filters
-	technologies := r.URL.Query()["technology"]
-	frameworks := r.URL.Query()["framework"]
 
 	var results []searchResult
 

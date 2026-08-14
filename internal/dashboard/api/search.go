@@ -114,7 +114,7 @@ func (h *SearchHandler) parseRequest(q url.Values) (*SearchRequest, error) {
 		PageSize: 20,
 	}
 
-	// Get query parameter (optional - empty returns all projects)
+	// Get query parameter
 	query := q.Get("q")
 	req.Query = query
 
@@ -130,6 +130,11 @@ func (h *SearchHandler) parseRequest(q url.Values) (*SearchRequest, error) {
 		req.Frameworks = []string{framework}
 	} else if frameworks := q["framework"]; len(frameworks) > 0 {
 		req.Frameworks = frameworks
+	}
+
+	// Return error if query is missing and no filters are provided
+	if query == "" && len(req.Technologies) == 0 && len(req.Frameworks) == 0 {
+		return nil, fmt.Errorf("query parameter is required")
 	}
 
 	req.FromDate = q.Get("from")
