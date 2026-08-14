@@ -1,8 +1,8 @@
 package api
 
 import (
-	"database/sql"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -26,49 +26,83 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	// Empty query is allowed - will return all projects
 
+	// Get pagination parameters
+	page := r.URL.Query().Get("page")
+	if page == "" {
+		page = "1"
+	}
+	pageSize := r.URL.Query().Get("page_size")
+	if pageSize == "" {
+		pageSize = "20"
+	}
+
 	// Get technology and framework filters
 	technologies := r.URL.Query()["technology"]
 	frameworks := r.URL.Query()["framework"]
 
 	var results []searchResult
 
-	// Build base query for projects
+	// Build base query for projects with JOIN to metadata
 	var projectQuery string
+	var countQuery string
 	var args []interface{}
 
-	// Start with name filter
-	projectQuery = "SELECT id, name FROM projects WHERE name LIKE ?"
+	// Start with name filter (case-insensitive)
+	projectQuery = "SELECT p.id, p.name FROM projects p LEFT JOIN metadata m ON p.id = m.project_id WHERE p.name LIKE ?"
+	countQuery = "SELECT COUNT(*) FROM projects p LEFT JOIN metadata m ON p.id = m.project_id WHERE p.name LIKE ?"
 	args = append(args, "%"+q+"%")
 
-	// Add technology filter if provided
+	// Add technology filter if provided (case-insensitive)
 	if len(technologies) > 0 {
-		// Get projects with matching technologies
 		var techConditions []string
 		for _, tech := range technologies {
-			techConditions = append(techConditions, "language_summary LIKE ?")
-			args = append(args, "%"+tech+"%")
+			techConditions = append(techConditions, "LOWER(m.language_summary) LIKE ?")
+			args = append(args, "%"+strings.ToLower(tech)+"%")
 		}
 		if len(techConditions) > 0 {
 			projectQuery += " AND (" + strings.Join(techConditions, " OR ") + ")"
+			countQuery += " AND (" + strings.Join(techConditions, " OR ") + ")"
 		}
 	}
 
-	// Add framework filter if provided
+	// Add framework filter if provided (case-insensitive)
 	if len(frameworks) > 0 {
-		// Get projects with matching frameworks
 		var frameworkConditions []string
 		for _, framework := range frameworks {
-			frameworkConditions = append(frameworkConditions, "framework_summary LIKE ?")
-			args = append(args, "%"+framework+"%")
+			frameworkConditions = append(frameworkConditions, "LOWER(m.framework_summary) LIKE ?")
+			args = append(args, "%"+strings.ToLower(framework)+"%")
 		}
 		if len(frameworkConditions) > 0 {
 			projectQuery += " AND (" + strings.Join(frameworkConditions, " OR ") + ")"
+			countQuery += " AND (" + strings.Join(frameworkConditions, " OR ") + ")"
 		}
 	}
 
-	projectQuery += " ORDER BY name LIMIT 50"
+	// Get total count first
+	var totalCount int
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+	countRow := s.db.QueryRow(countQuery, countArgs...)
+	if err := countRow.Scan(&totalCount); err != nil {
+		totalCount = 0
+	}
 
-	projectRows, err := s.db.Query(projectQuery, args...)
+	// Calculate offset for pagination
+	offset := 0
+	if pageNum, err := strconv.Atoi(page); err == nil && pageNum > 1 {
+		if pageSizeNum, err := strconv.Atoi(pageSize); err == nil && pageSizeNum > 0 {
+			offset = (pageNum - 1) * pageSizeNum
+		}
+	}
+
+	projectQuery += " ORDER BY p.name LIMIT ? OFFSET ?"
+
+	// Add pagination args to query args
+	queryArgs := make([]interface{}, len(args))
+	copy(queryArgs, args)
+	queryArgs = append(queryArgs, pageSize, offset)
+
+	projectRows, err := s.db.Query(projectQuery, queryArgs...)
 	if err == nil {
 		defer projectRows.Close()
 		for projectRows.Next() {
@@ -82,29 +116,32 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ftsQuery := s.buildFTSQuery(q)
-	if ftsQuery != "" {
-		docRows, err := s.db.Query(
-			`SELECT d.id, d.project_id, d.path, d.kind, d.content, p.name
-			 FROM documents d JOIN projects p ON p.id = d.project_id
-			 WHERE d.content LIKE ? ORDER BY d.kind LIMIT 50`,
-			"%"+q+"%",
-		)
-		if err == nil {
-			defer docRows.Close()
-			for docRows.Next() {
-				var id, projectID, path, kind, content, projName string
-				if err := docRows.Scan(&id, &projectID, &path, &kind, &content, &projName); err != nil {
-					continue
+	// Only include document search if no technology/framework filters are applied
+	if len(technologies) == 0 && len(frameworks) == 0 {
+		ftsQuery := s.buildFTSQuery(q)
+		if ftsQuery != "" {
+			docRows, err := s.db.Query(
+				`SELECT d.id, d.project_id, d.path, d.kind, d.content, p.name
+				 FROM documents d JOIN projects p ON p.id = d.project_id
+				 WHERE d.content LIKE ? ORDER BY d.kind LIMIT 50`,
+				"%"+q+"%",
+			)
+			if err == nil {
+				defer docRows.Close()
+				for docRows.Next() {
+					var id, projectID, path, kind, content, projName string
+					if err := docRows.Scan(&id, &projectID, &path, &kind, &content, &projName); err != nil {
+						continue
+					}
+					results = append(results, searchResult{
+						Type:    "document",
+						ID:      id,
+						Path:    path,
+						Kind:    kind,
+						Content: truncateContent(content),
+						Project: &searchProj{ID: projectID, Name: projName},
+					})
 				}
-				results = append(results, searchResult{
-					Type:    "document",
-					ID:      id,
-					Path:    path,
-					Kind:    kind,
-					Content: truncateContent(content),
-					Project: &searchProj{ID: projectID, Name: projName},
-				})
 			}
 		}
 	}
@@ -113,9 +150,18 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		results = []searchResult{}
 	}
 
+	// Calculate total pages
+	totalPages := 0
+	if pageSizeNum, err := strconv.Atoi(pageSize); err == nil && pageSizeNum > 0 {
+		totalPages = (totalCount + pageSizeNum - 1) / pageSizeNum
+	}
+
 	s.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"results": results,
-		"query":   q,
+		"results":    results,
+		"totalCount": totalCount,
+		"page":       page,
+		"pageSize":   pageSize,
+		"totalPages": totalPages,
 	})
 }
 
@@ -145,9 +191,4 @@ func truncateContent(content string) string {
 		return content[:200] + "..."
 	}
 	return content
-}
-
-// ensure rows are closed properly
-func closeRows(rows *sql.Rows) {
-	rows.Close()
 }
