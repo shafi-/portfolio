@@ -24,7 +24,7 @@ export default function RelationshipList({ relationships }: RelationshipListProp
       {relationships.map(rel => (
         <div
           key={rel.id}
-          className="card p-5 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 group"
+          className="card hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 group"
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">

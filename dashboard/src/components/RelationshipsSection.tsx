@@ -89,7 +89,7 @@ export default function RelationshipsSection({ relationships, loading, error, on
         {relationships.map(rel => (
           <div
             key={rel.id}
-            className="p-6 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 group"
+            className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 group"
           >
             <div className="flex items-center justify-between">
               <div className="flex-1">
