@@ -65,11 +65,17 @@ jobs:
           git tag -a "$VERSION" -m "Release $VERSION"
           git push origin "$VERSION"
 
+      - name: Process release notes template
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Process template variables in release notes
+          sed "s/{{{{ .Version }}}}/$VERSION/g" .github/release-notes.md > .github/release-notes-processed.md
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean --release-notes .github/release-notes.md
+          args: release --clean --release-notes .github/release-notes-processed.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
