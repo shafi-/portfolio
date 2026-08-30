@@ -12,6 +12,12 @@ import (
 	"project-dash/pkg/models"
 )
 
+type ErrorResponse struct {
+	Error string `json:"error"`
+	Code  string `json:"code,omitempty"`
+	Type  string `json:"type,omitempty"`
+}
+
 func isLocalhostOrigin(origin string) bool {
 	localPatterns := []string{
 		"http://localhost",
@@ -143,7 +149,24 @@ func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) 
 }
 
 func (s *Server) writeError(w http.ResponseWriter, status int, message string) {
-	s.writeJSON(w, status, map[string]string{"error": message})
+	response := ErrorResponse{
+		Error: message,
+		Type:  "api_error",
+	}
+
+	// Add error code based on status
+	switch status {
+	case http.StatusNotFound:
+		response.Code = "NOT_FOUND"
+		response.Type = "resource_error"
+	case http.StatusBadRequest:
+		response.Code = "INVALID_INPUT"
+		response.Type = "validation_error"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(response)
 }
 
 func withLogger(next http.Handler, logger *logging.Logger) http.Handler {
