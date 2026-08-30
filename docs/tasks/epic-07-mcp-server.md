@@ -1,7 +1,7 @@
 # Epic 7 — MCP Server
 
 **Milestone:** 1 — Core Engine
-**Status:** done
+**Status:** completed
 
 ## Overview
 
@@ -11,7 +11,7 @@ Implement MCP server with tools for discovery, search, analysis storage, configu
 
 ## Story 7.1: MCP Server Foundation
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 6.2
 
@@ -32,7 +32,7 @@ As the Portfolio Engine, I want an MCP server so that AI agents can interact wit
 
 ## Story 7.2: Discovery Tools
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 7.1
 
@@ -54,7 +54,7 @@ As an AI agent, I want discovery tools so that I can explore the user's portfoli
 
 ## Story 7.3: Search Tools
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 7.1
 
@@ -70,7 +70,7 @@ As an AI agent, I want search tools so that I can find relevant projects and doc
 
 ## Story 7.4: Analysis Storage Tools
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 7.1
 
@@ -90,7 +90,7 @@ As an AI agent, I want to store analyses so that semantic knowledge persists for
 
 ## Story 7.5: Configuration Tools
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** 7.1
 
@@ -107,7 +107,7 @@ As an AI agent, I want to read configuration so that I can understand Portfolio 
 
 ## Story 7.6: Relationship Tools
 
-**Status:** todo
+**Status:** completed
 **Size:** S
 **Blocked by:** 7.1
 
@@ -125,13 +125,13 @@ As an AI agent, I want to query project relationships so that I can understand c
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 7.1 MCP Server Foundation | todo | M | 6.2 |
-| 7.2 Discovery Tools | todo | M | 7.1 |
-| 7.3 Search Tools | todo | M | 7.1 |
-| 7.4 Analysis Storage Tools | todo | M | 7.1 |
-| 7.5 Configuration Tools | todo | S | 7.1 |
-| 7.6 Relationship Tools | todo | S | 7.1 |
+| 7.1 MCP Server Foundation | completed | M | 6.2 |
+| 7.2 Discovery Tools | completed | M | 7.1 |
+| 7.3 Search Tools | completed | M | 7.1 |
+| 7.4 Analysis Storage Tools | completed | M | 7.1 |
+| 7.5 Configuration Tools | completed | S | 7.1 |
+| 7.6 Relationship Tools | completed | S | 7.1 |
 
 **Total Size:** 4M + 2S = ~15 days
 
-**Can Start:** Story 7.1 (after 6.2 complete)
+**Can Start:** ✅ Complete

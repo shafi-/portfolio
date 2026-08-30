@@ -77,9 +77,18 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 		projects = projects[offset:]
 	}
 
+	// Collect all project IDs for batch metadata fetch
+	projectIDs := make([]string, len(projects))
+	for i, p := range projects {
+		projectIDs[i] = p.ID
+	}
+
+	// Fetch all metadata in single query
+	metadataMap, _ := s.metadata.GetMetadataBatch(projectIDs)
+
 	var responses []projectResponse
 	for _, p := range projects {
-		meta, _ := s.metadata.GetMetadata(p.ID)
+		meta := metadataMap[p.ID]
 		responses = append(responses, projectResponse{
 			ID:             p.ID,
 			Name:           p.Name,

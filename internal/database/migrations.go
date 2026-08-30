@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"time"
 
@@ -415,9 +416,20 @@ func (d *Database) resetMigrationLogToBaseline(tx *sql.Tx) error {
 	return nil
 }
 
+// sanitizeTableName validates and sanitizes a table name by removing any characters
+// that are not alphanumeric or underscores. Returns the sanitized table name.
+func sanitizeTableName(table string) string {
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	return reg.ReplaceAllString(table, "")
+}
+
 // columnExists reports whether a column exists on a table, via PRAGMA table_info.
 func columnExists(tx *sql.Tx, table, column string) (bool, error) {
-	rows, err := tx.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	sanitizedTable := sanitizeTableName(table)
+	if sanitizedTable != table {
+		return false, fmt.Errorf("invalid table name: %s", table)
+	}
+	rows, err := tx.Query(fmt.Sprintf("PRAGMA table_info(%s)", sanitizedTable))
 	if err != nil {
 		return false, fmt.Errorf("inspect %s: %w", table, err)
 	}

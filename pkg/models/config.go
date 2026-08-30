@@ -1,5 +1,12 @@
 package models
 
+const (
+	// DefaultDashboardEmbedPath is the default path for embedded dashboard assets
+	DefaultDashboardEmbedPath = "dashboard/dist"
+	// DefaultDashboardExternalPath is the default path for external dashboard assets
+	DefaultDashboardExternalPath = "./dashboard/dist"
+)
+
 // Config represents the complete Portfolio configuration
 type Config struct {
 	General   GeneralConfig   `toml:"general"`
@@ -32,6 +39,8 @@ type DashboardConfig struct {
 	Port           int      `toml:"port"`
 	AssetPath      string   `toml:"asset_path"`
 	AllowedOrigins []string `toml:"allowed_origins"`
+	// EmbedPath is the path to dashboard assets for embed (relative to internal/dashboard/assets/)
+	EmbedPath string `toml:"-"` // Not in config, used for embed directive
 }
 
 // GetDefaultConfig returns default configuration

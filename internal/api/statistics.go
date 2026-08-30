@@ -1,6 +1,9 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 type statistics struct {
 	TotalProjects         int            `json:"total_projects"`
@@ -36,10 +39,19 @@ func (s *Server) handleStatistics(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		defer langRows.Close()
 		for langRows.Next() {
-			var lang string
+			var langSummary string
 			var count int
-			langRows.Scan(&lang, &count)
-			stats.LanguageCounts[lang] = count
+			langRows.Scan(&langSummary, &count)
+
+			// Parse comma-separated language summary and distribute count
+			// e.g., "C++, C, TypeScript, Svelte" -> individual language counts
+			languages := splitCommaSeparated(langSummary)
+			countPerLang := 1 // Each project contributes 1 to each language it uses
+			for _, lang := range languages {
+				if lang != "" {
+					stats.LanguageCounts[lang] += countPerLang
+				}
+			}
 		}
 	}
 
@@ -47,10 +59,19 @@ func (s *Server) handleStatistics(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		defer fwRows.Close()
 		for fwRows.Next() {
-			var fw string
+			var fwSummary string
 			var count int
-			fwRows.Scan(&fw, &count)
-			stats.FrameworkCounts[fw] = count
+			fwRows.Scan(&fwSummary, &count)
+
+			// Parse comma-separated framework summary and distribute count
+			// e.g., "Svelte, Vite, Vitest" -> individual framework counts
+			frameworks := splitCommaSeparated(fwSummary)
+			countPerFw := 1 // Each project contributes 1 to each framework it uses
+			for _, fw := range frameworks {
+				if fw != "" {
+					stats.FrameworkCounts[fw] += countPerFw
+				}
+			}
 		}
 	}
 
@@ -76,4 +97,22 @@ func (s *Server) handleStatistics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, stats)
+}
+
+// splitCommaSeparated parses comma-separated values and returns individual items
+// e.g., "C++, C, TypeScript" -> ["C++", "C", "TypeScript"]
+func splitCommaSeparated(input string) []string {
+	if input == "" {
+		return nil
+	}
+
+	parts := strings.Split(input, ",")
+	var result []string
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }

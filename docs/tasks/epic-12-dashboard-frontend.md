@@ -1,7 +1,7 @@
 # Epic 12 — Dashboard Frontend
 
 **Milestone:** 3 — Dashboard
-**Status:** todo
+**Status:** completed
 
 ## Overview
 
@@ -11,7 +11,7 @@ Implement read-only dashboard frontend with portfolio overview, project list, pr
 
 ## Story 12.1: Portfolio Overview Page
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 11.2
 
@@ -32,7 +32,7 @@ As a user, I want a portfolio overview so that I can see my entire software port
 
 ## Story 12.2: Project List Page
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 12.1
 
@@ -51,7 +51,7 @@ As a user, I want a project list so that I can browse all my projects.
 
 ## Story 12.3: Project Detail Page
 
-**Status:** todo
+**Status:** completed
 **Size:** L
 **Blocked by:** 12.2
 
@@ -70,7 +70,7 @@ As a user, I want a project detail page so that I can see everything about a spe
 
 ## Story 12.4: Relationship Explorer
 
-**Status:** todo
+**Status:** completed
 **Size:** L
 **Blocked by:** 10.4, 12.3
 
@@ -88,7 +88,7 @@ As a user, I want to explore relationships so that I can understand how projects
 
 ## Story 12.5: Statistics Page
 
-**Status:** todo
+**Status:** completed
 **Size:** M
 **Blocked by:** 12.1
 
@@ -108,12 +108,12 @@ As a user, I want portfolio statistics so that I can understand my development p
 
 | Story | Status | Size | Blocked By |
 |-------|--------|------|------------|
-| 12.1 Portfolio Overview Page | todo | M | 11.2 |
-| 12.2 Project List Page | todo | M | 12.1 |
-| 12.3 Project Detail Page | todo | L | 12.2 |
-| 12.4 Relationship Explorer | todo | L | 10.4, 12.3 |
-| 12.5 Statistics Page | todo | M | 12.1 |
+| 12.1 Portfolio Overview Page | completed | M | 11.2 |
+| 12.2 Project List Page | completed | M | 12.1 |
+| 12.3 Project Detail Page | completed | L | 12.2 |
+| 12.4 Relationship Explorer | completed | L | 10.4, 12.3 |
+| 12.5 Statistics Page | completed | M | 12.1 |
 
 **Total Size:** 2L + 3M = ~21 days
 
-**Can Start:** Story 12.1 (after 11.2 complete)
+**Can Start:** ✅ Complete

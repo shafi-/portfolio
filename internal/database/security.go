@@ -1,11 +1,12 @@
 package database
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/google/uuid"
 	"project-dash/pkg/models"
 )
 
@@ -28,7 +29,10 @@ func GetDatabaseKey() (string, error) {
 	}
 
 	// Priority 3: Generate new key (first run)
-	key := generateNewKey()
+	key, err := generateNewKey()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate database key: %w", err)
+	}
 	if err := writeKeyFile(keyFile, key); err != nil {
 		return "", fmt.Errorf("failed to write database key: %w", err)
 	}
@@ -38,14 +42,11 @@ func GetDatabaseKey() (string, error) {
 
 // readKeyFile reads the database key from secure storage
 func readKeyFile(keyFile string) (string, error) {
-	// Ensure key file exists with proper permissions
-	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
-		return "", fmt.Errorf("key file does not exist")
-	}
-
-	// Read key file
 	keyBytes, err := os.ReadFile(keyFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("key file does not exist: %s", keyFile)
+		}
 		return "", fmt.Errorf("failed to read key file: %w", err)
 	}
 
@@ -74,9 +75,15 @@ func writeKeyFile(keyFile, key string) error {
 }
 
 // generateNewKey generates a new secure database key
-func generateNewKey() string {
-	// Use UUID v4 as the key (simple and secure enough for local-first)
-	return uuid.New().String()
+func generateNewKey() (string, error) {
+	// Generate 32 bytes (256 bits) for AES-256
+	keyBytes := make([]byte, 32)
+	if _, err := rand.Read(keyBytes); err != nil {
+		return "", fmt.Errorf("failed to generate encryption key: %w", err)
+	}
+
+	// Encode to base64 for storage
+	return base64.StdEncoding.EncodeToString(keyBytes), nil
 }
 
 // ValidateKeyAccess checks if the database key is accessible
