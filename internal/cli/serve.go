@@ -76,18 +76,24 @@ func runServe(cmd *cobra.Command, args []string) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	errChan := make(chan error, 1)
 	go func() {
 		logger.Info("HTTP API server starting", models.Field{Key: "addr", Value: addr})
 		fmt.Printf("Portfolio API server listening on %s\n", addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server error", models.Field{Key: "error", Value: err})
-			os.Exit(1)
+			errChan <- err
 		}
 	}()
 
-	<-quit
-	logger.Info("shutting down server")
-	if err := httpServer.Shutdown(context.Background()); err != nil {
-		logger.Error("shutdown error", models.Field{Key: "error", Value: err})
+	select {
+	case <-quit:
+		logger.Info("shutting down server")
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			logger.Error("shutdown error", models.Field{Key: "error", Value: err})
+		}
+	case err := <-errChan:
+		logger.Error("server failed to start", models.Field{Key: "error", Value: err})
+		return
 	}
 }

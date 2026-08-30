@@ -101,6 +101,7 @@ func runDashboard(cmd *cobra.Command, args []string) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	errChan := make(chan error, 1)
 	go func() {
 		modeStr := "development"
 		if mode == dashboard.ModeEmbedded {
@@ -116,13 +117,18 @@ func runDashboard(cmd *cobra.Command, args []string) {
 
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server error", models.Field{Key: "error", Value: err})
-			os.Exit(1)
+			errChan <- err
 		}
 	}()
 
-	<-quit
-	logger.Info("shutting down dashboard server")
-	if err := httpServer.Shutdown(context.Background()); err != nil {
-		logger.Error("shutdown error", models.Field{Key: "error", Value: err})
+	select {
+	case <-quit:
+		logger.Info("shutting down dashboard server")
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			logger.Error("shutdown error", models.Field{Key: "error", Value: err})
+		}
+	case err := <-errChan:
+		logger.Error("dashboard server failed to start", models.Field{Key: "error", Value: err})
+		return
 	}
 }
