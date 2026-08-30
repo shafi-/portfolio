@@ -1,4 +1,4 @@
-## 🎉 Portfolio {{ .Tag }} Release
+## 🎉 Portfolio {{ .Version }} Release
 
 ### 🔒 Security Model Overhaul
 
@@ -63,4 +63,4 @@ sudo mv portfolio /usr/local/bin/
 
 **Upgrade from previous version:** `portfolio upgrade`
 
-**Full Release Notes:** https://github.com/shafi-/portfolio/releases/{{ .Tag }}
+**Full Release Notes:** https://github.com/shafi-/portfolio/releases/{{ .Version }}

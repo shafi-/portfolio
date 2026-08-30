@@ -58,8 +58,8 @@ update_version() {
     sed -i.bak "s/version = \".*\"/version = \"$new_version\"/" "$VERSION_FILE"
     rm -f "$VERSION_FILE.bak"
 
-    # Update USER_MANUAL.md version header
-    sed -i.bak "s/Version: [0-9.]*/Version: $new_version/" "$PROJECT_ROOT/USER_MANUAL.md"
+    # Update USER_MANUAL.md version header - replace entire version line to avoid concatenation
+    sed -i.bak "s/^Version: .*/Version: $new_version/" "$PROJECT_ROOT/USER_MANUAL.md"
     rm -f "$PROJECT_ROOT/USER_MANUAL.md.bak"
 
     echo -e "${GREEN}✅ Version updated${NC}"

@@ -1,170 +1,249 @@
-# Portfolio Engine
+# Portfolio
 
-Portfolio is a local-first project inventory and knowledge platform that enables developers and AI coding agents to understand an entire software portfolio.
+> **Local-first project inventory and knowledge platform for developers and AI coding agents**
 
-## Prerequisites
+Portfolio automatically discovers, catalogs, and enables searching across your entire software portfolio—so you never lose track of what you've built.
 
-- Go 1.21 or higher
-- Git (for project discovery)
+---
 
-## Installation
+## 🎯 For Users: Just Use Portfolio
 
-### Method 1: One-Command Install (Recommended)
-
+**Quick Install (Recommended):**
 ```bash
-# Install and start in one command
 curl -fsSL https://raw.githubusercontent.com/shafi-/portfolio/main/install.sh | bash
 portfolio init
 ```
 
-### Method 2: Binary Release
+**That's it!** Portfolio is now ready to:
+- 📡 Automatically discover all your Git repositories
+- 📚 Index documentation across every project
+- 🔍 Enable instant search through your entire codebase
+- 🤖 Power AI coding agents with 26 MCP tools
 
+**What You Need to Know:**
+- ✅ **Zero maintenance** - set it once, it keeps itself updated
+- ✅ **100% local** - your code never leaves your machine  
+- ✅ **Works offline** - no internet required
+- ✅ **AI-ready** - deep integration with Claude Code and other AI agents
+
+**Get Started:**
 ```bash
-# Download latest release for your platform
-# macOS (Intel): portfolio-darwin-amd64
-# macOS (Apple Silicon): portfolio-darwin-arm64
-# Linux (Intel): portfolio-linux-amd64
-# Linux (ARM): portfolio-linux-arm64
-
-curl -L https://github.com/shafi-/portfolio/releases/latest/download/portfolio-darwin-arm64 -o portfolio
-chmod +x portfolio
-sudo mv portfolio /usr/local/bin/
-
-# Verify installation
-portfolio --version
+portfolio discover          # Find all your projects
+portfolio status            # See what's discovered
+portfolio install claude    # Add AI integration
 ```
 
-### Method 3: Build from Source
+**Documentation:**
+- 📖 [User Manual](USER_MANUAL.md) - Complete reference
+- 🚀 [Quick Start Guide](docs/QUICK_START.md) - Up and running in 5 minutes
+- 🆘 [Troubleshooting](USER_MANUAL.md#troubleshooting) - Common issues and solutions
 
+---
+
+## 🛠️ For Contributors: Work with Source Code
+
+**Development Prerequisites:**
+- Go 1.21+ 
+- Git
+
+**Setup:**
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/shafi-/portfolio.git
 cd portfolio
 
-# Build the CLI
+# Run tests
+go test ./...
+
+# Build development binary
 go build ./cmd/portfolio
 
-# (Optional) Install to system path
-go install ./cmd/portfolio
+# Run locally
+./portfolio --help
 ```
 
-## Quick Start
-
-```bash
-# Initialize Portfolio
-portfolio init
-
-# Discover your projects automatically
-portfolio discover
-
-# Check system status
-portfolio status
-
-# Run diagnostics if needed
-portfolio doctor
-```
-
-## Key Features
-
-- **🔍 Automatic Discovery**: Finds all your Git repositories automatically
-- **📊 Metadata Extraction**: Extracts languages, frameworks, and dependencies
-- **📚 Documentation Indexing**: Search across all project documentation
-- **🤖 AI Agent Integration**: 26 MCP tools for Claude Code, OpenCode, and other AI agents
-- **💾 Local-First**: All data stays on your machine
-- **🔧 CLI Administration**: Simple commands for management and diagnostics
-
-## AI Agent Integration
-
-```bash
-# Claude Code integration
-portfolio install claude
-
-# OpenCode integration  
-portfolio install opencode
-
-# Verify integration
-portfolio doctor claude
-```
-
-## Development
-
-### Project Structure
-
+**Project Structure:**
 ```
 portfolio/
 ├── cmd/portfolio/        # CLI entry point
-├── internal/
-│   ├── config/          # Configuration system
-│   ├── database/        # SQLite database
-│   ├── logging/         # Structured logging
-│   └── cli/             # CLI commands
-└── pkg/models/          # Shared data structures
+├── internal/            # Core application code
+│   ├── config/         # Configuration management
+│   ├── database/       # SQLite database layer
+│   ├── api/            # HTTP API server
+│   ├── mcp/            # MCP server (AI integration)
+│   └── cli/            # CLI commands
+├── pkg/models/         # Shared data models
+└── dashboard/          # Web dashboard (React)
 ```
 
-### Development Setup
+**Contributing Guidelines:**
+- 📋 [Engineering Principles](docs/Guideline.md) - Development philosophy
+- 🏗️ [Platform Specification](docs/PlatformSpecification.md) - Implementation contracts
+- 🔧 [Release Process](docs/RELEASE_PROCESS.md) - How to make releases
+- 📖 [Architecture Decisions](docs/ADR.md) - Design rationale
 
+**Development Commands:**
 ```bash
-# Run tests
-go test ./...
+# Run tests with race detection
+go test -race ./...
 
 # Run with coverage
 go test -cover ./...
 
-# Build for development
-go build ./cmd/portfolio
+# Format code
+go fmt ./...
 
-# Run development binary
-./portfolio --help
+# Lint
+go vet ./...
+
+# Build release binary
+go build -ldflags="-s -w" ./cmd/portfolio
 ```
 
-## Documentation
+---
 
-Full documentation available in [docs/](docs/)
+## 📦 Installation Methods
 
-**Getting Started:**
-- [Quick Start Guide](docs/QUICK_START.md) - Get up and running in 5 minutes
+**Method 1: One-Command Install (Recommended)**
+```bash
+curl -fsSL https://raw.githubusercontent.com/shafi-/portfolio/main/install.sh | bash
+```
+
+**Method 2: Manual Binary Download**
+```bash
+# Download for your platform
+curl -L https://github.com/shafi-/portfolio/releases/latest/download/portfolio-darwin-arm64 -o portfolio
+chmod +x portfolio
+sudo mv portfolio /usr/local/bin/
+```
+
+**Method 3: Build from Source**
+```bash
+git clone https://github.com/shafi-/portfolio.git
+cd portfolio
+go build ./cmd/portfolio
+sudo mv portfolio /usr/local/bin/
+```
+
+---
+
+## ✨ Key Features
+
+**For Users:**
+- 🔍 **Automatic Discovery** - Finds all Git repositories across your projects
+- 📊 **Smart Metadata** - Extracts languages, frameworks, dependencies
+- 📚 **Documentation Search** - Search across all project docs instantly
+- 🤖 **AI Integration** - 26 MCP tools for Claude Code, OpenCode, etc.
+- 💾 **Local-First** - All data stays on your machine
+- ⚡ **Zero Maintenance** - Set once, runs forever
+
+**For Developers:**
+- 🏗️ **Modular Architecture** - Clean separation of concerns
+- 🧪 **Comprehensive Tests** - High test coverage with race detection
+- 📖 **Well-Documented** - Extensive specs and guides
+- 🔧 **Developer Friendly** - Easy to build, test, and contribute
+- 🚀 **Performance** - Optimized for large portfolios (100+ projects)
+
+---
+
+## 🎓 Documentation
+
+**User Documentation:**
 - [User Manual](USER_MANUAL.md) - Complete reference guide
-- [Homebrew Setup](docs/HOMEBREW_SETUP.md) - macOS package management
+- [Quick Start Guide](docs/QUICK_START.md) - Get started in 5 minutes
+- [Feature List](PUBLIC_FEATURE_LIST.md) - What's included
 
-**Technical Documentation:**
-- [Knowledge Model](docs/KnowledgeModel.md) - Canonical domain model
-- [Platform Specification](docs/PlatformSpecification.md) - Implementation contracts
-- [Product Requirements](docs/PRD.md) - Vision and goals
+**Developer Documentation:**
+- [Knowledge Model](docs/KnowledgeModel.md) - Core data structures
+- [Platform Specification](docs/PlatformSpecification.md) - API contracts
+- [Product Requirements](docs/PRD.md) - Vision and roadmap
 - [Engineering Guidelines](docs/Guideline.md) - Development principles
 
-**Development:**
-- [Release Process](docs/RELEASE_PROCESS.md) - How to make releases
-- [One-Click Release](RELEASE_GUIDE.md) - Release automation guide
+**Integration Documentation:**
+- [Agent Integration Manual](docs/agent-integration-manual.md) - MCP integration
+- [MCP Agent Guide](docs/MCP-AGENT-GUIDE.md) - Deep technical guide
 
-## License
+**Release Documentation:**
+- [Release Process](docs/RELEASE_PROCESS.md) - Release workflow
+- [Release Guide](RELEASE_GUIDE.md) - One-click releases
+
+---
+
+## 🚀 Quick Start
+
+**1. Install Portfolio:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/shafi-/portfolio/main/install.sh | bash
+```
+
+**2. Initialize and Discover:**
+```bash
+portfolio init          # Set up database
+portfolio discover      # Find your projects
+```
+
+**3. Check Status:**
+```bash
+portfolio status        # See what's discovered
+portfolio doctor        # Run health check
+```
+
+**4. Add AI Integration (Optional):**
+```bash
+portfolio install claude    # Claude Code integration
+portfolio doctor claude     # Verify setup
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Engineering Guidelines](docs/Guideline.md) for development philosophy and [Platform Specification](docs/PlatformSpecification.md) for implementation details.
+
+**Development Workflow:**
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Ensure all tests pass: `go test -race ./...`
+5. Submit a pull request
+
+**Areas for Contribution:**
+- 🎨 CLI/UX improvements
+- 📚 Documentation enhancements  
+- 🧪 Test coverage expansion
+- 🐛 Bug fixes and optimizations
+- 🚀 Performance improvements
+
+---
+
+## 📈 Status
+
+**Current Version:** v0.3.4  
+**Implementation Status:** Production Ready  
+**Milestones 1-3:** Complete (Core Engine, Agent Integration, Dashboard)  
+**Milestone 4:** In Planning (Portfolio Intelligence)
+
+---
+
+## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
-## Installation Help
+## 🆘 Support & Community
 
-Need help installing? Choose your preferred method:
+**🔗 Resources:**
+- **Repository:** [https://github.com/shafi-/portfolio](https://github.com/shafi-/portfolio)
+- **Issues:** [https://github.com/shafi-/portfolio/issues](https://github.com/shafi-/portfolio/issues)
+- **Discussions:** [https://github.com/shafi-/portfolio/discussions](https://github.com/shafi-/portfolio/discussions)
 
-**💻 One-Command (Recommended):**
-```bash
-curl -fsSL https://raw.githubusercontent.com/shafi-/portfolio/main/install.sh | bash
-```
-
-**🍺 macOS with Homebrew:**
-```bash
-brew tap shafi-/portfolio && brew install portfolio
-```
-
-**🔨 Manual Binary Download:**
-```bash
-# Visit: https://github.com/shafi-/portfolio/releases/latest
-```
-
-**📖 Full Guide:** See [Quick Start Guide](docs/QUICK_START.md)
+**🚨 Getting Help:**
+- Check the [User Manual](USER_MANUAL.md) for common issues
+- Run `portfolio doctor` for diagnostics
+- Search existing [GitHub Issues](https://github.com/shafi-/portfolio/issues)
+- Ask a question in [GitHub Discussions](https://github.com/shafi-/portfolio/discussions)
 
 ---
 
-**Repository:** [https://github.com/shafi-/portfolio](https://github.com/shafi-/portfolio)  
-**Issues:** [https://github.com/shafi-/portfolio/issues](https://github.com/shafi-/portfolio/issues)  
-**Discussions:** [https://github.com/shafi-/portfolio/discussions](https://github.com/shafi-/portfolio/discussions)
+*Portfolio helps developers understand their entire software portfolio while providing AI agents with the context they need to assist effectively.*
