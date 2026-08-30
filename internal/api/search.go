@@ -144,22 +144,24 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 				 WHERE d.content LIKE ? ORDER BY d.kind LIMIT 50`,
 				"%"+q+"%",
 			)
-			if err == nil {
-				defer docRows.Close()
-				for docRows.Next() {
-					var id, projectID, path, kind, content, projName string
-					if err := docRows.Scan(&id, &projectID, &path, &kind, &content, &projName); err != nil {
-						continue
-					}
-					results = append(results, searchResult{
-						Type:    "document",
-						ID:      id,
-						Path:    path,
-						Kind:    kind,
-						Content: truncateContent(content),
-						Project: &searchProj{ID: projectID, Name: projName},
-					})
+			if err != nil {
+				s.writeError(w, http.StatusInternalServerError, "failed to search documents")
+				return
+			}
+			defer docRows.Close()
+			for docRows.Next() {
+				var id, projectID, path, kind, content, projName string
+				if err := docRows.Scan(&id, &projectID, &path, &kind, &content, &projName); err != nil {
+					continue
 				}
+				results = append(results, searchResult{
+					Type:    "document",
+					ID:      id,
+					Path:    path,
+					Kind:    kind,
+					Content: truncateContent(content),
+					Project: &searchProj{ID: projectID, Name: projName},
+				})
 			}
 		}
 	}

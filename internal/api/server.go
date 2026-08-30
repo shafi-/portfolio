@@ -135,6 +135,9 @@ func (s *Server) handleTechnologies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if technologies == nil {
+		technologies = []*models.Technology{}
+	}
 	s.writeJSON(w, http.StatusOK, technologies)
 }
 
@@ -164,9 +167,7 @@ func (s *Server) writeError(w http.ResponseWriter, status int, message string) {
 		response.Type = "validation_error"
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(response)
+	s.writeJSON(w, status, response)
 }
 
 func withLogger(next http.Handler, logger *logging.Logger) http.Handler {
