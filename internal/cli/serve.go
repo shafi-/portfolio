@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -65,8 +66,11 @@ func runServe(cmd *cobra.Command, args []string) {
 	addr := fmt.Sprintf("127.0.0.1:%d", servePort)
 
 	httpServer := &http.Server{
-		Addr:    addr,
-		Handler: srv.Handler(),
+		Addr:         addr,
+		Handler:      srv.Handler(),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	quit := make(chan os.Signal, 1)
