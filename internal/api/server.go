@@ -153,7 +153,7 @@ func withCORS(next http.Handler) http.Handler {
 			}
 			w.Header().Set("Access-Control-Allow-Methods", "GET, PATCH, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			}
+		}
 
 		// Handle OPTIONS preflight
 		if r.Method == "OPTIONS" {
