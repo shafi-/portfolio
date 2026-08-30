@@ -120,10 +120,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, code, response)
 }
 
-func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) {
+func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		s.logger.Error("failed to encode JSON", models.Field{Key: "error", Value: err})
+		return err
+	}
+	return nil
 }
 
 func (s *Server) writeError(w http.ResponseWriter, status int, message string) {
