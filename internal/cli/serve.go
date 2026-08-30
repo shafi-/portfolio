@@ -62,7 +62,7 @@ func runServe(cmd *cobra.Command, args []string) {
 	}
 
 	srv := api.NewServer(db.DB(), logger)
-	addr := fmt.Sprintf(":%d", servePort)
+	addr := fmt.Sprintf("127.0.0.1:%d", servePort)
 
 	httpServer := &http.Server{
 		Addr:    addr,

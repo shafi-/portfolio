@@ -4,12 +4,31 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"project-dash/internal/logging"
 	"project-dash/internal/store"
 	"project-dash/pkg/models"
 )
+
+func isLocalhostOrigin(origin string) bool {
+	localPatterns := []string{
+		"http://localhost",
+		"https://localhost",
+		"http://127.0.0.1",
+		"https://127.0.0.1",
+		"http://[::1]",
+		"https://[::1]",
+	}
+
+	for _, pattern := range localPatterns {
+		if strings.HasPrefix(origin, pattern) {
+			return true
+		}
+	}
+	return false
+}
 
 type Server struct {
 	projects      *store.ProjectStore
@@ -72,8 +91,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	projectCount := 0
+	var countErr error
 	if dbOK {
-		s.db.QueryRow("SELECT COUNT(*) FROM projects").Scan(&projectCount)
+		countErr = s.db.QueryRow("SELECT COUNT(*) FROM projects").Scan(&projectCount)
+		if countErr != nil {
+			dbOK = false
+		}
 	}
 
 	status := "healthy"
@@ -81,11 +104,20 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		status = "unhealthy"
 	}
 
-	s.writeJSON(w, http.StatusOK, map[string]interface{}{
+	response := map[string]interface{}{
 		"status":             status,
 		"database_connected": dbOK,
 		"project_count":      projectCount,
-	})
+	}
+	if countErr != nil {
+		response["error"] = "database_query_failed"
+	}
+
+	code := http.StatusOK
+	if !dbOK {
+		code = http.StatusServiceUnavailable
+	}
+	s.writeJSON(w, code, response)
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) {
@@ -112,13 +144,23 @@ func withLogger(next http.Handler, logger *logging.Logger) http.Handler {
 
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, PATCH, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		origin := r.Header.Get("Origin")
+
+		// Only allow localhost origins for local-first security
+		if origin == "" || isLocalhostOrigin(origin) {
+			if origin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+			}
+			w.Header().Set("Access-Control-Allow-Methods", "GET, PATCH, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			}
+
+		// Handle OPTIONS preflight
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	})
 }

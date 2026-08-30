@@ -22,8 +22,19 @@ type searchProj struct {
 	Name string `json:"name"`
 }
 
+const maxQueryLength = 500
+
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
+
+	// Validate query length
+	if len(q) > maxQueryLength {
+		s.writeError(w, http.StatusBadRequest, "query too long")
+		return
+	}
+
+	// Trim whitespace
+	q = strings.TrimSpace(q)
 
 	// Get technology and framework filters first
 	technologies := r.URL.Query()["technology"]
@@ -108,17 +119,19 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	queryArgs = append(queryArgs, pageSize, offset)
 
 	projectRows, err := s.db.Query(projectQuery, queryArgs...)
-	if err == nil {
-		defer projectRows.Close()
-		for projectRows.Next() {
-			var id, name string
-			if err := projectRows.Scan(&id, &name); err != nil {
-				continue
-			}
-			results = append(results, searchResult{
-				Type: "project", ID: id, Name: name,
-			})
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "failed to query projects")
+		return
+	}
+	defer projectRows.Close()
+	for projectRows.Next() {
+		var id, name string
+		if err := projectRows.Scan(&id, &name); err != nil {
+			continue
 		}
+		results = append(results, searchResult{
+			Type: "project", ID: id, Name: name,
+		})
 	}
 
 	// Only include document search if no technology/framework filters are applied
