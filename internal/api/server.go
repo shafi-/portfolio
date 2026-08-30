@@ -76,6 +76,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /configuration", s.handlePatchConfig)
 
 	mux.HandleFunc("GET /statistics", s.handleStatistics)
+	mux.HandleFunc("GET /technologies", s.handleTechnologies)
 
 	mux.HandleFunc("GET /relationships", s.handleListAllRelationships)
 	mux.HandleFunc("GET /relationships/{id}", s.handleListRelationships)
@@ -118,6 +119,17 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		code = http.StatusServiceUnavailable
 	}
 	s.writeJSON(w, code, response)
+}
+
+func (s *Server) handleTechnologies(w http.ResponseWriter, r *http.Request) {
+	technologies, err := s.technologies.ListTechnologies()
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "failed to fetch technologies")
+		s.logger.Error("failed to fetch technologies", models.Field{Key: "error", Value: err})
+		return
+	}
+
+	s.writeJSON(w, http.StatusOK, technologies)
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) error {
