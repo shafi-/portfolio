@@ -232,8 +232,8 @@ func TestMigrationConsolidatedSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSchemaVersion: %v", err)
 	}
-	if version != 3 {
-		t.Errorf("schema version: got %d, want 3 (initial_schema + fts5_fulltext_search + tier3_feature_extras)", version)
+	if version != 4 {
+		t.Errorf("schema version: got %d, want 4 (initial_schema + fts5_fulltext_search + tier3_feature_extras + workspaces)", version)
 	}
 
 	metaCols := tableColumns(t, db, "metadata")
@@ -549,8 +549,8 @@ func TestMigrate_LegacyDBUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSchemaVersion: %v", err)
 	}
-	if version != 3 {
-		t.Fatalf("schema version: got %d, want 3", version)
+	if version != 4 {
+		t.Fatalf("schema version: got %d, want 4", version)
 	}
 
 	// schema_migrations is exactly {1,2,3} with current checksums.
@@ -661,8 +661,8 @@ func TestMigrate_LegacyDBUpgrade_Idempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSchemaVersion: %v", err)
 	}
-	if version != 3 {
-		t.Fatalf("schema version: got %d, want 3", version)
+	if version != 4 {
+		t.Fatalf("schema version: got %d, want 4", version)
 	}
 	depCols := tableColumns(t, db, "dependencies")
 	if !depCols["manager"] || depCols["type"] {
@@ -706,8 +706,8 @@ func TestMigrate_FreshDBUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSchemaVersion: %v", err)
 	}
-	if version != 3 {
-		t.Fatalf("fresh schema version: got %d, want 3", version)
+	if version != 4 {
+		t.Fatalf("fresh schema version: got %d, want 4", version)
 	}
 	if !tableColumns(t, db, "dependencies")["manager"] {
 		t.Error("fresh dependencies missing manager column")
