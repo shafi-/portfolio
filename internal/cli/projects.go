@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"project-dash/internal/analysis"
 	"project-dash/internal/config"
 	"project-dash/internal/database"
 	"project-dash/internal/discovery"
@@ -251,6 +252,30 @@ func runGetProject(cmd *cobra.Command, args []string) {
 		}
 		if metadata.LastScanAt != "" {
 			fmt.Printf("  Last scan: %s\n", metadata.LastScanAt)
+		}
+	}
+
+	// Analysis freshness (ADR-023) — surface staleness before the analysis
+	// is relied upon.
+	analysesStore := store.NewAnalysisStore(db.DB(), logger.Zap())
+	if analyses, err := analysesStore.ListAnalyses(project.ID); err == nil {
+		fmt.Printf("\nAnalysis:\n")
+		if len(analyses) == 0 {
+			fmt.Printf("  None stored. Ask an agent to analyze this project and store the result.\n")
+		} else {
+			var storedHead string
+			if metadata != nil {
+				storedHead = metadata.GitHead
+			}
+			freshness := analysis.FreshnessForLatest(project, storedHead, analyses)
+			latest := analyses[0]
+			fmt.Printf("  Latest: %s (analyzer: %s, made: %s)\n", freshness, latest.Analyzer, latest.AnalyzedAt)
+			if freshness.Status == analysis.StatusStale {
+				fmt.Printf("  Stored analysis is STALE — refresh it before relying on it if precision matters.\n")
+			}
+			if freshness.Status == analysis.StatusUnknown && freshness.Note != "" {
+				fmt.Printf("  Freshness unknown: %s\n", freshness.Note)
+			}
 		}
 	}
 }
