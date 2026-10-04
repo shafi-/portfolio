@@ -112,6 +112,13 @@ func openWorkspaceStores() (*database.Database, *store.WorkspaceStore, *store.Pr
 		return nil, nil, nil, nil, nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// Apply pending migrations (idempotent) so a database created before
+	// workspaces existed is brought up to date on first use.
+	if err := db.Initialize(); err != nil {
+		db.Close()
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to initialize database: %w", err)
+	}
+
 	zapLogger := logger.Zap()
 	return db,
 		store.NewWorkspaceStore(db.DB(), zapLogger),
