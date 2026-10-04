@@ -5,7 +5,7 @@ description: Portfolio's MCP stdio server — what it is, how it runs, and why a
 
 # MCP Server
 
-Portfolio exposes its knowledge base to AI coding agents through the [Model Context Protocol](https://modelcontextprotocol.io) (MCP). The binary itself is the server: run `portfolio mcp` and it speaks JSON-RPC over stdio, offering **42 tools** for discovering, searching, and analyzing your software portfolio.
+Portfolio exposes its knowledge base to AI coding agents through the [Model Context Protocol](https://modelcontextprotocol.io) (MCP). The binary itself is the server: run `portfolio mcp` and it speaks JSON-RPC over stdio, offering **44 tools** for discovering, searching, and analyzing your software portfolio.
 
 This is the primary way to use Portfolio day to day — the CLI is for administration; your agent is the interface.
 
@@ -35,6 +35,7 @@ The tool catalog is organized in seven areas:
 | Features | `storeFeature`, `listFeatures`, `searchFeatures` | Build a feature inventory |
 | Technologies | `storeTechnology`, `tagProjectWithTechnology`, `listTechnologies`, `listProjectTechnologies`, `searchByTechnology` | Track what's used where |
 | Cross-project | `searchAcrossProjects`, `getPortfolioOverview`, `compareProjects`, `findProjectDependencies`, `analyzeTechnologySpread` | Portfolio-level reasoning |
+| Workspaces | `listWorkspaces`, `getWorkspace` | Group services into named products and check analysis freshness per service |
 | History & quality | `getGitHistory`, `getCommitDiff`, `getFileEvolution`, `getProjectTimeline`, `analyzeCommitPatterns`, `getCodeComplexity`, `getCodeMetrics`, `getTestCoverage`, `getTechnicalDebt`, `analyzeCodeSmells` | Git and code-quality signals |
 
 The full reference with parameters lives in [Tools Reference](/docs/mcp/tools).

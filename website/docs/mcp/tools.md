@@ -5,7 +5,7 @@ description: All 42 MCP tools exposed by Portfolio, grouped by capability.
 
 # Tools Reference
 
-Portfolio's MCP server registers **42 tools**. They fall into seven families, mirroring the server's source layout. All tools read from (and, where noted, write to) the shared [knowledge store](/docs/concepts/knowledge-store).
+Portfolio's MCP server registers **44 tools**. They fall into seven families, mirroring the server's source layout. All tools read from (and, where noted, write to) the shared [knowledge store](/docs/concepts/knowledge-store).
 
 ::: tip For agents
 Tool call conventions below are indicative — your MCP client receives exact JSON Schemas for each tool. Humans can browse the registration code in `internal/mcp/`.
@@ -40,12 +40,14 @@ The core loop: find projects, inspect them, check engine health.
 
 Store and reuse per-project analysis so agents (and teammates) don't re-derive it.
 
+Every analysis-bearing response carries a `freshness` block — `fresh`, `stale` (with `commits_behind`), or `unknown` — computed against the repository's live HEAD, so staleness is visible **before** an analysis is relied on. See [Workspaces](/docs/concepts/workspaces) for the gate flow: warn before use, refresh only if the user asks.
+
 | Tool | Description |
 | --- | --- |
-| `getAnalysis` | Fetch stored analyses for a project |
-| `storeAnalysis` | Persist an analysis result for a project |
-| `listProjectsNeedingAnalysis` | Find projects without recent analysis |
-| `getProjectAnalyzerPrompt` | Get a prepared prompt for analyzing a project |
+| `getAnalysis` | Fetch stored analyses for a project, with a freshness report |
+| `storeAnalysis` | Persist an analysis result for a project (anchored to the current HEAD) |
+| `listProjectsNeedingAnalysis` | Find projects with no or stale analysis; optional `workspace` scope |
+| `getProjectAnalyzerPrompt` | Prepared analyzer prompt; with `project_id` it includes freshness, the previous analysis as an incremental seed, and the ask-the-user-before-refreshing instruction |
 
 ## Relationships
 
@@ -116,6 +118,15 @@ Git-derived and static signals per project.
 | `getTestCoverage` | Test coverage signals |
 | `getTechnicalDebt` | Technical-debt indicators |
 | `analyzeCodeSmells` | Detect code smells |
+
+## Workspaces
+
+Read access to [workspaces](/docs/concepts/workspaces) — named groups of projects. Management is CLI-side (`portfolio workspace …`); agents get enough to check which services' analyses are current.
+
+| Tool | Description |
+| --- | --- |
+| `listWorkspaces` | List workspaces with member counts |
+| `getWorkspace` | One workspace's members, each with analysis freshness (fresh/stale/none) |
 
 ## Idiomatic usage
 

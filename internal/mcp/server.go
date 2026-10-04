@@ -30,6 +30,7 @@ type Server struct {
 	relationships *store.RelationshipStore
 	dependencies  *store.DependencyStore
 	configuration *store.ConfigurationStore
+	workspaces    *store.WorkspaceStore
 	db            *sql.DB
 	logger        *logging.Logger
 	osFS          fs.Filesystem
@@ -126,6 +127,11 @@ func (s *Server) registerTools() {
 
 	codeQualityTools := s.codeQualityTools()
 	for _, t := range codeQualityTools {
+		s.mcp.AddTool(t.Tool, t.Handler)
+	}
+
+	workspaceTools := s.workspaceTools()
+	for _, t := range workspaceTools {
 		s.mcp.AddTool(t.Tool, t.Handler)
 	}
 }

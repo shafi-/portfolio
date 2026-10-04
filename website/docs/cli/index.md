@@ -23,6 +23,7 @@ Global flags available on every command:
 | [`portfolio scan`](/docs/cli/scanning#portfolio-scan) | Extract metadata and index documentation |
 | [`portfolio status`](/docs/cli/scanning#portfolio-status) | Show engine system status |
 | [`portfolio projects`](/docs/cli/projects) | List, search, and inspect projects |
+| [`portfolio workspace`](/docs/cli/workspaces) | Manage workspaces — named groups of projects |
 | [`portfolio config`](/docs/cli/configuration) | Manage configuration and scan roots |
 | [`portfolio install`](/docs/cli/ai-integrations) | Install an AI agent integration |
 | [`portfolio uninstall`](/docs/cli/ai-integrations) | Remove an AI agent integration |
