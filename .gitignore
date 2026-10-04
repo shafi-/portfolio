@@ -75,3 +75,8 @@ supabase/
 # homebrew/
 # Formula
 dist
+
+# Documentation website (VitePress)
+website/node_modules/
+website/.vitepress/dist/
+website/.vitepress/cache/
