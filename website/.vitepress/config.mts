@@ -74,6 +74,7 @@ export default defineConfig({
           text: 'Core Concepts',
           items: [
             { text: 'Discovery', link: '/docs/concepts/discovery' },
+            { text: 'Workspaces', link: '/docs/concepts/workspaces' },
             { text: 'Metadata Extraction', link: '/docs/concepts/metadata' },
             { text: 'The Knowledge Store', link: '/docs/concepts/knowledge-store' },
             { text: 'Architecture', link: '/docs/concepts/architecture' }
@@ -84,6 +85,7 @@ export default defineConfig({
           items: [
             { text: 'Available Commands', link: '/docs/cli/' },
             { text: 'Projects', link: '/docs/cli/projects' },
+            { text: 'Workspaces', link: '/docs/cli/workspaces' },
             { text: 'Scanning & Status', link: '/docs/cli/scanning' },
             { text: 'Configuration Commands', link: '/docs/cli/configuration' },
             { text: 'AI Integrations', link: '/docs/cli/ai-integrations' },
