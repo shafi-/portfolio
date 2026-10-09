@@ -148,6 +148,8 @@ sudo mv portfolio /usr/local/bin/
 
 ## 🎓 Documentation
 
+**📚 Documentation Website:** [https://shafi-.github.io/portfolio/](https://shafi-.github.io/portfolio/) — the full Laravel-style docs site (source in [`website/`](website/))
+
 **User Documentation:**
 - [User Manual](USER_MANUAL.md) - Complete reference guide
 - [Quick Start Guide](docs/QUICK_START.md) - Get started in 5 minutes

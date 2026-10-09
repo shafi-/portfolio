@@ -56,6 +56,12 @@ func getMigrations() []migration {
 			up:      tier3FeatureExtrasUp,
 			down:    tier3FeatureExtrasDown,
 		},
+		{
+			version: 4,
+			name:    "workspaces",
+			up:      workspacesUp,
+			down:    workspacesDown,
+		},
 	}
 }
 
@@ -804,3 +810,32 @@ ALTER TABLE features ADD COLUMN pattern TEXT;
 `
 
 const tier3FeatureExtrasDown = `-- No rollback for ALTER TABLE ADD COLUMN`
+
+// Workspaces (ADR-023): grouping-only named sets of projects. Membership is a
+// pure join table; deleting a workspace or a project cascades membership rows
+// but never touches projects themselves.
+const workspacesUp = `
+CREATE TABLE IF NOT EXISTS workspaces (
+	id TEXT PRIMARY KEY,
+	name TEXT NOT NULL UNIQUE,
+	description TEXT,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS workspace_projects (
+	workspace_id TEXT NOT NULL,
+	project_id TEXT NOT NULL,
+	PRIMARY KEY (workspace_id, project_id),
+	FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+	FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspace_projects_project ON workspace_projects(project_id);
+`
+
+const workspacesDown = `
+DROP INDEX IF EXISTS idx_workspace_projects_project;
+DROP TABLE IF EXISTS workspace_projects;
+DROP TABLE IF EXISTS workspaces;
+`
