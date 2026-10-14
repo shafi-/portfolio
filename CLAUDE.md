@@ -121,6 +121,29 @@ When implementing features:
 2. Use `devflow:devflow` to execute the full development pipeline
 3. The pipeline handles: requirements → architecture → implementation → review → commit
 
+### Release Workflow
+
+```
+main ← PR from release-vX.Y.Z
+       ↓
+release-vX.Y.(Z+1) created from main
+       ↓
+feature/xxx created from release-vX.Y.(Z+1)
+       ↓
+work on feature, merge to release-vX.Y.(Z+1)
+       ↓
+when ready: run scripts/make-release.sh vX.Y.(Z+1)
+       ↓
+PR: release-vX.Y.(Z+1) → main
+       ↓
+repeat
+```
+
+1. **Feature work**: Create feature branch from current release branch. Merge to release branch when ready.
+2. **Release**: Run `./scripts/make-release.sh vX.Y.Z`. Script bumps version, runs tests, builds, creates release branch, pushes.
+3. **PR**: Create PR `release-vX.Y.Z → main`.
+4. **Next cycle**: After merge, create next release branch from main, create feature branch from it.
+
 ---
 
 ## Package Map

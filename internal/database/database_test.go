@@ -254,9 +254,15 @@ func TestMigrationConsolidatedSchema(t *testing.T) {
 
 func tableColumns(t *testing.T, db *Database, table string) map[string]bool {
 	t.Helper()
-	rows, err := db.DB().Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+
+	sanitizedTable := sanitizeTableName(table)
+	if sanitizedTable != table {
+		t.Fatalf("invalid table name: %s", table)
+	}
+
+	rows, err := db.DB().Query(fmt.Sprintf("PRAGMA table_info(%s)", sanitizedTable))
 	if err != nil {
-		t.Fatalf("PRAGMA table_info(%s): %v", table, err)
+		t.Fatalf("PRAGMA table_info(%s): %v", sanitizedTable, err)
 	}
 	defer rows.Close()
 
@@ -751,5 +757,59 @@ func TestMigrate_ChecksumMismatch_Heals(t *testing.T) {
 	want := calculateChecksum(initialSchemaUp)
 	if got != want {
 		t.Errorf("checksum not healed: got %s, want %s", got, want)
+	}
+}
+
+func TestSQLInjectionProtection(t *testing.T) {
+	// Set database key for test environment
+	t.Setenv("PORTFOLIO_DB_KEY", "test-database-key-for-testing")
+
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	logger, _ := logging.NewLogger("INFO", "console")
+
+	db, err := NewDatabase(dbPath, logger)
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+
+	if err := db.Connect(); err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Initialize(); err != nil {
+		t.Fatalf("Failed to initialize database: %v", err)
+	}
+
+	maliciousNames := []string{
+		"projects; DROP TABLE projects--",
+		"projects' OR '1'='1",
+		"projects'); SELECT * FROM users--",
+	}
+
+	for _, name := range maliciousNames {
+		// Test that sanitizeTableName properly rejects malicious input
+		sanitized := sanitizeTableName(name)
+		if sanitized == name {
+			t.Errorf("Malicious table name not rejected: %s (got: %s)", name, sanitized)
+		}
+	}
+
+	// Test that valid table names pass through correctly
+	validNames := []string{
+		"projects",
+		"metadata",
+		"documents",
+		"dependencies",
+		"valid_table_name",
+		"Table123",
+	}
+
+	for _, name := range validNames {
+		sanitized := sanitizeTableName(name)
+		if sanitized != name {
+			t.Errorf("Valid table name was modified: %s (got: %s)", name, sanitized)
+		}
 	}
 }

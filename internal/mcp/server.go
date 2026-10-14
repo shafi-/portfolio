@@ -114,6 +114,22 @@ func (s *Server) registerTools() {
 		s.mcp.AddTool(t.Tool, t.Handler)
 	}
 
+	// Phase 2 Enhanced Analysis Tools
+	crossProjectTools := s.crossProjectTools()
+	for _, t := range crossProjectTools {
+		s.mcp.AddTool(t.Tool, t.Handler)
+	}
+
+	historicalTools := s.historicalTools()
+	for _, t := range historicalTools {
+		s.mcp.AddTool(t.Tool, t.Handler)
+	}
+
+	codeQualityTools := s.codeQualityTools()
+	for _, t := range codeQualityTools {
+		s.mcp.AddTool(t.Tool, t.Handler)
+	}
+
 	workspaceTools := s.workspaceTools()
 	for _, t := range workspaceTools {
 		s.mcp.AddTool(t.Tool, t.Handler)

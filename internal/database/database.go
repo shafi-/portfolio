@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -19,6 +20,7 @@ type Database struct {
 	dbPath    string
 	logger    *logging.Logger
 	connected bool
+	mu        sync.RWMutex
 }
 
 // NewDatabase creates a new database instance
@@ -33,6 +35,13 @@ func NewDatabase(dbPath string, logger *logging.Logger) (*Database, error) {
 		dbPath: dbPath,
 		logger: logger,
 	}, nil
+}
+
+// setConnected sets the connection status with mutex protection
+func (d *Database) setConnected(connected bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.connected = connected
 }
 
 // Connect establishes database connection
@@ -71,8 +80,8 @@ func (d *Database) Connect() error {
 	}
 
 	// Configure connection settings
-	db.SetMaxOpenConns(25)                 // Maximum open connections
-	db.SetMaxIdleConns(25)                 // Maximum idle connections
+	db.SetMaxOpenConns(3)                  // Maximum open connections
+	db.SetMaxIdleConns(2)                  // Maximum idle connections
 	db.SetConnMaxLifetime(5 * time.Minute) // Connection lifetime
 	db.SetConnMaxIdleTime(1 * time.Minute) // Idle connection timeout
 
@@ -95,7 +104,7 @@ func (d *Database) Connect() error {
 	}
 
 	d.db = db
-	d.connected = true
+	d.setConnected(true)
 
 	d.logger.Info("Database connected successfully",
 		models.Field{Key: "path", Value: d.dbPath},
@@ -106,7 +115,11 @@ func (d *Database) Connect() error {
 
 // Close closes the database connection
 func (d *Database) Close() error {
-	if !d.connected {
+	d.mu.RLock()
+	connected := d.connected
+	d.mu.RUnlock()
+
+	if !connected {
 		return nil
 	}
 
@@ -118,7 +131,7 @@ func (d *Database) Close() error {
 		return errors.Database("close").Wrap(err, "Failed to close database connection")
 	}
 
-	d.connected = false
+	d.setConnected(false)
 	return nil
 }
 
@@ -129,12 +142,18 @@ func (d *Database) DB() *sql.DB {
 
 // IsConnected returns connection status
 func (d *Database) IsConnected() bool {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	return d.connected && d.db != nil
 }
 
 // Ping tests database connectivity
 func (d *Database) Ping() error {
-	if !d.connected {
+	d.mu.RLock()
+	connected := d.connected
+	d.mu.RUnlock()
+
+	if !connected {
 		return errors.Database("ping").Error("Database connection not established")
 	}
 

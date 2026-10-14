@@ -55,6 +55,31 @@ func (s *RelationshipStore) GetRelationship(id string) (*models.Relationship, er
 	return r, nil
 }
 
+func (s *RelationshipStore) ListAllRelationships() ([]*models.Relationship, error) {
+	query := `
+		SELECT id, source_project, target_project, type, description, confidence
+		FROM relationships
+		ORDER BY type
+	`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all relationships: %w", err)
+	}
+	defer rows.Close()
+
+	var relationships []*models.Relationship
+	for rows.Next() {
+		r := &models.Relationship{}
+		if err := rows.Scan(
+			&r.ID, &r.SourceProject, &r.TargetProject, &r.Type, &r.Description, &r.Confidence,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan relationship row: %w", err)
+		}
+		relationships = append(relationships, r)
+	}
+	return relationships, rows.Err()
+}
+
 func (s *RelationshipStore) ListRelationships(projectID string) ([]*models.Relationship, error) {
 	query := `
 		SELECT id, source_project, target_project, type, description, confidence

@@ -74,6 +74,7 @@ supabase/
 # Homebrew tap formulas (now maintained in same repository)
 # homebrew/
 # Formula
+dist
 
 # Documentation website (VitePress)
 website/node_modules/

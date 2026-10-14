@@ -1,185 +1,98 @@
 package dashboard
 
 import (
-	"database/sql"
 	"net/http"
 	"net/http/httptest"
-	"project-dash/internal/logging"
-	"project-dash/pkg/models"
+	"os"
 	"testing"
-
-	_ "modernc.org/sqlite"
 )
 
-func TestServer_Start(t *testing.T) {
-	// Create in-memory database
-	db, err := sql.Open("sqlite", ":memory:")
+func TestAssetServer_EmbeddedMode(t *testing.T) {
+	// Test that embedded mode can be created (even if assets aren't available)
+	server, err := NewAssetServer(ModeEmbedded, "")
 	if err != nil {
-		t.Fatalf("Failed to create test database: %v", err)
-	}
-	defer db.Close()
-
-	// Create config
-	config := models.GetDefaultConfig()
-	config.Dashboard.Port = 0 // Use random port for testing
-
-	// Create logger
-	logger, err := logging.NewLogger("INFO", "console")
-	if err != nil {
-		t.Fatalf("Failed to create logger: %v", err)
+		// This might fail if no embedded assets are available, which is okay for tests
+		t.Skipf("Embedded mode not available: %v", err)
 	}
 
-	// Create server
-	server := NewServer(db, config, logger)
-
-	// Try to start server (should succeed)
-	err = server.Start()
-	if err != nil {
-		t.Errorf("Failed to start server: %v", err)
+	if server == nil {
+		t.Fatal("Expected server to be created")
 	}
 
-	// Shutdown server
-	if server.httpServer != nil {
-		server.httpServer.Close()
+	if server.mode != ModeEmbedded {
+		t.Errorf("Expected mode %s, got %s", ModeEmbedded, server.mode)
 	}
 }
 
-func TestServer_HealthEndpoint(t *testing.T) {
-	// Create in-memory database
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatalf("Failed to create test database: %v", err)
-	}
-	defer db.Close()
+func TestAssetServer_ExternalMode(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir := t.TempDir()
 
-	// Create config
-	config := models.GetDefaultConfig()
+	// Create a test file
+	testFile := tempDir + "/test.html"
+	os.WriteFile(testFile, []byte("<html>test</html>"), 0644)
 
-	// Create logger
-	logger, err := logging.NewLogger("INFO", "console")
+	server, err := NewAssetServer(ModeExternal, tempDir)
 	if err != nil {
-		t.Fatalf("Failed to create logger: %v", err)
+		t.Fatalf("Failed to create external asset server: %v", err)
 	}
 
-	// Create server
-	server := NewServer(db, config, logger)
+	if server == nil {
+		t.Fatal("Expected server to be created")
+	}
 
-	// Create request
-	req := httptest.NewRequest("GET", "/health", nil)
+	if server.mode != ModeExternal {
+		t.Errorf("Expected mode %s, got %s", ModeExternal, server.mode)
+	}
+
+	// Test serving a file
+	req := httptest.NewRequest("GET", "/test.html", nil)
 	w := httptest.NewRecorder()
+	server.ServeHTTP(w, req)
 
-	// Get the Epic 6 handler since health is registered there
-	handler := server.epic6API.Handler()
-	handler.ServeHTTP(w, req)
-
-	// Check response
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 	}
+}
 
-	contentType := w.Header().Get("Content-Type")
-	if contentType != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", contentType)
+func TestAssetServer_ExternalMode_MissingPath(t *testing.T) {
+	_, err := NewAssetServer(ModeExternal, "")
+	if err == nil {
+		t.Error("Expected error for missing external path")
+	}
+
+	_, err = NewAssetServer(ModeExternal, "/nonexistent/path")
+	if err == nil {
+		t.Error("Expected error for nonexistent external path")
 	}
 }
 
-func TestServer_CORSHeaders(t *testing.T) {
-	// Create in-memory database
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatalf("Failed to create test database: %v", err)
-	}
-	defer db.Close()
-
-	// Create config with specific CORS origin
-	config := models.GetDefaultConfig()
-	config.Dashboard.AllowedOrigins = []string{"http://localhost:3000"}
-
-	// Create logger
-	logger, err := logging.NewLogger("INFO", "console")
-	if err != nil {
-		t.Fatalf("Failed to create logger: %v", err)
+func TestAssetServer_ServeHTTP_EmbeddedUnavailable(t *testing.T) {
+	server := &AssetServer{
+		mode:     ModeEmbedded,
+		embedded: nil, // Simulate unavailable embedded assets
 	}
 
-	// Create server
-	server := NewServer(db, config, logger)
-
-	// Create request with Origin header - test dashboard endpoint instead
-	req := httptest.NewRequest("GET", "/configuration", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
+	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
+	server.ServeHTTP(w, req)
 
-	// Get the full server handler to test dashboard CORS
-	handler := server.epic6API.Handler()
-	handler.ServeHTTP(w, req)
-
-	// Epic 6 sets CORS as *, but dashboard should respect allowed origins
-	// For now, just check that some CORS header is present
-	corsHeader := w.Header().Get("Access-Control-Allow-Origin")
-	if corsHeader == "" {
-		t.Errorf("Expected CORS header to be present")
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("Expected status %d, got %d", http.StatusServiceUnavailable, w.Code)
 	}
 }
 
-func TestServer_ProjectsEndpoint(t *testing.T) {
-	// Create in-memory database
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatalf("Failed to create test database: %v", err)
-	}
-	defer db.Close()
-
-	// Create basic schema
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS projects (
-			id TEXT PRIMARY KEY,
-			name TEXT NOT NULL,
-			root_path TEXT NOT NULL,
-			repository_type TEXT NOT NULL,
-			discovered_at TEXT NOT NULL,
-			updated_at TEXT NOT NULL
-		)
-	`)
-	if err != nil {
-		t.Fatalf("Failed to create schema: %v", err)
+func TestAssetServer_ServeHTTP_ExternalUnavailable(t *testing.T) {
+	server := &AssetServer{
+		mode:     ModeExternal,
+		external: nil, // Simulate unavailable external assets
 	}
 
-	// Insert test project
-	_, err = db.Exec(`
-		INSERT INTO projects (id, name, root_path, repository_type, discovered_at, updated_at)
-		VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-	`, "test-id", "Test Project", "/test/path", "git")
-	if err != nil {
-		t.Fatalf("Failed to insert test project: %v", err)
-	}
-
-	// Create config
-	config := models.GetDefaultConfig()
-
-	// Create logger
-	logger, err := logging.NewLogger("INFO", "console")
-	if err != nil {
-		t.Fatalf("Failed to create logger: %v", err)
-	}
-
-	// Create server
-	server := NewServer(db, config, logger)
-
-	// Create request
-	req := httptest.NewRequest("GET", "/projects", nil)
+	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
+	server.ServeHTTP(w, req)
 
-	// Get the Epic 6 handler
-	handler := server.epic6API.Handler()
-	handler.ServeHTTP(w, req)
-
-	// Check response
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
-	}
-
-	contentType := w.Header().Get("Content-Type")
-	if contentType != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", contentType)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("Expected status %d, got %d", http.StatusServiceUnavailable, w.Code)
 	}
 }

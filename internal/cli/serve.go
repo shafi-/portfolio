@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -62,28 +63,37 @@ func runServe(cmd *cobra.Command, args []string) {
 	}
 
 	srv := api.NewServer(db.DB(), logger)
-	addr := fmt.Sprintf(":%d", servePort)
+	addr := fmt.Sprintf("127.0.0.1:%d", servePort)
 
 	httpServer := &http.Server{
-		Addr:    addr,
-		Handler: srv.Handler(),
+		Addr:         addr,
+		Handler:      srv.Handler(),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	errChan := make(chan error, 1)
 	go func() {
 		logger.Info("HTTP API server starting", models.Field{Key: "addr", Value: addr})
 		fmt.Printf("Portfolio API server listening on %s\n", addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server error", models.Field{Key: "error", Value: err})
-			os.Exit(1)
+			errChan <- err
 		}
 	}()
 
-	<-quit
-	logger.Info("shutting down server")
-	if err := httpServer.Shutdown(context.Background()); err != nil {
-		logger.Error("shutdown error", models.Field{Key: "error", Value: err})
+	select {
+	case <-quit:
+		logger.Info("shutting down server")
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			logger.Error("shutdown error", models.Field{Key: "error", Value: err})
+		}
+	case err := <-errChan:
+		logger.Error("server failed to start", models.Field{Key: "error", Value: err})
+		return
 	}
 }

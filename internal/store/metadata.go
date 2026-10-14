@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 	"project-dash/pkg/models"
@@ -131,6 +132,105 @@ func (s *MetadataStore) getMetadata(q Querier, projectID string) (*models.Metada
 		m.CapabilitiesSummary = *capabilitiesSummary
 	}
 	return m, nil
+}
+
+func (s *MetadataStore) GetMetadataBatch(projectIDs []string) (map[string]*models.Metadata, error) {
+	if len(projectIDs) == 0 {
+		return make(map[string]*models.Metadata), nil
+	}
+
+	ctx := context.Background()
+	// Build placeholder string for IN clause: (?,?,?)
+	placeholders := make([]string, len(projectIDs))
+	args := make([]interface{}, len(projectIDs))
+	for i, id := range projectIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := `
+		SELECT project_id, git_head, default_branch, last_commit_at,
+		       last_modified_at, commit_count, language_summary,
+		       framework_summary, dependency_summary, documentation_hash, last_scan_at,
+		       first_commit_at, commit_velocity_90d, contributor_count, tag_count,
+		       remote_url, is_published, maturity_score, maturity_indicators, capabilities_summary
+		FROM metadata WHERE project_id IN (` + strings.Join(placeholders, ",") + `)
+	`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metadata batch: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]*models.Metadata)
+	for rows.Next() {
+		m := &models.Metadata{}
+		var gitHead, defaultBranch, lastCommitAt, lastModifiedAt *string
+		var languageSummary, frameworkSummary, dependencySummary, documentationHash, lastScanAt *string
+		var firstCommitAt, remoteURL, maturityIndicators, capabilitiesSummary *string
+		var isPublished int
+
+		err := rows.Scan(
+			&m.ProjectID, &gitHead, &defaultBranch, &lastCommitAt,
+			&lastModifiedAt, &m.CommitCount, &languageSummary,
+			&frameworkSummary, &dependencySummary, &documentationHash, &lastScanAt,
+			&firstCommitAt, &m.CommitVelocity90d, &m.ContributorCount, &m.TagCount,
+			&remoteURL, &isPublished, &m.MaturityScore, &maturityIndicators, &capabilitiesSummary,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan metadata row: %w", err)
+		}
+
+		if gitHead != nil {
+			m.GitHead = *gitHead
+		}
+		if defaultBranch != nil {
+			m.DefaultBranch = *defaultBranch
+		}
+		if lastCommitAt != nil {
+			m.LastCommitAt = *lastCommitAt
+		}
+		if lastModifiedAt != nil {
+			m.LastModifiedAt = *lastModifiedAt
+		}
+		if languageSummary != nil {
+			m.LanguageSummary = *languageSummary
+		}
+		if frameworkSummary != nil {
+			m.FrameworkSummary = *frameworkSummary
+		}
+		if dependencySummary != nil {
+			m.DependencySummary = *dependencySummary
+		}
+		if documentationHash != nil {
+			m.DocumentationHash = *documentationHash
+		}
+		if lastScanAt != nil {
+			m.LastScanAt = *lastScanAt
+		}
+		if firstCommitAt != nil {
+			m.FirstCommitAt = *firstCommitAt
+		}
+		if remoteURL != nil {
+			m.RemoteURL = *remoteURL
+		}
+		m.IsPublished = isPublished != 0
+		if maturityIndicators != nil {
+			m.MaturityIndicators = *maturityIndicators
+		}
+		if capabilitiesSummary != nil {
+			m.CapabilitiesSummary = *capabilitiesSummary
+		}
+
+		result[m.ProjectID] = m
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating metadata rows: %w", err)
+	}
+
+	return result, nil
 }
 
 func nullIfEmpty(s string) interface{} {

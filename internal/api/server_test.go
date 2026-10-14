@@ -350,14 +350,37 @@ func TestRelationships_Empty(t *testing.T) {
 
 func TestCORS(t *testing.T) {
 	s := newTestServer(t)
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("OPTIONS", "/health", nil)
-	s.Handler().ServeHTTP(w, r)
 
-	if w.Code != 200 {
-		t.Errorf("expected 200 for OPTIONS, got %d", w.Code)
+	tests := []struct {
+		name        string
+		origin      string
+		shouldAllow bool
+	}{
+		{"localhost allowed", "http://localhost:3000", true},
+		{"127.0.0.1 allowed", "http://127.0.0.1:8080", true},
+		{"evil origin blocked", "http://evil.com", false},
 	}
-	if w.Header().Get("Access-Control-Allow-Origin") != "*" {
-		t.Error("expected CORS header")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("OPTIONS", "/health", nil)
+			if tt.origin != "" {
+				r.Header.Set("Origin", tt.origin)
+			}
+			s.Handler().ServeHTTP(w, r)
+
+			if w.Code != 200 {
+				t.Errorf("expected 200 for OPTIONS, got %d", w.Code)
+			}
+			got := w.Header().Get("Access-Control-Allow-Origin")
+			if tt.shouldAllow {
+				if got != tt.origin {
+					t.Errorf("expected origin %q to be reflected, got %q", tt.origin, got)
+				}
+			} else if got != "" {
+				t.Errorf("expected origin %q to be blocked, got %q", tt.origin, got)
+			}
+		})
 	}
 }

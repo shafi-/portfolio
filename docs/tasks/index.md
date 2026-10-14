@@ -43,9 +43,9 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 | [Epic 4 — Documentation Indexing](epic-04-documentation-indexing.md) | Completed | 5 | ~15 days | [epic-04-documentation-indexing.md](epic-04-documentation-indexing.md) |
 | [Epic 5 — Knowledge Store](epic-05-knowledge-store.md) | Completed | 3 | ~12 days | [epic-05-knowledge-store.md](epic-05-knowledge-store.md) |
 | [Epic 6 — HTTP API](epic-06-http-api.md) | Completed | 6 | ~8 days | [epic-06-http-api.md](epic-06-http-api.md) |
-| [Epic 7 — MCP Server](epic-07-mcp-server.md) | todo | 5 | ~14 days | [epic-07-mcp-server.md](epic-07-mcp-server.md) |
+| [Epic 7 — MCP Server](epic-07-mcp-server.md) | completed | 6 | ~15 days | [epic-07-mcp-server.md](epic-07-mcp-server.md) |
 
-**Milestone 1 Progress:** 6/7 epics completed (86%)
+**Milestone 1 Progress:** 7/7 epics completed (100%)
 
 ---
 
@@ -69,10 +69,10 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 
 | Epic | Status | Stories | Size | File |
 |------|--------|---------|------|------|
-| [Epic 11 — Dashboard Backend](epic-11-dashboard-backend.md) | todo | 2 | ~4 days | [epic-11-dashboard-backend.md](epic-11-dashboard-backend.md) |
-| [Epic 12 — Dashboard Frontend](epic-12-dashboard-frontend.md) | todo | 5 | ~21 days | [epic-12-dashboard-frontend.md](epic-12-dashboard-frontend.md) |
+| [Epic 11 — Dashboard Backend](epic-11-dashboard-backend.md) | completed | 2 | ~4 days | [epic-11-dashboard-backend.md](epic-11-dashboard-backend.md) |
+| [Epic 12 — Dashboard Frontend](epic-12-dashboard-frontend.md) | completed | 5 | ~21 days | [epic-12-dashboard-frontend.md](epic-12-dashboard-frontend.md) |
 
-**Milestone 3 Progress:** 0/2 epics completed (0%)
+**Milestone 3 Progress:** 2/2 epics completed (100%)
 
 ---
 
@@ -92,14 +92,14 @@ This directory contains the complete implementation roadmap for Portfolio, organ
 ## Overall Progress
 
 **Total Epics:** 14
-**Completed:** 9
+**Completed:** 11
 **In Progress:** 0
-**Todo:** 5
+**Todo:** 3
 
 **Total Estimated Size:** ~163 days (~6-7 months for one developer)
-**Completed Size:** ~105 days
+**Completed Size:** ~145 days
 
-**Overall Completion:** 64%
+**Overall Completion:** 89%
 
 ---
 
