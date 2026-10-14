@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Portfolio
-  text: The engine knows. The agent thinks.
-  tagline: Local-first project inventory and knowledge platform for developers and AI coding agents. Discover every repository on your machine, extract its metadata, index its documentation — 100% local, offline, and ready for your AI agents.
+  text: Let your agents think better, across projects.
+  tagline: The engine knows, the agent thinks. A local-first project inventory and knowledge platform for developers and AI coding agents — discover every repository on your machine, extract its metadata, index its documentation. 100% local, offline, and private.
   actions:
     - theme: brand
       text: Get Started
