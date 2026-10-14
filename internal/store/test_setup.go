@@ -19,6 +19,7 @@ type testStore struct {
 	relationships *RelationshipStore
 	dependencies  *DependencyStore
 	configuration *ConfigurationStore
+	workspaces    *WorkspaceStore
 }
 
 func setupTestStore(t *testing.T) *testStore {
@@ -44,6 +45,7 @@ func setupTestStore(t *testing.T) *testStore {
 		relationships: NewRelationshipStore(db, logger),
 		dependencies:  NewDependencyStore(db, logger),
 		configuration: NewConfigurationStore(db, logger),
+		workspaces:    NewWorkspaceStore(db, logger),
 	}
 }
 
@@ -163,6 +165,22 @@ func migrateTestDB(t *testing.T, db *sql.DB) {
 			version_type TEXT NOT NULL DEFAULT '',
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(project_id, name, manager),
+			FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+		);
+
+		CREATE TABLE IF NOT EXISTS workspaces (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			description TEXT,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE TABLE IF NOT EXISTS workspace_projects (
+			workspace_id TEXT NOT NULL,
+			project_id TEXT NOT NULL,
+			PRIMARY KEY (workspace_id, project_id),
+			FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
 			FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 		);
 	`)

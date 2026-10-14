@@ -18,7 +18,7 @@ portfolio init
 - 📡 Automatically discover all your Git repositories
 - 📚 Index documentation across every project
 - 🔍 Enable instant search through your entire codebase
-- 🤖 Power AI coding agents with 26 MCP tools
+- 🤖 Power AI coding agents with 44 MCP tools
 
 **What You Need to Know:**
 - ✅ **Zero maintenance** - set it once, it keeps itself updated
@@ -133,7 +133,7 @@ sudo mv portfolio /usr/local/bin/
 - 🔍 **Automatic Discovery** - Finds all Git repositories across your projects
 - 📊 **Smart Metadata** - Extracts languages, frameworks, dependencies
 - 📚 **Documentation Search** - Search across all project docs instantly
-- 🤖 **AI Integration** - 26 MCP tools for Claude Code, OpenCode, etc.
+- 🤖 **AI Integration** - 44 MCP tools for Claude Code, OpenCode, etc.
 - 💾 **Local-First** - All data stays on your machine
 - ⚡ **Zero Maintenance** - Set once, runs forever
 
@@ -147,6 +147,8 @@ sudo mv portfolio /usr/local/bin/
 ---
 
 ## 🎓 Documentation
+
+**📚 Documentation Website:** [https://shafi-.github.io/portfolio/](https://shafi-.github.io/portfolio/) — the full Laravel-style docs site (source in [`website/`](website/))
 
 **User Documentation:**
 - [User Manual](USER_MANUAL.md) - Complete reference guide

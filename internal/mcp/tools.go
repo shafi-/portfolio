@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"project-dash/internal/analysis"
 	"project-dash/internal/discovery"
 	"project-dash/internal/indexer"
 	"project-dash/internal/store"
@@ -85,11 +86,19 @@ func (s *Server) analysisTools() []serverTool {
 			Handler: s.handleStoreAnalysis,
 		},
 		{
-			Tool:    mcp.NewTool("listProjectsNeedingAnalysis"),
+			Tool: mcp.NewTool("listProjectsNeedingAnalysis",
+				mcp.WithString("workspace",
+					mcp.Description("Optional workspace name or ID. When given, only the workspace's member projects are checked."),
+				),
+			),
 			Handler: s.handleListProjectsNeedingAnalysis,
 		},
 		{
-			Tool:    mcp.NewTool("getProjectAnalyzerPrompt"),
+			Tool: mcp.NewTool("getProjectAnalyzerPrompt",
+				mcp.WithString("project_id",
+					mcp.Description("Optional project ID. When given, the prompt includes the project's analysis freshness, the previous analysis as an incremental seed, and instructions to inform the user about staleness before using or refreshing it."),
+				),
+			),
 			Handler: s.handleGetProjectAnalyzerPrompt,
 		},
 	}
@@ -345,9 +354,15 @@ func (s *Server) handleGetAnalysis(ctx context.Context, req mcp.CallToolRequest)
 		return mcp.NewToolResultErrorFromErr("failed to get analyses", err), nil
 	}
 
+	// Freshness gate (ADR-023): the response always states how current the
+	// analysis is relative to the repository's live HEAD, so the agent sees
+	// staleness BEFORE relying on the analysis.
+	freshness := s.freshnessForProject(projectID, analyses)
+
 	result := map[string]interface{}{
-		"analyses": analyses,
-		"count":    len(analyses),
+		"analyses":  analyses,
+		"count":     len(analyses),
+		"freshness": freshness,
 	}
 	return mcp.NewToolResultJSON(result)
 }
@@ -420,9 +435,32 @@ func (s *Server) handleStoreAnalysis(ctx context.Context, req mcp.CallToolReques
 }
 
 func (s *Server) handleListProjectsNeedingAnalysis(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := req.GetArguments()
+	workspaceRef, _ := args["workspace"].(string)
+
 	projects, err := s.projects.ListProjects()
 	if err != nil {
 		return mcp.NewToolResultErrorFromErr("failed to list projects", err), nil
+	}
+
+	// Optional workspace scope (ADR-023) — restrict to the members of one
+	// workspace, resolved by name or ID.
+	workspaceName := ""
+	if workspaceRef != "" {
+		workspace, err := s.resolveWorkspace(workspaceRef)
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("failed to resolve workspace", err), nil
+		}
+		if workspace == nil {
+			return mcp.NewToolResultError("workspace not found: " + workspaceRef), nil
+		}
+		workspaceName = workspace.Name
+
+		members, err := s.workspaces.ListWorkspaceProjects(workspace.ID)
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("failed to list workspace projects", err), nil
+		}
+		projects = members
 	}
 
 	noAnalysis := make([]map[string]interface{}, 0)
@@ -439,24 +477,27 @@ func (s *Server) handleListProjectsNeedingAnalysis(ctx context.Context, req mcp.
 			continue
 		}
 
-		meta, err := s.metadata.GetMetadata(p.ID)
-		if err != nil || meta == nil || meta.GitHead == "" {
-			// Has analysis but no metadata to compare staleness against.
-			// Treat as up-to-date — can't prove it's stale.
+		// Live-HEAD freshness (ADR-023): compare the analysis against the
+		// repository's current HEAD rather than the last scan's snapshot.
+		var storedHead string
+		if meta, err := s.metadata.GetMetadata(p.ID); err == nil && meta != nil {
+			storedHead = meta.GitHead
+		}
+		freshness := analysis.FreshnessForLatest(p, storedHead, analyses)
+		if freshness.Status != analysis.StatusStale {
+			// Fresh, or freshness cannot be proven — not actionable work.
 			continue
 		}
 
-		latest := analyses[0]
-		if latest.AnalyzedGitHead != meta.GitHead {
-			staleAnalysis = append(staleAnalysis, map[string]interface{}{
-				"id":                p.ID,
-				"name":              p.Name,
-				"path":              p.RootPath,
-				"analyzed_at":       latest.AnalyzedAt,
-				"analyzed_git_head": latest.AnalyzedGitHead,
-				"current_git_head":  meta.GitHead,
-			})
-		}
+		staleAnalysis = append(staleAnalysis, map[string]interface{}{
+			"id":                p.ID,
+			"name":              p.Name,
+			"path":              p.RootPath,
+			"analyzed_at":       freshness.AnalyzedAt,
+			"analyzed_git_head": freshness.AnalyzedGitHead,
+			"current_git_head":  freshness.CurrentGitHead,
+			"commits_behind":    freshness.CommitsBehind,
+		})
 	}
 
 	result := map[string]interface{}{
@@ -468,11 +509,130 @@ func (s *Server) handleListProjectsNeedingAnalysis(ctx context.Context, req mcp.
 			"total":          len(noAnalysis) + len(staleAnalysis),
 		},
 	}
+	if workspaceName != "" {
+		result["workspace"] = workspaceName
+	}
 	return mcp.NewToolResultJSON(result)
 }
 
+// resolveWorkspace finds a workspace by name, falling back to ID.
+func (s *Server) resolveWorkspace(nameOrID string) (*models.Workspace, error) {
+	w, err := s.workspaces.GetWorkspaceByName(nameOrID)
+	if err != nil {
+		return nil, err
+	}
+	if w != nil {
+		return w, nil
+	}
+	return s.workspaces.GetWorkspace(nameOrID)
+}
+
 func (s *Server) handleGetProjectAnalyzerPrompt(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return mcp.NewToolResultText(analysisPrompt), nil
+	args := req.GetArguments()
+	projectID, _ := args["project_id"].(string)
+	if projectID == "" {
+		return mcp.NewToolResultText(analysisPrompt), nil
+	}
+
+	project, err := s.projects.GetProject(projectID)
+	if err != nil {
+		return mcp.NewToolResultErrorFromErr("failed to get project", err), nil
+	}
+	if project == nil {
+		return mcp.NewToolResultError("project not found"), nil
+	}
+
+	analyses, err := s.analyses.ListAnalyses(projectID)
+	if err != nil {
+		return mcp.NewToolResultErrorFromErr("failed to get analyses", err), nil
+	}
+	freshness := s.freshnessForProject(projectID, analyses)
+
+	return mcp.NewToolResultText(s.buildAnalyzerPrompt(project, analyses, freshness)), nil
+}
+
+// buildAnalyzerPrompt assembles the per-project analyzer prompt: a freshness
+// banner with the user-consent gate, the previous analysis as an incremental
+// seed, and the static analysis instructions. The gate wording is deliberate:
+// the agent must tell the user about staleness and only refresh if the user
+// asks — otherwise it proceeds with the existing analysis (ADR-023).
+func (s *Server) buildAnalyzerPrompt(project *models.Project, analyses []*models.Analysis, freshness analysis.Freshness) string {
+	var b strings.Builder
+
+	fmt.Fprintf(&b, "Analysis context for project %q (id: %s)\n\n", project.Name, project.ID)
+
+	b.WriteString("FRESHNESS: ")
+	switch freshness.Status {
+	case analysis.StatusFresh:
+		fmt.Fprintf(&b, "the stored analysis matches the repository HEAD (%s). No refresh needed — reuse it.\n",
+			freshness.CurrentGitHead)
+	case analysis.StatusStale:
+		b.WriteString("STALE — the repository has moved past the stored analysis")
+		if freshness.CommitsBehind != nil {
+			fmt.Fprintf(&b, " (%d commits ahead of the analyzed HEAD)", *freshness.CommitsBehind)
+		}
+		fmt.Fprintf(&b, ".\n  Tell the user the stored analysis is stale BEFORE using it, and ask whether to refresh it.\n")
+		b.WriteString("  If the user asks for a refresh, produce an updated analysis (incrementally — keep what is still accurate) and store it with `storeAnalysis`.\n")
+		b.WriteString("  If the user declines, proceed with the existing analysis and note its age in your answer.\n")
+	default:
+		fmt.Fprintf(&b, "UNKNOWN — %s.\n  Mention this to the user before relying on the analysis below.\n", freshness.Note)
+	}
+
+	b.WriteString("\n")
+
+	if len(analyses) > 0 {
+		latest := analyses[0]
+		fmt.Fprintf(&b, "PREVIOUS ANALYSIS (analyzer: %s, made: %s, git head: %s)\n",
+			latest.Analyzer, latest.AnalyzedAt, latest.AnalyzedGitHead)
+		b.WriteString("Update it incrementally — keep sections that are still accurate, change what moved on:\n\n")
+		writeAnalysisSection(&b, "SUMMARY", latest.Summary)
+		writeAnalysisSection(&b, "PURPOSE", latest.Purpose)
+		writeAnalysisSection(&b, "ARCHITECTURE", latest.Architecture)
+		writeAnalysisSection(&b, "MATURITY", latest.Maturity)
+		writeAnalysisSection(&b, "STRENGTHS", latest.Strengths)
+		writeAnalysisSection(&b, "WEAKNESSES", latest.Weaknesses)
+		writeAnalysisSection(&b, "REUSABLE COMPONENTS", latest.ReusableComponents)
+		writeAnalysisSection(&b, "NOTES", latest.Notes)
+	} else {
+		b.WriteString("NO PREVIOUS ANALYSIS — produce a full analysis and store it with `storeAnalysis`.\n")
+	}
+
+	b.WriteString("\n---\n\n")
+	b.WriteString(analysisPrompt)
+	return b.String()
+}
+
+func writeAnalysisSection(b *strings.Builder, title, content string) {
+	if strings.TrimSpace(content) == "" {
+		return
+	}
+	fmt.Fprintf(b, "\n%s:\n%s\n", title, content)
+}
+
+// freshnessForProject computes analysis freshness for a project, degrading
+// gracefully when the project or its metadata is unavailable.
+func (s *Server) freshnessForProject(projectID string, analyses []*models.Analysis) analysis.Freshness {
+	var latest *models.Analysis
+	if len(analyses) > 0 {
+		latest = analyses[0]
+	}
+
+	project, err := s.projects.GetProject(projectID)
+	if err != nil {
+		f := analysis.Compute(analysis.Inputs{Analysis: latest})
+		return f
+	}
+	if project == nil {
+		f := analysis.Compute(analysis.Inputs{Analysis: latest})
+		f.Note = "project not found"
+		return f
+	}
+
+	var storedHead string
+	if meta, err := s.metadata.GetMetadata(projectID); err == nil && meta != nil {
+		storedHead = meta.GitHead
+	}
+	return analysis.FreshnessForLatest(project, storedHead, analyses)
 }
 
 func (s *Server) handleGetConfiguration(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

@@ -28,6 +28,7 @@ func (c *Config) buildServer() *Server {
 		relationships: store.NewRelationshipStore(c.DB, zapLogger),
 		dependencies:  store.NewDependencyStore(c.DB, zapLogger),
 		configuration: store.NewConfigurationStore(c.DB, zapLogger),
+		workspaces:    store.NewWorkspaceStore(c.DB, zapLogger),
 		osFS:          fs.NewOSFilesystem(),
 		roots:         c.Roots,
 	}

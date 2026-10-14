@@ -582,3 +582,67 @@ genuine structural corruption surfaces at runtime instead.
 - Covered by `TestMigrate_LegacyDBUpgrade`, `_Idempotent`, `_FreshDBUnchanged`,
   and `_ChecksumMismatch_Heals` in `internal/database/database_test.go`.
 
+
+---
+
+## ADR-023: Workspaces Are Grouping-Only; Analysis Freshness Is Advisory and Computed
+
+**Status:** Accepted
+
+### Context
+
+Portfolio's data model is a flat list of discovered projects. Developers working
+in microservice environments have no way to name the set of services that form
+one product, and agents that consume stored analyses (`analyses` table,
+`storeAnalysis`/`getAnalysis`) have no systematic way to learn that an analysis
+describes an older state of the repository before relying on it.
+
+Two candidate designs were rejected:
+
+- **Mesh/interaction modeling** (service interactions, endpoints, impact
+  graphs) — valuable, but a much larger surface; deferred until the grouping
+  primitive exists.
+- **A persisted `understanding` entity with stored freshness flags** — a stored
+  freshness flag goes stale itself; the freshest possible statement about an
+  analysis is a comparison computed at read time.
+
+### Decision
+
+1. **Workspaces are grouping-only.** A workspace is a named set of projects
+   (`workspaces` + `workspace_projects`, migration v4). It scopes queries and
+   reporting. It never changes scan, discovery, indexing, or any engine
+   behavior. Workspace membership never mutates projects: deleting a workspace
+   or a project cascades membership rows only. Management is CLI-only;
+   agents get read tools (`listWorkspaces`, `getWorkspace`).
+2. **Analysis freshness is computed at read time, never stored.** Freshness
+   compares the latest analysis's `analyzed_git_head` with the repository's
+   **live HEAD** (`git rev-parse` on the project root). When the repository is
+   unavailable, the last scan's stored HEAD is the fallback and the result is
+   explicitly annotated as such. If freshness cannot be determined the status
+   is `unknown` — unknown must be surfaced as unknown, never treated as fresh.
+3. **The staleness gate is advisory.** Tool responses that hand out analyses
+   (`getAnalysis`, `getProjectAnalyzerPrompt(project_id)`, workspace member
+   views) carry a `freshness` block. The analyzer prompt instructs the agent
+   to tell the user about staleness and ask before refreshing; if the user
+   declines, the existing analysis is used and its age noted. Nothing blocks,
+   nothing auto-refreshes.
+
+### Consequences
+
+- Grouping microservices is now a first-class, zero-risk operation (no
+  behavioral coupling to the engine).
+- Agents see staleness before using an analysis; the user stays the decision
+  maker on refreshes.
+- Every read that includes freshness pays one or two `git` exec calls on the
+  project root. For local, interactive tool use this is negligible; it also
+  means freshness is always current, including work done since the last scan.
+- Live-HEAD comparison can exceed the last scan's knowledge (reports staleness
+  for commits made after the last scan) — this is intentional.
+
+**Implementation Notes:**
+
+- `internal/analysis` package owns freshness computation (`Compute`,
+  `FreshnessForLatest`); CLI (`workspace show`, `projects get`) and MCP
+  (`getAnalysis`, `getProjectAnalyzerPrompt`, `listProjectsNeedingAnalysis`,
+  `getWorkspace`) consume it.
+- Migration v4 (`workspaces`) follows the ADR-022 append-only contract.

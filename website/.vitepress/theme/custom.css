@@ -1,0 +1,97 @@
+/**
+ * Laravel-inspired look & feel for the Portfolio docs.
+ * Red brand accent, white chrome, Inter typography, light code blocks.
+ */
+
+:root {
+  /* Laravel red */
+  --vp-c-brand-1: #ff2d20;
+  --vp-c-brand-2: #d9261b;
+  --vp-c-brand-3: #ff2d20;
+  --vp-c-brand-soft: rgba(255, 45, 32, 0.14);
+
+  /* Typography — Inter, like Laravel's clean sans-serif */
+  --vp-font-family-base:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  /* Inline code — red on soft red, the way Laravel styles code tokens */
+  --vp-code-color: #e0231b;
+  --vp-code-bg: rgba(255, 45, 32, 0.06);
+  --vp-code-font-size: 0.9em;
+
+  /* Light code blocks with a Laravel-style border */
+  --vp-code-block-bg: #f9fafb;
+
+  /* White chrome */
+  --vp-nav-bg-color: #ffffff;
+  --vp-sidebar-bg-color: #ffffff;
+
+  /* Red primary buttons */
+  --vp-button-brand-bg: #ff2d20;
+  --vp-button-brand-hover-bg: #d9261b;
+  --vp-button-brand-active-bg: #c22016;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-active-text: #ffffff;
+
+  /* Home hero: dark heading like laravel.com, red gradient accent */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #ff2d20 30%, #ff7a54);
+}
+
+.dark {
+  --vp-c-brand-1: #ff5c52;
+  --vp-c-brand-2: #ff2d20;
+  --vp-c-brand-3: #ff2d20;
+  --vp-code-color: #ff6a60;
+  --vp-code-bg: rgba(255, 45, 32, 0.12);
+  --vp-code-block-bg: #161618;
+  --vp-nav-bg-color: #1b1b1f;
+  --vp-sidebar-bg-color: #1b1b1f;
+}
+
+/* Rounded, bordered code blocks */
+.vp-doc div[class*='language-'] {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+}
+
+/* Laravel-style sidebar: uppercase group headings, compact links */
+.VPSidebar .VPSidebarItem.level-0 > .item > .text {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vp-c-text-1);
+}
+
+.VPSidebar .group .VPSidebarItem.level-1 .text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.VPSidebar .group .VPSidebarItem.level-1 {
+  padding-left: 2px;
+}
+
+/* Navbar — subtle bottom divider, Laravel-like density */
+.VPNavBar {
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+/* Search box styling to match the Laravel docs search bar */
+.VPLocalSearchBox .result {
+  border-radius: 10px;
+}
+
+/* Footer */
+.VPFooter {
+  border-top: 1px solid var(--vp-c-divider) !important;
+  background-color: var(--vp-nav-bg-color) !important;
+}
+
+/* Custom containers — slightly Laravel-flavored */
+.vp-doc .custom-block.tip {
+  border-color: var(--vp-c-brand-1);
+}
