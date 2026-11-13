@@ -29,6 +29,23 @@ jobs:
           go-version: '1.26'
           cache: true
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      # internal/dashboard embeds dist via //go:embed, so the frontend must be
+      # built before any Go build or test step (mirrors ci.yml).
+      - name: Build dashboard frontend
+        run: |
+          cd dashboard
+          npm ci
+          npm run build
+          mkdir -p ../internal/dashboard/dist
+          cp -r dist/* ../internal/dashboard/dist/
+
       - name: Run tests
         run: go test -race ./...
 
