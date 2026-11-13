@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -106,7 +107,13 @@ func runInstallIntegration(cmd *cobra.Command, name string) {
 		logger.LogErrorToFile("Installation failed", err,
 			models.Field{Key: "integration", Value: name})
 		display := integrationDisplayName(name)
-		fmt.Fprintf(os.Stderr, "Error: failed to install %s integration\n\nRun 'portfolio doctor %s' for diagnostics\n", display, name)
+
+		var intErr *integration.Error
+		if errors.As(err, &intErr) && intErr.Code == integration.ErrCodeAlreadyInstalled {
+			fmt.Fprintf(os.Stderr, "Error: %s integration is already installed\n\nRun 'portfolio upgrade %s' to update it, or 'portfolio uninstall %s' to reinstall\n", display, name, name)
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: failed to install %s integration: %v\n\nRun 'portfolio doctor %s' for diagnostics\n", display, err, name)
+		}
 		os.Exit(1)
 	}
 
