@@ -1,38 +1,15 @@
-## 🎉 Portfolio {{ .Version }} Release
+## 🎉 Portfolio {{ .Version }}
 
-### 🔒 Security Model Overhaul
+<!-- Maintainer: only update the Highlights section each release.
+     The rest is stable; both placeholders are substituted by CI. -->
 
-**AI Agent Security**
-- Comprehensive MCP documentation for AI coding assistants
-- Clear guidance: agents must always use MCP tools
-- Safe error handling that never exposes internal details
-- Database protected from external access via password encryption
+### ✨ Highlights
 
-**Error Handling**
-- New safe error system with user-friendly messages
-- No internal paths, stack traces, or implementation details exposed
-- Graceful panic recovery with proper logging
-- Request ID tracking for debugging
+- fix(claude): MCP installer handles entries registered in multiple scopes, registers at user scope, and reports actionable install errors instead of a generic failure
+- fix(ci): release workflow builds the embedded dashboard frontend before running Go tests (`//go:embed dist` needs it in CI)
+- fix(ci): release notes are generated outside the repo tree (goreleaser dirty-state check) and the version placeholder is substituted correctly
 
-### 🚀 Improvements
-
-**Security Enhancements**
-- Database password protection via SQLite PRAGMA key encryption
-- Agent-focused MCP documentation prevents misuse
-- Comprehensive safe error handling throughout codebase
-- Enhanced protection against information disclosure
-
-**Documentation**
-- New `skills/portfolio-mcp-interface.md` for AI agents
-- Explicit instructions on proper MCP tool usage
-- Clear examples and warnings against database direct access
-- Complete workflow documentation for agent integration
-
-**Code Quality**
-- Refactored error handling across all database operations
-- Global panic handler in main.go
-- Safe error types with proper message sanitization
-- Improved error context and user experience
+**Full change list:** https://github.com/shafi-/portfolio/compare/{{ .PrevVersion }}...{{ .Version }}
 
 ### 📦 Installation
 
@@ -46,21 +23,16 @@ chmod +x portfolio
 sudo mv portfolio /usr/local/bin/
 ```
 
-**Note:** Homebrew installation has been discontinued to simplify the release process and eliminate cross-repository complexity. Please use the curl script for installation.
-
-### 📚 Documentation
-- Agent Integration Guide - Comprehensive MCP tool documentation
-- Security Model - Database protection and safe error handling
-- Quick Start Guide - Get started in 5 minutes
+**Note:** Homebrew installation has been discontinued. Please use the curl script for installation.
 
 ### 🧪 Quality
-- All security improvements tested
-- Safe error handling verified
-- Build verification successful
-- Multi-platform support maintained
+
+- `go test -race ./...` passing on CI
+- `go vet` clean
+- Multi-platform builds verified by GoReleaser (darwin, linux, windows)
 
 ---
 
 **Upgrade from previous version:** `portfolio upgrade`
 
-**Full Release Notes:** https://github.com/shafi-/portfolio/releases/{{ .Version }}
+**Issues and feedback:** https://github.com/shafi-/portfolio/issues

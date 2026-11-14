@@ -85,9 +85,14 @@ jobs:
       - name: Process release notes template
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          # Previous tag feeds the compare link; fall back gracefully if none.
+          PREV="$(git tag --sort=-creatordate | sed -n 2p)"
+          echo "Releasing $VERSION, previous tag: ${PREV:-<none>}"
           # Write outside the repo: goreleaser aborts on a dirty git state.
-          # {{ .Version }} in the template gets replaced with the release tag.
-          sed "s/{{[[:space:]]*\\.Version[[:space:]]*}}/$VERSION/g" .github/release-notes.md > "$RUNNER_TEMP/release-notes.md"
+          # {{ .Version }} and {{ .PrevVersion }} in the template get replaced.
+          sed -e "s/{{[[:space:]]*\.Version[[:space:]]*}}/$VERSION/g" \
+              -e "s/{{[[:space:]]*\.PrevVersion[[:space:]]*}}/${PREV:-$VERSION}/g" \
+              .github/release-notes.md > "$RUNNER_TEMP/release-notes.md"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
