@@ -86,7 +86,8 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           # Write outside the repo: goreleaser aborts on a dirty git state.
-          sed "s/{{{{ .Version }}}}/$VERSION/g" .github/release-notes.md > "$RUNNER_TEMP/release-notes.md"
+          # {{ .Version }} in the template gets replaced with the release tag.
+          sed "s/{{[[:space:]]*\\.Version[[:space:]]*}}/$VERSION/g" .github/release-notes.md > "$RUNNER_TEMP/release-notes.md"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
